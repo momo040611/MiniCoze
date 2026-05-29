@@ -33,6 +33,12 @@ export interface ToolResult {
   output: string;
 }
 
+export interface RuntimeToolMetadata {
+  pluginId?: string;
+  pluginCode?: string;
+  toolCode?: string;
+}
+
 // ── Agent 配置 ──
 export interface AgentConfig {
   id: string;
@@ -96,14 +102,21 @@ export type RuntimeEvent =
       toolCallId: string;
       name: string;
       args: unknown;
-    }
+    } & RuntimeToolMetadata
   | {
       type: 'tool.call.completed';
       runId: string;
       toolCallId: string;
       name: string;
       result: unknown;
-    }
+    } & RuntimeToolMetadata
+  | {
+      type: 'tool.call.failed';
+      runId: string;
+      toolCallId: string;
+      name: string;
+      error: string;
+    } & RuntimeToolMetadata
   | { type: 'run.completed'; runId: string; usage?: TokenUsage }
   | { type: 'run.failed'; runId: string; error: string }
   | { type: 'stream.done'; runId: string };
