@@ -254,6 +254,22 @@ function createRunFromPipeline(pipeline: KnowledgePipeline): PipelineRun {
   };
 }
 
+function createUploadRun(pipeline: KnowledgePipeline, failed = false): PipelineRun {
+  const run = createRunFromPipeline(pipeline);
+  const firstStep = run.steps.find((step) => step.status === 'running' || step.status === 'pending');
+  if (failed && firstStep) {
+    firstStep.status = 'failed';
+    firstStep.startedAt = firstStep.startedAt ?? now();
+    firstStep.endedAt = now();
+    firstStep.failureReason = '文件上传或解析失败，请检查文件类型、大小或文档内容。';
+    run.status = 'failed';
+    run.progress = 0;
+    run.updatedAt = now();
+    run.logs.unshift(makeStepLog(run.id, firstStep.stepId, `${firstStep.name} 执行失败：${firstStep.failureReason}`, 'error'));
+  }
+  return run;
+}
+
 function recalculateRun(run: PipelineRun) {
   const effectiveSteps = run.steps.filter((step) => step.status !== 'skipped');
   const doneSteps = effectiveSteps.filter((step) => step.status === 'success').length;
@@ -348,6 +364,17 @@ export const knowledgePipelineMock = {
     store.runs.unshift(run);
     writeStore(store);
     return ok(clone(run), 'running');
+  },
+
+  async runUploadPipeline(knowledgeBaseId: string, knowledgeBaseName?: string, failed = false) {
+    const store = readStore();
+    const pipeline = ensurePipeline(store, knowledgeBaseId, knowledgeBaseName);
+    pipeline.convertedAt = pipeline.convertedAt ?? now();
+    pipeline.updatedAt = now();
+    const run = createUploadRun(pipeline, failed);
+    store.runs.unshift(run);
+    writeStore(store);
+    return ok(clone(run), failed ? 'failed' : 'running');
   },
 
   async getLatestRun(knowledgeBaseId: string) {

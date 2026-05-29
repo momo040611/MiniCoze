@@ -7,6 +7,7 @@ import type {
   DocumentListParams,
   ListParams,
   RetrieveTestPayload,
+  ParseConfig,
   UpdateChunkPayload,
   UpdateKnowledgeBasePayload,
   UpdateKnowledgeBaseOrderPayload,
@@ -33,9 +34,13 @@ export const knowledgeApi = {
 
   getDocuments: (knowledgeBaseId: string, params?: DocumentListParams) =>
     knowledgeMock.getDocuments(knowledgeBaseId, params),
-  uploadDocument: (knowledgeBaseId: string, file: File) => knowledgeMock.uploadDocument(knowledgeBaseId, file),
+  uploadDocument: (knowledgeBaseId: string, file: File, parseConfig?: ParseConfig) =>
+    knowledgeMock.uploadDocument(knowledgeBaseId, file, parseConfig),
   deleteDocument: (documentId: string) => knowledgeMock.deleteDocument(documentId),
   reparseDocument: (documentId: string) => knowledgeMock.reparseDocument(documentId),
+  retryDocument: (documentId: string) => knowledgeMock.retryDocument(documentId),
+  cancelUpload: (taskId: string) => knowledgeMock.cancelUpload(taskId),
+  getUploadTasks: (knowledgeBaseId?: string) => knowledgeMock.getUploadTasks(knowledgeBaseId),
   updateDocumentStatus: (documentId: string, enabled: boolean) =>
     knowledgeMock.updateDocumentStatus(documentId, enabled),
 
@@ -50,6 +55,7 @@ export const knowledgeApi = {
     knowledgeMock.testRetrieve(knowledgeBaseId, payload),
   testRetrieval: (knowledgeBaseId: string, payload: RetrieveTestPayload) =>
     knowledgeMock.testRetrieve(knowledgeBaseId, payload),
+  getRetrievalTests: (knowledgeBaseId: string) => knowledgeMock.getRetrievalTests(knowledgeBaseId),
 
   getMetadataFields: (knowledgeBaseId: string) => knowledgeMock.getMetadataFields(knowledgeBaseId),
   createMetadataField: (knowledgeBaseId: string, payload: CreateMetadataFieldPayload) =>

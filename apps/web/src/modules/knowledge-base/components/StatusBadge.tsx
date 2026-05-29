@@ -14,6 +14,7 @@ function getStatusConfig(status: StatusValue): { text: string; color: string; ba
     case KnowledgeStatus.Active:
       return { text: '可用', color: 'green', badge: 'success' };
     case KnowledgeStatus.Indexing:
+    case DocumentStatus.Uploading:
     case DocumentStatus.Parsing:
     case 'processing':
       return { text: '处理中', color: 'blue', badge: 'processing' };
@@ -25,6 +26,8 @@ function getStatusConfig(status: StatusValue): { text: string; color: string; ba
     case DocumentStatus.Pending:
     case 'pending':
       return { text: '等待中', color: 'gold', badge: 'warning' };
+    case DocumentStatus.Canceled:
+      return { text: '已取消', color: 'default', badge: 'default' };
     case KnowledgeStatus.Failed:
     case DocumentStatus.Failed:
     case 'failed':

@@ -1,10 +1,7 @@
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Card, Empty, Form, Input, Modal, Select, Space, Spin, Switch, Tag } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  type ChunkMetadata,
-  type KnowledgeChunk,
-} from '../../../api/knowledge-base';
+import { type ChunkMetadata, type KnowledgeChunk } from '../../../api/knowledge-base';
 import { useKnowledgeChunks } from '../hooks/useKnowledgeChunks';
 import { useKnowledgeDocuments } from '../hooks/useKnowledgeDocuments';
 import styles from './document.module.css';
@@ -28,9 +25,7 @@ function parseMetadata(text: string): ChunkMetadata {
     .filter(Boolean)
     .reduce<ChunkMetadata>((result, line) => {
       const [key, ...rest] = line.split('=');
-      if (key && rest.length > 0) {
-        result[key.trim()] = rest.join('=').trim();
-      }
+      if (key && rest.length > 0) result[key.trim()] = rest.join('=').trim();
       return result;
     }, {});
 }
@@ -46,6 +41,8 @@ function ChunksTab({ knowledgeBaseId, documentFilter, onChanged }: ChunksTabProp
   const { documents } = useKnowledgeDocuments(knowledgeBaseId);
   const [keyword, setKeyword] = useState('');
   const [documentId, setDocumentId] = useState(documentFilter ?? 'all');
+  const [enabledFilter, setEnabledFilter] = useState('all');
+  const [embeddingFilter, setEmbeddingFilter] = useState('all');
   const [editing, setEditing] = useState<KnowledgeChunk | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm<ChunkFormValues>();
@@ -64,7 +61,9 @@ function ChunksTab({ knowledgeBaseId, documentFilter, onChanged }: ChunksTabProp
   const filtered = chunks.filter((chunk) => {
     const matchKeyword = !keyword || chunk.content.toLowerCase().includes(keyword.toLowerCase());
     const matchDocument = documentId === 'all' || chunk.documentId === documentId;
-    return matchKeyword && matchDocument;
+    const matchEnabled = enabledFilter === 'all' || chunk.enabled === (enabledFilter === 'enabled');
+    const matchEmbedding = embeddingFilter === 'all' || (chunk.embeddingStatus ?? 'embedded') === embeddingFilter;
+    return matchKeyword && matchDocument && matchEnabled && matchEmbedding;
   });
 
   const openModal = (chunk?: KnowledgeChunk) => {
@@ -101,9 +100,30 @@ function ChunksTab({ knowledgeBaseId, documentFilter, onChanged }: ChunksTabProp
   return (
     <>
       <div className={styles.toolbar}>
-        <Space>
-          <Input.Search placeholder="搜索分段" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
+        <Space wrap>
+          <Input.Search placeholder="搜索分段内容" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
           <Select style={{ width: 220 }} value={documentId} options={documentOptions} onChange={setDocumentId} />
+          <Select
+            style={{ width: 120 }}
+            value={enabledFilter}
+            options={[
+              { value: 'all', label: '全部状态' },
+              { value: 'enabled', label: '启用' },
+              { value: 'disabled', label: '停用' },
+            ]}
+            onChange={setEnabledFilter}
+          />
+          <Select
+            style={{ width: 150 }}
+            value={embeddingFilter}
+            options={[
+              { value: 'all', label: '全部向量状态' },
+              { value: 'embedded', label: '已向量化' },
+              { value: 'pending', label: '等待向量化' },
+              { value: 'failed', label: '向量化失败' },
+            ]}
+            onChange={setEmbeddingFilter}
+          />
         </Space>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal()}>
           新增分段
@@ -111,13 +131,13 @@ function ChunksTab({ knowledgeBaseId, documentFilter, onChanged }: ChunksTabProp
       </div>
       <Spin spinning={loading}>
         {filtered.length === 0 ? (
-          <Empty description="暂无数据" />
+          <Empty description="暂无分段，上传文档或新增分段后会出现在这里" />
         ) : (
           filtered.map((chunk) => (
             <Card className={styles.chunkCard} key={chunk.id}>
-              <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+              <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
                 <strong>{chunk.documentName}</strong>
-                <Space>
+                <Space wrap>
                   <Switch
                     checked={chunk.enabled}
                     checkedChildren="启用"

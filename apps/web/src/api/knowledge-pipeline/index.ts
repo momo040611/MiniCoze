@@ -9,6 +9,7 @@ export const knowledgePipelineApi = {
   savePipeline: knowledgePipelineMock.savePipeline,
   publishPipeline: knowledgePipelineMock.publishPipeline,
   runPipeline: knowledgePipelineMock.runPipeline,
+  runUploadPipeline: knowledgePipelineMock.runUploadPipeline,
   getLatestRun: knowledgePipelineMock.getLatestRun,
   refreshLatestRun: knowledgePipelineMock.refreshLatestRun,
   retryRunStep: knowledgePipelineMock.retryRunStep,

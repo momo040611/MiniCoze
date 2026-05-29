@@ -16,9 +16,12 @@ import {
   type KnowledgeDocument,
   type MetadataField,
   type PageResult,
+  type ParseConfig,
   type PipelineTask,
   type RetrieveTestPayload,
   type RetrievalResult,
+  type KnowledgeRetrievalTest,
+  type UploadDocumentTask,
   type UpdateChunkPayload,
   type UpdateKnowledgeBasePayload,
   type UpdateKnowledgeBaseOrderPayload,
@@ -31,6 +34,8 @@ type KnowledgeStore = {
   chunks: KnowledgeChunk[];
   metadataFields: MetadataField[];
   pipelineTasks: PipelineTask[];
+  uploadTasks: UploadDocumentTask[];
+  retrievalTests: KnowledgeRetrievalTest[];
 };
 
 const STORAGE_KEY = 'miniCoze_mock_knowledge_store_v1';
@@ -55,6 +60,46 @@ function wait(duration = 450) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, duration);
   });
+}
+
+const defaultParseConfig: ParseConfig = {
+  ocrEnabled: true,
+  preserveTable: true,
+  extractImageCaption: false,
+  chunkMode: ChunkMode.General,
+  chunkSize: 800,
+  chunkOverlap: 100,
+  autoVectorize: true,
+};
+
+function normalizeStore(store: KnowledgeStore): KnowledgeStore {
+  store.uploadTasks ??= [];
+  store.retrievalTests ??= [];
+  store.bases.forEach((base) => {
+    base.vectorCount ??= base.chunkCount;
+    base.indexStatus ??= base.chunkCount > 0 ? 'ready' : 'not_started';
+    base.tags ??= [];
+    base.owner ??= 'MiniCoze';
+  });
+  store.documents.forEach((document) => {
+    document.parserVersion ??= 'pipeline-v1';
+    document.lastParsedAt ??= document.updatedAt;
+    document.uploadProgress ??= document.status === DocumentStatus.Completed ? 100 : 0;
+    document.parseConfig ??= defaultParseConfig;
+  });
+  store.chunks.forEach((chunk) => {
+    chunk.embeddingStatus ??= 'embedded';
+    chunk.hitCount ??= 0;
+  });
+  store.metadataFields.forEach((field) => {
+    field.source ??= 'custom';
+    field.tags ??= [];
+    field.updatedAt ??= now();
+    field.required ??= false;
+    field.filterable ??= true;
+    field.displayInResult ??= true;
+  });
+  return store;
 }
 
 function createSeedStore(): KnowledgeStore {
@@ -165,6 +210,8 @@ function createSeedStore(): KnowledgeStore {
       },
     ],
     pipelineTasks: [],
+    uploadTasks: [],
+    retrievalTests: [],
   };
 }
 
@@ -172,7 +219,7 @@ function readStore(): KnowledgeStore {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createSeedStore();
-    return JSON.parse(raw) as KnowledgeStore;
+    return normalizeStore(JSON.parse(raw) as KnowledgeStore);
   } catch {
     return createSeedStore();
   }
@@ -328,9 +375,21 @@ export const knowledgeMock = {
     return ok<PageResult<KnowledgeDocument>>({ list: clone(list), total: list.length, page: 1, pageSize: 100 });
   },
 
-  async uploadDocument(knowledgeBaseId: string, file: File) {
+  async uploadDocument(knowledgeBaseId: string, file: File, parseConfig: ParseConfig = defaultParseConfig) {
     const store = readStore();
     const extension = file.name.split('.').pop()?.toLowerCase() ?? 'txt';
+    const task: UploadDocumentTask = {
+      id: uid('upload'),
+      knowledgeBaseId,
+      fileName: file.name,
+      fileType: extension,
+      fileSize: file.size,
+      status: 'uploading',
+      progress: 35,
+      parseConfig,
+      createdAt: now(),
+      updatedAt: now(),
+    };
     const document: KnowledgeDocument = {
       id: uid('doc'),
       knowledgeBaseId,
@@ -341,18 +400,57 @@ export const knowledgeMock = {
       chunkCount: 0,
       parserVersion: 'pipeline-v1',
       lastParsedAt: now(),
+      parseConfig,
+      uploadProgress: 100,
       enabled: true,
       createdAt: now(),
       updatedAt: now(),
     };
+    if (file.name.toLowerCase().includes('fail')) {
+      task.status = 'failed';
+      task.progress = 100;
+      task.errorMessage = '模拟上传失败：文件名包含 fail';
+      document.status = DocumentStatus.Failed;
+      document.errorMessage = task.errorMessage;
+      document.chunkCount = 0;
+      store.uploadTasks.unshift(task);
+      store.documents.unshift(document);
+      refreshBaseStats(store, knowledgeBaseId);
+      writeStore(store);
+      return ok(clone(document), 'failed');
+    }
     const chunks = makeDocumentChunks(knowledgeBaseId, document);
     document.chunkCount = chunks.length;
+    task.status = 'completed';
+    task.progress = 100;
+    task.documentId = document.id;
     store.documents.unshift(document);
     store.chunks.unshift(...chunks);
+    store.uploadTasks.unshift(task);
     store.pipelineTasks.unshift(...createPipelineTasks(knowledgeBaseId, document.id));
     refreshBaseStats(store, knowledgeBaseId);
     writeStore(store);
     return ok(clone(document), 'uploaded');
+  },
+
+  async retryDocument(documentId: string) {
+    return this.reparseDocument(documentId);
+  },
+
+  async cancelUpload(taskId: string) {
+    const store = readStore();
+    const task = store.uploadTasks.find((item) => item.id === taskId);
+    if (!task) return ok<UploadDocumentTask | null>(null, 'not found');
+    task.status = 'canceled';
+    task.progress = 0;
+    task.updatedAt = now();
+    writeStore(store);
+    return ok(clone(task), 'canceled');
+  },
+
+  async getUploadTasks(knowledgeBaseId?: string) {
+    const tasks = readStore().uploadTasks.filter((item) => !knowledgeBaseId || item.knowledgeBaseId === knowledgeBaseId);
+    return ok(clone(tasks));
   },
 
   async deleteDocument(documentId: string) {
@@ -493,8 +591,7 @@ export const knowledgeMock = {
       .sort((a, b) => b.score - a.score)
       .slice(0, payload.topK);
 
-    return ok<RetrievalResult[]>(
-      scored.map((item, index) => ({
+    const results: RetrievalResult[] = scored.map((item, index) => ({
         rank: index + 1,
         score: item.score,
         documentName: item.chunk.documentName,
@@ -504,8 +601,28 @@ export const knowledgeMock = {
         rerankScore: payload.rerankEnabled ? Number((item.score + Math.random() * 0.08).toFixed(3)) : undefined,
         matchedBy: payload.rerankEnabled ? ['vector', 'full_text', 'rerank'] : ['vector', 'full_text'],
         metadata: clone(item.chunk.metadata),
-      })),
-    );
+      }));
+    const history: KnowledgeRetrievalTest = {
+      id: uid('rtest'),
+      knowledgeBaseId,
+      query: payload.query,
+      retrievalMode: payload.retrievalMode,
+      topK: payload.topK,
+      scoreThreshold: payload.scoreThreshold,
+      rerankEnabled: payload.rerankEnabled,
+      latencyMs: 120 + Math.floor(Math.random() * 380),
+      resultCount: results.length,
+      createdAt: now(),
+      results: clone(results),
+    };
+    store.retrievalTests.unshift(history);
+    writeStore(store);
+    return ok<RetrievalResult[]>(results);
+  },
+
+  async getRetrievalTests(knowledgeBaseId: string) {
+    const tests = readStore().retrievalTests.filter((item) => item.knowledgeBaseId === knowledgeBaseId);
+    return ok(clone(tests));
   },
 
   async getMetadataFields(knowledgeBaseId: string) {
@@ -515,7 +632,17 @@ export const knowledgeMock = {
 
   async createMetadataField(knowledgeBaseId: string, payload: CreateMetadataFieldPayload) {
     const store = readStore();
-    const field: MetadataField = { id: uid('meta'), knowledgeBaseId, ...payload };
+    const field: MetadataField = {
+      id: uid('meta'),
+      knowledgeBaseId,
+      source: 'custom',
+      tags: [],
+      updatedAt: now(),
+      required: false,
+      filterable: true,
+      displayInResult: true,
+      ...payload,
+    };
     store.metadataFields.unshift(field);
     writeStore(store);
     return ok(clone(field), 'created');
@@ -525,7 +652,7 @@ export const knowledgeMock = {
     const store = readStore();
     const field = store.metadataFields.find((item) => item.id === fieldId);
     if (!field) return ok<MetadataField | null>(null, 'not found');
-    Object.assign(field, payload);
+    Object.assign(field, payload, { updatedAt: now() });
     writeStore(store);
     return ok(clone(field), 'updated');
   },

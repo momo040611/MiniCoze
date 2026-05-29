@@ -36,9 +36,11 @@ export enum KnowledgeStatus {
 
 export enum DocumentStatus {
   Pending = 'pending',
+  Uploading = 'uploading',
   Parsing = 'parsing',
   Completed = 'completed',
   Failed = 'failed',
+  Canceled = 'canceled',
 }
 
 export enum RetrievalMode {
@@ -77,6 +79,18 @@ export type ChunkConfig = {
   chunkOverlap: number;
   separator: string;
   autoClean: boolean;
+};
+
+export type UploadStatus = 'queued' | 'uploading' | 'parsing' | 'completed' | 'failed' | 'canceled';
+
+export type ParseConfig = {
+  ocrEnabled: boolean;
+  preserveTable: boolean;
+  extractImageCaption: boolean;
+  chunkMode: ChunkMode;
+  chunkSize: number;
+  chunkOverlap: number;
+  autoVectorize: boolean;
 };
 
 export type EmbeddingConfig = {
@@ -127,6 +141,8 @@ export type KnowledgeDocument = {
   parserVersion?: string;
   errorMessage?: string;
   lastParsedAt?: string;
+  parseConfig?: ParseConfig;
+  uploadProgress?: number;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -157,6 +173,9 @@ export type MetadataField = {
   source?: 'system' | 'custom';
   tags?: string[];
   updatedAt?: string;
+  required?: boolean;
+  filterable?: boolean;
+  displayInResult?: boolean;
   enabled: boolean;
 };
 
@@ -183,6 +202,28 @@ export type KnowledgeRetrievalTest = {
   latencyMs: number;
   resultCount: number;
   createdAt: string;
+  results?: RetrievalResult[];
+};
+
+export type UploadDocumentPayload = {
+  knowledgeBaseId: string;
+  file: File;
+  parseConfig: ParseConfig;
+};
+
+export type UploadDocumentTask = {
+  id: string;
+  knowledgeBaseId: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  status: UploadStatus;
+  progress: number;
+  parseConfig: ParseConfig;
+  documentId?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PipelineStepStatus = 'success' | 'processing' | 'failed' | 'pending';
@@ -234,6 +275,10 @@ export type CreateMetadataFieldPayload = {
   name: string;
   type: MetadataFieldType;
   description: string;
+  required?: boolean;
+  filterable?: boolean;
+  displayInResult?: boolean;
+  tags?: string[];
   enabled: boolean;
 };
 

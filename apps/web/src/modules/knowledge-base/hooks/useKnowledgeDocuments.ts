@@ -4,6 +4,7 @@ import {
   knowledgeApi,
   type DocumentListParams,
   type KnowledgeDocument,
+  type ParseConfig,
 } from '../../../api/knowledge-base';
 
 function useKnowledgeDocuments(knowledgeBaseId: string, onChanged?: () => void) {
@@ -23,14 +24,14 @@ function useKnowledgeDocuments(knowledgeBaseId: string, onChanged?: () => void) 
   }, [knowledgeBaseId]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  const upload = useCallback(async (file: File) => {
+  const upload = useCallback(async (file: File, parseConfig?: ParseConfig) => {
     setLoading(true);
     try {
-      await knowledgeApi.uploadDocument(knowledgeBaseId, file);
-      message.success('上传成功，文档已解析完成');
+      await knowledgeApi.uploadDocument(knowledgeBaseId, file, parseConfig);
+      message.success('上传成功，文档已进入处理流水线');
       await load();
       onChanged?.();
     } finally {
@@ -53,13 +54,22 @@ function useKnowledgeDocuments(knowledgeBaseId: string, onChanged?: () => void) 
     onChanged?.();
   }, [load, onChanged]);
 
+  const retry = useCallback(async (documentId: string) => {
+    message.info('正在重试失败文档');
+    await knowledgeApi.retryDocument(documentId);
+    message.success('重试完成');
+    await load();
+    onChanged?.();
+  }, [load, onChanged]);
+
   const setEnabled = useCallback(async (documentId: string, enabled: boolean) => {
     await knowledgeApi.updateDocumentStatus(documentId, enabled);
     message.success(enabled ? '文档已启用' : '文档已停用');
     await load();
-  }, [load]);
+    onChanged?.();
+  }, [load, onChanged]);
 
-  return { loading, documents, load, upload, remove, reparse, setEnabled };
+  return { loading, documents, load, upload, remove, reparse, retry, setEnabled };
 }
 
 export { useKnowledgeDocuments };

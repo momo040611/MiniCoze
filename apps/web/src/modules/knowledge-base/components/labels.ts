@@ -18,9 +18,11 @@ export const knowledgeStatusText: Record<KnowledgeStatus, string> = {
 
 export const documentStatusText: Record<DocumentStatus, string> = {
   [DocumentStatus.Pending]: '等待中',
-  [DocumentStatus.Parsing]: '处理中',
+  [DocumentStatus.Uploading]: '上传中',
+  [DocumentStatus.Parsing]: '解析中',
   [DocumentStatus.Completed]: '已完成',
   [DocumentStatus.Failed]: '失败',
+  [DocumentStatus.Canceled]: '已取消',
 };
 
 export const retrievalModeText: Record<RetrievalMode, string> = {

@@ -11,6 +11,7 @@ type RetrieveTestTabProps = {
 type RetrieveFormValues = {
   query: string;
   retrievalMode: RetrievalMode;
+  hybridEnabled: boolean;
   topK: number;
   scoreThreshold: number;
   rerankEnabled: boolean;
@@ -31,12 +32,12 @@ function parseFilter(value?: string) {
 }
 
 function RetrieveTestTab({ knowledgeBaseId }: RetrieveTestTabProps) {
-  const { loading, results, run } = useRetrievalTest(knowledgeBaseId);
+  const { loading, results, history, run, setResults } = useRetrievalTest(knowledgeBaseId);
 
   const runTest = async (values: RetrieveFormValues) => {
     await run({
       query: values.query,
-      retrievalMode: values.retrievalMode,
+      retrievalMode: values.hybridEnabled ? values.retrievalMode : RetrievalMode.Vector,
       topK: values.topK,
       scoreThreshold: values.scoreThreshold,
       rerankEnabled: values.rerankEnabled,
@@ -48,47 +49,74 @@ function RetrieveTestTab({ knowledgeBaseId }: RetrieveTestTabProps) {
 
   return (
     <div className={styles.twoColumn}>
-      <Card title="检索测试配置">
-        <Form<RetrieveFormValues>
-          layout="vertical"
-          initialValues={{
-            query: '',
-            retrievalMode: RetrievalMode.Hybrid,
-            topK: 5,
-            scoreThreshold: 0.35,
-            rerankEnabled: true,
-          }}
-          onFinish={runTest}
-        >
-          <Form.Item label="用户问题" name="query" rules={[{ required: true, message: '请输入测试问题' }]}>
-            <Input.TextArea rows={4} placeholder="例如：如何绑定 Agent 到知识库？" />
-          </Form.Item>
-          <Form.Item label="检索方式" name="retrievalMode">
-            <Select
-              options={[
-                { value: RetrievalMode.Vector, label: retrievalModeText[RetrievalMode.Vector] },
-                { value: RetrievalMode.FullText, label: retrievalModeText[RetrievalMode.FullText] },
-                { value: RetrievalMode.Hybrid, label: retrievalModeText[RetrievalMode.Hybrid] },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item label="召回数量" name="topK">
-            <InputNumber min={1} max={20} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item label="分数阈值" name="scoreThreshold">
-            <InputNumber min={0} max={1} step={0.05} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item label="启用 Rerank" name="rerankEnabled" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-          <Form.Item label="元数据过滤（每行 key=value）" name="metadataFilterText">
-            <Input.TextArea rows={3} placeholder="category=产品" />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" loading={loading}>
-            开始测试
-          </Button>
-        </Form>
-      </Card>
+      <Space direction="vertical" size={16}>
+        <Card title="检索测试配置">
+          <Form<RetrieveFormValues>
+            layout="vertical"
+            initialValues={{
+              query: '',
+              retrievalMode: RetrievalMode.Hybrid,
+              hybridEnabled: true,
+              topK: 5,
+              scoreThreshold: 0.35,
+              rerankEnabled: true,
+            }}
+            onFinish={runTest}
+          >
+            <Form.Item label="Query" name="query" rules={[{ required: true, message: '请输入测试问题' }]}>
+              <Input.TextArea rows={4} placeholder="例如：如何把 Agent 绑定到知识库？" />
+            </Form.Item>
+            <Form.Item label="检索方式" name="retrievalMode">
+              <Select
+                options={[
+                  { value: RetrievalMode.Vector, label: retrievalModeText[RetrievalMode.Vector] },
+                  { value: RetrievalMode.FullText, label: retrievalModeText[RetrievalMode.FullText] },
+                  { value: RetrievalMode.Hybrid, label: retrievalModeText[RetrievalMode.Hybrid] },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item label="Hybrid Search" name="hybridEnabled" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+            <Form.Item label="Top K" name="topK">
+              <InputNumber min={1} max={20} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="Score Threshold" name="scoreThreshold">
+              <InputNumber min={0} max={1} step={0.05} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="Rerank" name="rerankEnabled" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+            <Form.Item label="元数据过滤（每行 key=value）" name="metadataFilterText">
+              <Input.TextArea rows={3} placeholder="category=产品" />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" loading={loading}>
+              开始测试
+            </Button>
+          </Form>
+        </Card>
+        <Card title="历史测试记录">
+          <List
+            size="small"
+            dataSource={history.slice(0, 8)}
+            locale={{ emptyText: '暂无历史记录' }}
+            renderItem={(item) => (
+              <List.Item
+                actions={[
+                  <Button key="view" type="link" onClick={() => setResults(item.results ?? [])}>
+                    查看
+                  </Button>,
+                ]}
+              >
+                <List.Item.Meta
+                  title={item.query}
+                  description={`${retrievalModeText[item.retrievalMode]} · ${item.resultCount} 条 · ${item.latencyMs}ms · ${item.createdAt}`}
+                />
+              </List.Item>
+            )}
+          />
+        </Card>
+      </Space>
 
       <Card
         title="召回结果"

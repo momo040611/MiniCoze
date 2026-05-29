@@ -1,4 +1,4 @@
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
 import { Button, Card, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Statistic, Switch } from 'antd';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,7 @@ import { KbPageHeader } from '../components/KbPageHeader';
 import { KnowledgeIconEditor } from '../components/KnowledgeIconEditor';
 import { chunkModeText, indexModeText, retrievalModeText, sourceTypeText } from '../components/labels';
 import { useKnowledgeBases } from '../hooks/useKnowledgeBases';
+import { KnowledgeUploadModal } from './KnowledgeUploadModal';
 import styles from './document.module.css';
 
 type EditFormValues = {
@@ -65,15 +66,22 @@ function toUpdatePayload(values: EditFormValues): UpdateKnowledgeBasePayload {
 
 function KnowledgeList() {
   const navigate = useNavigate();
-  const { loading, keyword, setKeyword, items, update, remove, reorder } = useKnowledgeBases();
+  const { loading, keyword, setKeyword, items, update, remove, reorder, load } = useKnowledgeBases();
   const [statusFilter, setStatusFilter] = useState<KnowledgeStatus | 'all'>('all');
   const [sourceFilter, setSourceFilter] = useState<KnowledgeSourceType | 'all'>('all');
   const [indexFilter, setIndexFilter] = useState<KnowledgeBase['indexStatus'] | 'all'>('all');
+  const [tagFilter, setTagFilter] = useState<string>('all');
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [editing, setEditing] = useState<KnowledgeBase | null>(null);
   const [form] = Form.useForm<EditFormValues>();
   const icon = Form.useWatch('icon', form);
   const iconType = Form.useWatch('iconType', form);
   const iconImageUrl = Form.useWatch('iconImageUrl', form);
+
+  const tagOptions = useMemo(() => {
+    const tags = Array.from(new Set(items.flatMap((item) => item.tags ?? [])));
+    return [{ value: 'all', label: '全部标签' }, ...tags.map((tag) => ({ value: tag, label: tag }))];
+  }, [items]);
 
   const filteredItems = useMemo(() => {
     const value = keyword.trim().toLowerCase();
@@ -82,9 +90,10 @@ function KnowledgeList() {
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
       const matchesSource = sourceFilter === 'all' || item.sourceType === sourceFilter;
       const matchesIndex = indexFilter === 'all' || (item.indexStatus ?? 'ready') === indexFilter;
-      return matchesKeyword && matchesStatus && matchesSource && matchesIndex;
+      const matchesTag = tagFilter === 'all' || item.tags?.includes(tagFilter);
+      return matchesKeyword && matchesStatus && matchesSource && matchesIndex && matchesTag;
     });
-  }, [indexFilter, items, keyword, sourceFilter, statusFilter]);
+  }, [indexFilter, items, keyword, sourceFilter, statusFilter, tagFilter]);
 
   const stats = useMemo(() => {
     return {
@@ -139,6 +148,7 @@ function KnowledgeList() {
           description="管理企业 RAG 数据集，覆盖文档解析、分段、元数据、处理流水线与检索测试。"
           actions={
             <Space>
+              <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)}>上传文档</Button>
               <Button onClick={() => navigate('/knowledge/pipeline')}>生产流水线</Button>
               <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/knowledge/create')}>
                 新建知识库
@@ -187,6 +197,12 @@ function KnowledgeList() {
             />
             <Select
               style={{ width: 150 }}
+              value={tagFilter}
+              options={tagOptions}
+              onChange={setTagFilter}
+            />
+            <Select
+              style={{ width: 150 }}
               value={indexFilter}
               options={[
                 { value: 'all', label: '全部索引' },
@@ -204,9 +220,7 @@ function KnowledgeList() {
           {filteredItems.length === 0 ? (
             <Card>
               <Empty description="暂无匹配的知识库">
-                <Button type="primary" onClick={() => navigate('/knowledge/create')}>
-                  创建知识库
-                </Button>
+                <Button type="primary" onClick={() => navigate('/knowledge/create')}>创建知识库</Button>
               </Empty>
             </Card>
           ) : (
@@ -219,6 +233,13 @@ function KnowledgeList() {
             />
           )}
         </Spin>
+
+        <KnowledgeUploadModal
+          open={uploadOpen}
+          knowledgeBases={items}
+          onClose={() => setUploadOpen(false)}
+          onCompleted={() => void load()}
+        />
 
         <Modal
           title="编辑知识库"
@@ -234,10 +255,7 @@ function KnowledgeList() {
             <Form.Item name="iconType" hidden><Input /></Form.Item>
             <Form.Item name="iconImageUrl" hidden><Input /></Form.Item>
             <div className={styles.iconFormLayout}>
-              <KnowledgeIconEditor
-                value={{ icon, iconType, iconImageUrl }}
-                onChange={(value) => form.setFieldsValue(value)}
-              />
+              <KnowledgeIconEditor value={{ icon, iconType, iconImageUrl }} onChange={(value) => form.setFieldsValue(value)} />
               <div>
                 <Form.Item name="name" label="知识库名称" rules={[{ required: true, message: '请输入知识库名称' }]}>
                   <Input />
