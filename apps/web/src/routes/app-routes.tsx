@@ -61,12 +61,12 @@ export function AppRoutes() {
 
         <Route element={<ProtectedAppLayout />}>
           <Route path="/workspace" element={<HomepageIndex />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/agents" element={<CreatAgent />} />
           <Route path="/workflows" element={<WorkflowCanvasPage />} />
           <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/publish" element={<PublishPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/architecture" element={<ArchitecturePage />} />
           <Route path="/knowledge-bases" element={<KnowledgeBasePage />}>
             <Route index element={<Navigate to="document" replace />} />
