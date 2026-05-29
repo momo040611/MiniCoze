@@ -22,6 +22,9 @@ model User {
 
   createdAgents Agent[]
   conversations Conversation[]
+
+  knowledgeBases KnowledgeBase[]
+  uploadStages   KnowledgeUploadStage[]
 }
 
 enum WorkspaceRole {
@@ -41,6 +44,8 @@ model Workspace {
   owner   User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
   members WorkspaceMember[]
   agents  Agent[]
+
+  knowledgeBases KnowledgeBase[]
 
   @@index([ownerId])
 }
@@ -132,3 +137,76 @@ model Message {
   @@index([conversationId])
   @@index([conversationId, createdAt])
 }
+
+model KnowledgeBase {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  creatorId      String
+  name           String
+  description    String?
+  embeddingModel String
+  embeddingDim   Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator   User                @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  documents KnowledgeDocument[]
+
+  @@index([workspaceId])
+  @@index([creatorId])
+}
+
+model KnowledgeDocument {
+  id              String   @id @default(cuid())
+  knowledgeBaseId String
+  originalName    String
+  fileExtension   String
+  fileSize        Int
+  chunkType       String
+  chunkConfig     Json
+  totalChunks     Int
+  totalChars      Int
+  createdAt       DateTime @default(now())
+
+  knowledgeBase KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  chunks        KnowledgeChunk[]
+
+  @@index([knowledgeBaseId])
+  @@index([knowledgeBaseId, createdAt])
+}
+
+model KnowledgeChunk {
+  id         String                       @id @default(cuid())
+  documentId String
+  chunkIndex Int
+  content    String                       @db.Text
+  charCount  Int
+  embedding  Unsupported("vector(1024)")
+  createdAt  DateTime                     @default(now())
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+// 文档上传 stage：用户先上传文件拿到 fileId，
+// 后续切分预览/入库都用 fileId 引用，避免重复传文件。
+// TTL 24h，由 UploadStageService 通过 cron + 启动钩子兜底清理。
+model KnowledgeUploadStage {
+  id            String   @id @default(cuid())
+  fileId        String   @unique
+  uploaderId    String
+  originalName  String
+  fileExtension String
+  fileSize      Int
+  storagePath   String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  uploader User @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([uploaderId])
+  @@index([expiresAt])
+}
+

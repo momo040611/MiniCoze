@@ -49,6 +49,37 @@ class EnvironmentVariables {
   @IsOptional()
   CORS_ORIGIN =
     'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173';
+
+  // === Knowledge / Embedding ===
+  // OpenAI 兼容 embedding 接口；硅基流动 / 阿里 DashScope 等。
+  @IsString()
+  @IsNotEmpty()
+  EMBEDDING_BASE_URL!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  EMBEDDING_API_KEY!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  EMBEDDING_MODEL!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  EMBEDDING_DIM!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  EMBEDDING_BATCH_SIZE = 32;
+
+  // === Knowledge / Upload Stage ===
+  // 上传 stage 文件的本地磁盘目录，相对 backend 工作目录或绝对路径。
+  @IsString()
+  @IsOptional()
+  UPLOAD_STORAGE_DIR = './storage/uploads';
 }
 
 export function validateEnv(config: Record<string, unknown>) {
