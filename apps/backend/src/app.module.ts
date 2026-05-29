@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
@@ -23,6 +24,7 @@ import { AgentRuntimeModule } from './modules/agent-runtime/agent-runtime.module
       load: [configuration],
       validate: validateEnv,
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     HealthModule,
     AuthModule,

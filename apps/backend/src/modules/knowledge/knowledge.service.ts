@@ -4,23 +4,29 @@ import { BusinessException } from '../../common/exceptions/business.exception';
 import { chunk } from './chunking/chunk';
 import type { ChunkResult } from './chunking/types';
 import { ChunkConfigDto } from './dto/chunk-config.dto';
-
-// 与 controller 解耦：service 只接收 buffer + 文件名 + raw config 字符串。
-export interface ChunkDocumentInput {
-  originalName: string;
-  buffer: Buffer;
-}
+import { UploadStageService } from './uploads/upload-stage.service';
 
 @Injectable()
 export class KnowledgeService {
+  constructor(private readonly uploadStageService: UploadStageService) {}
+
   /**
-   * 接收上传文件 buffer + multipart 中的 JSON 字符串 config，
-   * 完成扩展名识别、配置校验、文本切分。
+   * 切分预览：根据 fileId 从 upload stage 读文件，按 config 切分返回 chunks。
+   * 不做向量化，不入库。
    */
-  chunkDocument(file: ChunkDocumentInput, configRaw: unknown): ChunkResult {
-    const ext = this.extractExtension(file.originalName);
-    const config = ChunkConfigDto.fromJsonString(configRaw);
-    const text = file.buffer.toString('utf8');
+  async chunkDocument(
+    userId: string,
+    fileId: string,
+    configRawObject: unknown,
+  ): Promise<ChunkResult> {
+    const { stage, buffer } = await this.uploadStageService.loadForUser(
+      userId,
+      fileId,
+    );
+    const ext = this.extractExtension(stage.originalName);
+    // ChunkConfigDto.fromJsonString 接收字符串；这里 config 已经是 object，先 stringify。
+    const config = ChunkConfigDto.fromJsonString(JSON.stringify(configRawObject));
+    const text = buffer.toString('utf8');
     return chunk(text, ext, config);
   }
 
