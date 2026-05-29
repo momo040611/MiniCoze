@@ -99,7 +99,7 @@ export class AuthService {
         HttpStatus.UNAUTHORIZED,
       );
     }
-
+    // console.log('登录成功', user);
     await this.ensureDefaultWorkspace(user.id);
 
     return this.buildAuthResponse(user);

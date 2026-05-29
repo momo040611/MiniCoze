@@ -21,5 +21,12 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
+    parserOptions: {
+  // 新增这一行，指定 TS 配置从当前文件所在目录查找
+    tsconfigRootDir: __dirname, 
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    project: './tsconfig.json'
+  }
   },
 );
