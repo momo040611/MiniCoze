@@ -22,6 +22,7 @@ model User {
 
   createdAgents Agent[]
   conversations Conversation[]
+  uploadedFiles FileAsset[]       @relation("FileAssetOwner")
   createdWorkflows Workflow[]        @relation("WorkflowCreator")
   createdWorkflowVersions WorkflowVersion[] @relation("WorkflowVersionCreator")
   workflowRuns WorkflowRun[]         @relation("WorkflowRunStarter")
@@ -41,13 +42,56 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner   User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members WorkspaceMember[]
-  agents  Agent[]
-  workflows Workflow[]
+  owner        User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members      WorkspaceMember[]
+  agents       Agent[]
+  workflows    Workflow[]
   workflowRuns WorkflowRun[]
+  files        FileAsset[]       @relation("WorkspaceFiles")
 
   @@index([ownerId])
+}
+
+enum FilePurpose {
+  AVATAR
+  KNOWLEDGE_DOCUMENT
+  CHAT_ATTACHMENT
+}
+
+enum FileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum FileStatus {
+  READY
+  DELETED
+}
+
+model FileAsset {
+  id           String         @id @default(cuid())
+  workspaceId  String?
+  ownerId      String
+  purpose      FilePurpose
+  visibility   FileVisibility @default(PRIVATE)
+  status       FileStatus     @default(READY)
+  originalName String
+  storageKey   String
+  url          String?
+  mimeType     String
+  extension    String?
+  size         Int
+  checksum     String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  owner     User       @relation("FileAssetOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation("WorkspaceFiles", fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([workspaceId])
+  @@index([purpose])
+  @@index([status])
 }
 
 model WorkspaceMember {

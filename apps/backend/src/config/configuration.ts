@@ -23,6 +23,12 @@ export default () => ({
       .map((origin) => origin.trim())
       .filter(Boolean),
   },
+  file: {
+    uploadDir: process.env.FILE_UPLOAD_DIR ?? 'storage/uploads',
+    publicBaseUrl: process.env.FILE_PUBLIC_BASE_URL ?? '/api/files',
+    maxImageSize: Number(process.env.FILE_MAX_IMAGE_SIZE ?? 5242880),
+    maxDocumentSize: Number(process.env.FILE_MAX_DOCUMENT_SIZE ?? 52428800),
+  },
   ai: {
     provider: process.env.AI_PROVIDER,
     openai: {

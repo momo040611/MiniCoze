@@ -49,6 +49,24 @@ class EnvironmentVariables {
   @IsOptional()
   CORS_ORIGIN =
     'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173';
+
+  @IsString()
+  @IsOptional()
+  FILE_UPLOAD_DIR = 'storage/uploads';
+
+  @IsString()
+  @IsOptional()
+  FILE_PUBLIC_BASE_URL = '/api/files';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  FILE_MAX_IMAGE_SIZE = 5242880;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  FILE_MAX_DOCUMENT_SIZE = 52428800;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
