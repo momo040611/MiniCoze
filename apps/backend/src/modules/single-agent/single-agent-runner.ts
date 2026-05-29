@@ -77,7 +77,10 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
           args: parsedArgs,
         };
 
-        const result = await toolExecutor.execute(toolCall);
+        const result = await toolExecutor.execute({
+          toolCall,
+          context,
+        });
         yield {
           type: 'tool.call.completed',
           runId: context.runId,
