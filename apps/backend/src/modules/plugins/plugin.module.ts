@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { WorkspaceModule } from '../workspace/workspace.module';
 import { AgentPluginBindingController } from './agent-plugin-binding.controller';
 import { AgentPluginBindingService } from './agent-plugin-binding.service';
 import { PluginController } from './plugin.controller';
@@ -11,6 +12,7 @@ import { PluginService } from './plugin.service';
 import { PluginToolService } from './plugin-tool.service';
 
 @Module({
+  imports: [WorkspaceModule],
   controllers: [PluginController, AgentPluginBindingController],
   providers: [
     PluginService,

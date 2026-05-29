@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
+import { PluginModule } from '../plugins/plugin.module';
 import { AgentModule } from '../single-agent/agent.module';
 import { AgentRuntimeController } from './agent-runtime.controller';
 import { AgentRuntimeService } from './agent-runtime.service';
@@ -10,7 +11,7 @@ import { RUNTIME_REPOSITORY, TOOL_EXECUTOR } from './runtime/runtime.tokens';
 import { ToolRunner } from './tools/tool-runner';
 
 @Module({
-  imports: [AiGatewayModule, AgentModule],
+  imports: [AiGatewayModule, AgentModule, PluginModule],
   controllers: [AgentRuntimeController],
   providers: [
     AgentRuntimeService,
