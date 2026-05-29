@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import styles from "./agent-detail.module.css";
 import { updateAgent } from "../../api/agent-config/index";
-import { SingleAgentPlanner } from "./components/SingleAgentPlanner";
-import { SingleAgentFlow } from "./components/SingleAgentFlow";
-import { MultiAgents } from "./components/MultiAgents";
+import { SingleAgentPlanner } from "./agent-planner/SingleAgentPlanner";
+import { SingleAgentFlow } from "./agent-flow/SingleAgentFlow";
+import { MultiAgents } from "./agent-multi/MultiAgents";
 import { ModeSelector } from "./components/ModeSelector";
 import type { ModeOption } from "./components/ModeSelector";
 import { EditAgentModal } from "./components/EditAgentModal";
@@ -29,14 +29,26 @@ export interface PlannerConfig {
   autoInvoke: boolean;
   plugins: string[];
   workflows: string[];
+  fileBoxEnabled: boolean;
+  longMemoryEnabled: boolean;
+  variables: string[];
+  databases: string[];
 }
 
 export interface FlowConfig {
   nodes: Array<{ id: string; type: string; x: number; y: number }>;
+  variables: string[];
+  databases: string[];
 }
 
 export interface MultiConfig {
   subAgents: Array<{ id: string; name: string }>;
+  plugins: string[];
+  workflows: string[];
+  triggers: string[];
+  variables: string[];
+  databases: string[];
+  longMemoryEnabled: boolean;
 }
 
 export interface OpeningConfig {
@@ -78,15 +90,27 @@ function defaultPlannerConfig(): PlannerConfig {
     autoInvoke: true,
     plugins: [],
     workflows: [],
+    fileBoxEnabled: false,
+    longMemoryEnabled: false,
+    variables: [],
+    databases: [],
   };
 }
 
 function defaultFlowConfig(): FlowConfig {
-  return { nodes: [] };
+  return { nodes: [], variables: [], databases: [] };
 }
 
 function defaultMultiConfig(): MultiConfig {
-  return { subAgents: [] };
+  return {
+    subAgents: [],
+    plugins: [],
+    workflows: [],
+    triggers: [],
+    variables: [],
+    databases: [],
+    longMemoryEnabled: false,
+  };
 }
 
 function defaultOpeningConfig(): OpeningConfig {
@@ -140,15 +164,15 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   const [editVisible,setEditVisible] = useState(false);
   const parsedConfig = useMemo(() => parseOrchestration(orchestration), [orchestration]);
   const plannerConfig = useMemo(
-    () => parsedConfig.planner ?? defaultPlannerConfig(),
+    () => ({ ...defaultPlannerConfig(), ...parsedConfig.planner }),
     [parsedConfig.planner],
   );
   const flowConfig = useMemo(
-    () => parsedConfig.flow ?? defaultFlowConfig(),
+    () => ({ ...defaultFlowConfig(), ...parsedConfig.flow }),
     [parsedConfig.flow],
   );
   const multiConfig = useMemo(
-    () => parsedConfig.multi ?? defaultMultiConfig(),
+    () => ({ ...defaultMultiConfig(), ...parsedConfig.multi }),
     [parsedConfig.multi],
   );
   const openingConfig = useMemo(
@@ -208,24 +232,16 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   );
 
   const handleSave = async () => {
+    if (savingRef.current) return;
     setSaving(true);
+    savingRef.current = true;
     try {
-      await updateAgent(agent.id, {
-        mode,
-        persona,
-        orchestration,
-        model,
-        temperature,
-        openingMessage: openingConfig.openingMessage,
-        contextLimit,
-      });
-      setSaved(true);
-      setDirty(false);
-      setTimeout(() => setSaved(false), 2000);
+      await doSave();
     } catch {
       alert('保存失败，请稍后重试');
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   };
 
@@ -250,30 +266,37 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
 
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isAutoSavingRef = useRef(false);
+  const savingRef = useRef(false);
+
+  const doSave = useCallback(async () => {
+    const current = saveStateRef.current;
+    await updateAgent(agent.id, {
+      mode: current.mode,
+      persona: current.persona,
+      orchestration: current.orchestration,
+      model: current.model,
+      temperature: current.temperature,
+      openingMessage: current.openingMessage,
+      contextLimit: current.contextLimit,
+    });
+    setSaved(true);
+    setDirty(false);
+    setTimeout(() => setSaved(false), 2000);
+    onAgentUpdated();
+  }, [agent.id, onAgentUpdated]);
 
   const performAutoSave = useCallback(async () => {
+    if (savingRef.current) return;
     if (isAutoSavingRef.current) return;
     isAutoSavingRef.current = true;
-    const current = saveStateRef.current;
     try {
-      await updateAgent(agent.id, {
-        mode: current.mode,
-        persona: current.persona,
-        orchestration: current.orchestration,
-        model: current.model,
-        temperature: current.temperature,
-        openingMessage: current.openingMessage,
-        contextLimit: current.contextLimit,
-      });
-      setSaved(true);
-      setDirty(false);
-      setTimeout(() => setSaved(false), 2000);
+      await doSave();
     } catch {
       // auto-save silently fails
     } finally {
       isAutoSavingRef.current = false;
     }
-  }, [agent.id]);
+  }, [doSave]);
 
   useEffect(() => {
     if (!dirty || saving) return;
@@ -366,6 +389,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
         return (
           <SingleAgentFlow
             agent={agent}
+            persona={persona}
             model={model}
             temperature={temperature}
             contextLimit={contextLimit}

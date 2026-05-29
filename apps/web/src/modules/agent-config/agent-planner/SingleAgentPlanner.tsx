@@ -1,8 +1,11 @@
 import React, { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styles from '../agent-detail.module.css'
+import plannerStyles from './SingleAgentPlanner.module.css'
 import type { AgentDetailData, PlannerConfig, OpeningConfig } from '../agent-detail'
-import { OpeningMessageEditor } from './OpeningMessageEditor'
-import { PreviewChat } from './PreviewChat'
+import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
+import { PreviewChat } from '../components/PreviewChat'
+import { SelectModal } from '../components/SelectModal'
 
 interface Props {
   agent: AgentDetailData
@@ -24,8 +27,6 @@ const MODEL_OPTIONS = [
   { label: 'DeepSeek V4 Flash', value: 'deepseek-v4-flash' },
   { label: 'DeepSeek V4 Pro', value: 'deepseek-v4-pro' },
 ]
-
-const DEFAULT_KNOWLEDGE_NAME = '知识库'
 
 function CollapsePanel({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -59,9 +60,11 @@ export function SingleAgentPlanner({
   openingConfig,
   onOpeningChange,
 }: Props) {
+  const navigate = useNavigate()
   const [modelOpen, setModelOpen] = useState(false)
-
-  const { knowledgeEnabled, plugins, workflows } = config
+  const [knowledgeModalOpen, setKnowledgeModalOpen] = useState(false)
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false)
+  const { knowledgeEnabled, plugins, workflows, fileBoxEnabled, longMemoryEnabled, variables, databases } = config
 
   const updateConfig = useCallback(
     (patch: Partial<PlannerConfig>) => onConfigChange({ ...config, ...patch }),
@@ -72,13 +75,16 @@ export function SingleAgentPlanner({
     updateConfig({ plugins: [...plugins, `插件 ${plugins.length + 1}`] })
   }
 
-  const handleAddWorkflow = () => {
-    updateConfig({ workflows: [...workflows, `工作流 ${workflows.length + 1}`] })
+  const handleAddVariable = () => {
+    updateConfig({ variables: [...variables, `变量 ${variables.length + 1}`] })
+  }
+
+  const handleAddDatabase = () => {
+    updateConfig({ databases: [...databases, `数据库 ${databases.length + 1}`] })
   }
 
   return (
     <>
-      {/* 左侧栏：人设与回复逻辑 */}
       <div className={styles.col} style={{ flex: '0 0 340px', minWidth: 280 }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>人设与回复逻辑</h3>
@@ -120,32 +126,30 @@ export function SingleAgentPlanner({
         </div>
       </div>
 
-      {/* 中间栏：编排 */}
       <div className={styles.col} style={{ flex: '0 0 340px', minWidth: 280 }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>编排</h3>
         </div>
         <div className={styles.colBody}>
           <CollapsePanel title="模型设置">
-            <div className={styles.modelSelector}>
+            <div className={plannerStyles.modelSelector}>
               <div
-                className={styles.modelTrigger}
+                className={plannerStyles.modelTrigger}
                 onClick={() => setModelOpen((v) => !v)}
               >
-                <span className={styles.modelIcon}>🧠</span>
-                <span className={styles.modelName}>{MODEL_OPTIONS.find(m => m.value === model)?.label ?? model}</span>
-                <span className={`${styles.modelArrow} ${modelOpen ? styles.modelArrowOpen : ''}`}>
+                <span className={plannerStyles.modelName}>{MODEL_OPTIONS.find(m => m.value === model)?.label ?? model}</span>
+                <span className={`${plannerStyles.modelArrow} ${modelOpen ? plannerStyles.modelArrowOpen : ''}`}>
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                     <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
               </div>
               {modelOpen && (
-                <div className={styles.modelDropdown}>
+                <div className={plannerStyles.modelDropdown}>
                   {MODEL_OPTIONS.map((m) => (
                     <button
                       key={m.value}
-                      className={`${styles.modelOption} ${m.value === model ? styles.modelOptionActive : ''}`}
+                      className={`${plannerStyles.modelOption} ${m.value === model ? plannerStyles.modelOptionActive : ''}`}
                       onClick={() => {
                         onModelChange(m.value)
                         updateConfig({ selectedModel: m.value })
@@ -160,7 +164,6 @@ export function SingleAgentPlanner({
             </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>T</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>Temperature</span>
                   <span className={styles.configRowDesc}>控制回复随机性，数值越高越发散</span>
@@ -194,7 +197,6 @@ export function SingleAgentPlanner({
             </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>CTX</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>上下文轮数</span>
                   <span className={styles.configRowDesc}>控制运行时携带的历史消息数量</span>
@@ -222,7 +224,6 @@ export function SingleAgentPlanner({
           <CollapsePanel title="技能">
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>🔌</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>插件</span>
                   <span className={styles.configRowDesc}>添加 AI 能力插件</span>
@@ -239,17 +240,13 @@ export function SingleAgentPlanner({
             </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>⚡</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>工作流</span>
                   <span className={styles.configRowDesc}>配置对话流程</span>
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                {workflows.length > 0 && (
-                  <span className={styles.configRowCount}>{workflows.length} 个工作流</span>
-                )}
-                <button className={styles.addBtn} onClick={handleAddWorkflow}>
+                <button className={styles.addBtn} onClick={() => setWorkflowModalOpen(true)}>
                   <span>+</span>
                 </button>
               </div>
@@ -259,42 +256,32 @@ export function SingleAgentPlanner({
           <CollapsePanel title="知识">
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>📚</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>文本知识库</span>
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                <span style={{ fontSize: 12, color: '#8896a6' }}>{DEFAULT_KNOWLEDGE_NAME}</span>
+                <button className={styles.addBtn} onClick={() => setKnowledgeModalOpen(true)}><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>📊</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>表格知识库</span>
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                <label className={styles.toggleSwitch}>
-                  <input
-                    type="checkbox"
-                    checked={knowledgeEnabled}
-                    onChange={(e) => updateConfig({ knowledgeEnabled: e.target.checked })}
-                  />
-                  <span className={styles.toggleSlider} />
-                </label>
+                <button className={styles.addBtn} onClick={() => setKnowledgeModalOpen(true)}><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>🖼️</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>照片知识库</span>
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                <button className={styles.addBtn}><span>+</span></button>
+                <button className={styles.addBtn} onClick={() => setKnowledgeModalOpen(true)}><span>+</span></button>
               </div>
             </div>
           </CollapsePanel>
@@ -302,36 +289,43 @@ export function SingleAgentPlanner({
           <CollapsePanel title="记忆">
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>📝</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>变量</span>
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                <button className={styles.addBtn}><span>+</span></button>
+                {variables.length > 0 && (
+                  <span className={styles.configRowCount}>{variables.length} 个变量</span>
+                )}
+                <button className={styles.addBtn} onClick={handleAddVariable}><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>🗄️</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>数据库</span>
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                <button className={styles.addBtn}><span>+</span></button>
+                {databases.length > 0 && (
+                  <span className={styles.configRowCount}>{databases.length} 个数据库</span>
+                )}
+                <button className={styles.addBtn} onClick={handleAddDatabase}><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>🧠</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>长期记忆</span>
                 </div>
               </div>
               <div className={styles.configRowRight}>
                 <label className={styles.toggleSwitch}>
-                  <input type="checkbox" />
+                  <input
+                    type="checkbox"
+                    checked={longMemoryEnabled}
+                    onChange={(e) => updateConfig({ longMemoryEnabled: e.target.checked })}
+                  />
                   <span className={styles.toggleSlider} />
                 </label>
               </div>
@@ -341,7 +335,6 @@ export function SingleAgentPlanner({
           <CollapsePanel title="文件盒子">
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
-                <span className={styles.configRowIcon}>📁</span>
                 <div className={styles.configRowText}>
                   <span className={styles.configRowName}>文件盒子</span>
                   <span className={styles.configRowDesc}>允许上传文件进行处理</span>
@@ -349,7 +342,11 @@ export function SingleAgentPlanner({
               </div>
               <div className={styles.configRowRight}>
                 <label className={styles.toggleSwitch}>
-                  <input type="checkbox" />
+                  <input
+                    type="checkbox"
+                    checked={fileBoxEnabled}
+                    onChange={(e) => updateConfig({ fileBoxEnabled: e.target.checked })}
+                  />
                   <span className={styles.toggleSlider} />
                 </label>
               </div>
@@ -367,7 +364,6 @@ export function SingleAgentPlanner({
         </div>
       </div>
 
-      {/* 右侧栏：预览与调试 */}
       <div className={styles.col} style={{ flex: 1, minWidth: 320 }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>预览与调试</h3>
@@ -384,6 +380,22 @@ export function SingleAgentPlanner({
           />
         </div>
       </div>
+      <SelectModal
+        visible={knowledgeModalOpen}
+        title="选择知识库"
+        emptyText="暂无知识库，请先创建"
+        createLabel="新建知识库"
+        onClose={() => setKnowledgeModalOpen(false)}
+        onCreate={() => navigate('/knowledge-bases/document')}
+      />
+      <SelectModal
+        visible={workflowModalOpen}
+        title="选择工作流"
+        emptyText="暂无工作流，请先创建"
+        createLabel="新建工作流"
+        onClose={() => setWorkflowModalOpen(false)}
+        onCreate={() => navigate('/workflows')}
+      />
     </>
   )
 }

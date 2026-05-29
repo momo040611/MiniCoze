@@ -2,3 +2,6 @@ dist
 node_modules
 *.local
 *.tsbuildinfo
+.env
+.env.test
+.env.development

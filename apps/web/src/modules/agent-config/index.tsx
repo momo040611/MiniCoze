@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Modal } from "antd";
 import styles from "./index.module.css";
 import { CreateAgent } from "./creatAgent";
 import type { AgentConfig } from "../../api/agent-config/index";
@@ -26,9 +27,18 @@ export function CreatAgent() {
     navigate(`/agents/${newAgent.id}`);
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteAgent(id);
-    setAgents((prev) => prev.filter((a) => a.id !== id));
+  const handleDelete = (agent: AgentConfig) => {
+    Modal.confirm({
+      title: '删除智能体',
+      content: `确定要删除智能体「${agent.name}」吗？此操作不可恢复，该智能体的所有配置和对话记录将被永久删除。`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        await deleteAgent(agent.id);
+        setAgents((prev) => prev.filter((a) => a.id !== agent.id));
+      },
+    });
   };
 
   const handleSelectAgent = (id: string) => {
@@ -52,6 +62,7 @@ export function CreatAgent() {
           </div>
           <button
             onClick={() => setModalVisible(true)}
+            className={styles.topBarCreateBtn}
           >
             + 新建智能体
           </button>
@@ -86,7 +97,7 @@ export function CreatAgent() {
                 className={styles.agentCardDelete}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDelete(agent.id);
+                  handleDelete(agent);
                 }}
                 title="删除"
               >

@@ -1,11 +1,17 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import styles from '../agent-detail.module.css'
+import flowStyles from './SingleAgentFlow.module.css'
 import type { AgentDetailData, FlowConfig, OpeningConfig } from '../agent-detail'
-import { OpeningMessageEditor } from './OpeningMessageEditor'
-import { PreviewChat } from './PreviewChat'
+import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
+import { PreviewChat } from '../components/PreviewChat'
+
+const MIN_LEFT_PCT = 30
+const MAX_LEFT_PCT = 78
+const DEFAULT_LEFT_PCT = 58
 
 interface Props {
   agent: AgentDetailData
+  persona: string
   model: string
   temperature: number
   contextLimit: number
@@ -44,6 +50,7 @@ const NODE_TYPES = [
 
 export function SingleAgentFlow({
   agent,
+  persona,
   model,
   temperature,
   contextLimit,
@@ -54,7 +61,51 @@ export function SingleAgentFlow({
   openingConfig,
   onOpeningChange,
 }: Props) {
-  const { nodes } = config
+  const { nodes, variables, databases } = config
+  const [leftPct, setLeftPct] = useState(DEFAULT_LEFT_PCT)
+  const [dragging, setDragging] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const leftPctRef = useRef(leftPct)
+
+  useEffect(() => {
+    leftPctRef.current = leftPct
+  }, [leftPct])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setDragging(true)
+  }, [])
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const pct = (x / rect.width) * 100
+      const clamped = Math.min(MAX_LEFT_PCT, Math.max(MIN_LEFT_PCT, pct))
+      leftPctRef.current = clamped
+      setLeftPct(clamped)
+    },
+    [],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    setDragging(false)
+  }, [])
+
+  useEffect(() => {
+    if (!dragging) return
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [dragging, handleMouseMove, handleMouseUp])
 
   const handleAddNode = (nodeType: (typeof NODE_TYPES)[number]) => {
     const newNode = {
@@ -63,27 +114,35 @@ export function SingleAgentFlow({
       x: 200 + nodes.length * 40,
       y: 200 + nodes.length * 40,
     }
-    onConfigChange({ nodes: [...nodes, newNode] })
+    onConfigChange({ ...config, nodes: [...nodes, newNode] })
+  }
+
+  const handleAddVariable = () => {
+    onConfigChange({ ...config, variables: [...variables, `变量 ${variables.length + 1}`] })
+  }
+
+  const handleAddDatabase = () => {
+    onConfigChange({ ...config, databases: [...databases, `数据库 ${databases.length + 1}`] })
   }
 
   return (
-    <>
-      {/* 左侧栏：编排 */}
-      <div className={styles.col} style={{ flex: 1, minWidth: 420 }}>
+    <div
+      ref={containerRef}
+      style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}
+    >
+      <div className={styles.col} style={{ width: `${leftPct}%`, minWidth: 320, flexShrink: 0 }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>编排</h3>
         </div>
         <div className={styles.colBody}>
-          {/* 对话流配置区 */}
-          <div className={styles.flowAddArea}>
-            <div className={styles.flowAddIcon}>+</div>
-            <span className={styles.flowAddText}>点击添加对话流</span>
-            <span className={styles.flowAddDesc}>
+          <div className={flowStyles.flowAddArea}>
+            <div className={flowStyles.flowAddIcon}>+</div>
+            <span className={flowStyles.flowAddText}>点击添加对话流</span>
+            <span className={flowStyles.flowAddDesc}>
               每次对话都会调用该对话流，用户"本轮对话输入"会作为对话流的输入参数"USER_INPUT"传入
             </span>
           </div>
 
-          {/* 节点工具栏 */}
           <div style={{
             display: 'flex',
             gap: 8,
@@ -115,7 +174,6 @@ export function SingleAgentFlow({
             ))}
           </div>
 
-          {/* 画布区域 */}
           <div style={{
             border: '1px solid rgba(104,119,144,0.15)',
             borderRadius: 8,
@@ -180,12 +238,10 @@ export function SingleAgentFlow({
             ))}
           </div>
 
-          {/* 可折叠配置面板 */}
           <div style={{ marginTop: 20 }}>
             <CollapsePanel title="模型参数">
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>T</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>Temperature</span>
                     <span className={styles.configRowDesc}>控制回复随机性，数值越高越发散</span>
@@ -219,7 +275,6 @@ export function SingleAgentFlow({
               </div>
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>CTX</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>上下文轮数</span>
                     <span className={styles.configRowDesc}>控制运行时携带的历史消息数量</span>
@@ -247,24 +302,28 @@ export function SingleAgentFlow({
             <CollapsePanel title="记忆">
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>📝</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>变量</span>
                   </div>
                 </div>
                 <div className={styles.configRowRight}>
-                  <button className={styles.addBtn}><span>+</span></button>
+                  {variables.length > 0 && (
+                    <span className={styles.configRowCount}>{variables.length} 个变量</span>
+                  )}
+                  <button className={styles.addBtn} onClick={handleAddVariable}><span>+</span></button>
                 </div>
               </div>
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>🗄️</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>数据库</span>
                   </div>
                 </div>
                 <div className={styles.configRowRight}>
-                  <button className={styles.addBtn}><span>+</span></button>
+                  {databases.length > 0 && (
+                    <span className={styles.configRowCount}>{databases.length} 个数据库</span>
+                  )}
+                  <button className={styles.addBtn} onClick={handleAddDatabase}><span>+</span></button>
                 </div>
               </div>
             </CollapsePanel>
@@ -281,23 +340,29 @@ export function SingleAgentFlow({
         </div>
       </div>
 
-      {/* 右侧栏：预览与调试 */}
-      <div className={styles.col} style={{ flex: '0 0 360px', minWidth: 320 }}>
+      <div
+        className={flowStyles.splitter}
+        onMouseDown={handleMouseDown}
+      >
+        <div className={flowStyles.splitterLine} />
+      </div>
+
+      <div className={styles.col} style={{ flex: 1, minWidth: 260, overflow: 'hidden' }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>预览与调试</h3>
         </div>
-        <div className={styles.colBody} style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+        <div className={styles.colBody} style={{ padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <PreviewChat
             agentId={agent.id}
             agentName={agent.name}
             avatar={agent.avatar}
-            persona={agent.persona}
+            persona={persona}
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
           />
         </div>
       </div>
-    </>
+    </div>
   )
 }
