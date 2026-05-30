@@ -13,6 +13,8 @@ import {
 } from '@ant-design/icons'
 import { Tooltip } from '../components/Tooltip'
 import { Dropdown } from 'antd'
+import { Button, Popover } from 'antd'
+import NodeSelectorPanel from '../components/NodeSelectorPanel'
 
 const exportItems = [
     {
@@ -70,8 +72,10 @@ const handExportClick = ({ key }: { key: string }) => {
         console.log('导出为svg')
     }
 }
-
-function Toolbar() {
+interface ToolbarProps {
+    onAddNode: (type: string) => void
+}
+function Toolbar({ onAddNode }: ToolbarProps) {
     const [scale, setScale] = useState(75)
     const handScaleClick = ({ key }: { key: string }) => {
         if (key === '50') {
@@ -167,12 +171,19 @@ function Toolbar() {
                     </div>
                 </Tooltip>
 
-                <div className={styles.AddNodeButton}>
-                    <button>
-                        <PlusOutlined style={{ fontSize: 16 }} />
-                        <span>添加节点</span>
-                    </button>
-                </div>
+                <Popover
+                    content={<NodeSelectorPanel onAddNode={onAddNode} />}
+                    trigger="click"
+                    placement="top"
+                    arrow={false}
+                >
+                    <div className={styles.AddNodeButton}>
+                        <button>
+                            <PlusOutlined style={{ fontSize: 16 }} />
+                            <span>添加节点</span>
+                        </button>
+                    </div>
+                </Popover>
             </div>
 
             <div className={styles.run}>
