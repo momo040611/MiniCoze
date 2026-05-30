@@ -150,12 +150,11 @@ export function handleUpdateProfile(token: string, updates: Partial<Omit<StoredU
   if (idx === -1) {
     throw new Error('用户不存在');
   }
-  const allowedFields = ['username', 'email', 'phone', 'bio', 'avatarUrl'] as const;
-  for (const field of allowedFields) {
-    if (updates[field] !== undefined) {
-      (users[idx] as Record<string, unknown>)[field] = updates[field];
-    }
-  }
+  if (updates.username !== undefined) users[idx].username = updates.username;
+  if (updates.email !== undefined) users[idx].email = updates.email;
+  if (updates.phone !== undefined) users[idx].phone = updates.phone;
+  if (updates.bio !== undefined) users[idx].bio = updates.bio;
+  if (updates.avatarUrl !== undefined) users[idx].avatarUrl = updates.avatarUrl;
   users[idx].updatedAt = new Date().toISOString();
   writeUsers(users);
   return stripPassword(users[idx]);
