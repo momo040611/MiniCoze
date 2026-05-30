@@ -1,8 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { ErrorCode } from '../../common/constants/error-code';
+import { BusinessException } from '../../common/exceptions/business.exception';
+import { createPaginatedData } from '../../common/types/pagination-response.type';
+import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
+import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { PluginMaskerService } from './mask/plugin-masker.service';
+import { PluginInvocationQueryDto } from './dto/plugin-invocation-query.dto';
 import {
   type PluginMaskStrategy,
+  type PluginInvocationResponse,
   type ResolvedPluginTool,
 } from './types/plugin.types';
 
@@ -17,6 +24,7 @@ export class PluginInvocationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly masker: PluginMaskerService,
+    private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
   private get db(): PrismaService & Record<string, any> {
@@ -92,10 +100,79 @@ export class PluginInvocationService {
     return errorSummary;
   }
 
+  async findByPlugin(
+    userId: string,
+    pluginId: string,
+    query: PluginInvocationQueryDto,
+  ) {
+    await this.workspaceAccessService.ensureMember(userId, query.workspaceId);
+
+    const plugin = await this.db.pluginDefinition.findFirst({
+      where: {
+        id: pluginId,
+        workspaceId: query.workspaceId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!plugin) {
+      throw new BusinessException(
+        '插件不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const where = {
+      pluginId,
+    };
+
+    const [records, total] = await this.db.$transaction([
+      this.db.pluginInvocation.findMany({
+        where,
+        orderBy: {
+          startedAt: 'desc',
+        },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.db.pluginInvocation.count({ where }),
+    ]);
+
+    return createPaginatedData({
+      list: records.map((record: any) => this.toInvocationResponse(record)),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+  }
+
   private getMaskStrategy(value: unknown): PluginMaskStrategy | undefined {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return undefined;
     }
     return value as PluginMaskStrategy;
+  }
+
+  private toInvocationResponse(record: any): PluginInvocationResponse {
+    return {
+      id: record.id,
+      pluginId: record.pluginId,
+      agentId: record.agentId,
+      conversationId: record.conversationId ?? null,
+      runId: record.runId,
+      toolCode: record.toolCode,
+      status: record.status,
+      argsSummary: record.argsSummary ?? null,
+      outputSummary: record.outputSummary ?? null,
+      errorSummary: record.errorSummary ?? null,
+      durationMs: record.durationMs ?? null,
+      startedAt: formatShanghaiDateTime(record.startedAt),
+      finishedAt: record.finishedAt
+        ? formatShanghaiDateTime(record.finishedAt)
+        : null,
+    };
   }
 }

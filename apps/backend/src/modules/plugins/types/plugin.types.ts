@@ -98,6 +98,22 @@ export interface AgentPluginBindingResponse {
   updatedAt: string;
 }
 
+export interface PluginInvocationResponse {
+  id: string;
+  pluginId: string;
+  agentId: string;
+  conversationId: string | null;
+  runId: string;
+  toolCode: string;
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'TIMEOUT' | 'CANCELED';
+  argsSummary: unknown;
+  outputSummary: unknown;
+  errorSummary: string | null;
+  durationMs: number | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
 export interface ResolvedPluginTool {
   binding: any;
   plugin: any;
