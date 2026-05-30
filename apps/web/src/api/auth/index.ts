@@ -20,12 +20,12 @@ export async function register(payload: RegisterPayload) {
 }
 
 export async function getProfile() {
-  const res = await http.get<ApiEnvelope<UserInfo>>('auth/profile');
+  const res = await http.get<ApiEnvelope<UserInfo>>('users/me');
   return res.data;
 }
 
 export async function updateProfile(payload: UpdateProfilePayload) {
-  const res = await http.put<ApiEnvelope<UserInfo>>('auth/profile', payload);
+  const res = await http.patch<ApiEnvelope<UserInfo>>('users/me', payload);
   const user = res.data;
   updateUserData(user);
   return user;
@@ -37,18 +37,13 @@ export async function changePassword(payload: ChangePasswordPayload) {
 }
 
 export async function updateAvatar(file: File) {
-  const formData = new FormData();
-  formData.append('avatar', file);
-  const res = await http.post<ApiEnvelope<{ avatarUrl: string }>>('auth/avatar', formData, {
-    headers: {},
-    auth: true,
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => resolve(ev.target?.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-  const { avatarUrl } = res.data;
-  const currentUser = await getProfile();
-  if (currentUser.avatarUrl !== avatarUrl) {
-    updateUserData({ ...currentUser, avatarUrl });
-  }
-  return avatarUrl;
+  return updateProfile({ avatarUrl: dataUrl });
 }
 
 export function logout() {

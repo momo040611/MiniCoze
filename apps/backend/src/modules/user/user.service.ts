@@ -61,6 +61,8 @@ export class UserService {
       username: user.username,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      phone: user.phone ?? null,
+      bio: user.bio ?? null,
       status: user.status,
       createdAt: formatShanghaiDateTime(user.createdAt),
       updatedAt: formatShanghaiDateTime(user.updatedAt),

@@ -3,6 +3,8 @@ export interface UserResponse {
   username: string;
   email: string;
   avatarUrl: string | null;
+  phone: string | null;
+  bio: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;

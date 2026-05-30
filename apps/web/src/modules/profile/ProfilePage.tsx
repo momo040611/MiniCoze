@@ -107,8 +107,9 @@ export function ProfilePage() {
       setAvatarUrl(dataUrl);
       await updateProfile({ avatarUrl: dataUrl });
       message.success('头像更新成功');
-    } catch {
-      message.error('头像上传失败');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '头像上传失败';
+      message.error(msg);
     }
   }, []);
 

@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json } from 'express';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -9,6 +10,9 @@ export function setupApp(app: INestApplication) {
   const configService = app.get(ConfigService);
   const reflector = app.get(Reflector);
   const corsOrigins = configService.get<string[]>('cors.origins') ?? [];
+
+  // 加大 JSON body 大小限制，支持 base64 头像上传
+  app.use(json({ limit: '10mb' }));
 
   app.enableCors({
     origin: corsOrigins,
