@@ -8,6 +8,7 @@ import { CreatePluginToolDto } from './dto/create-plugin-tool.dto';
 import { UpdatePluginToolDto } from './dto/update-plugin-tool.dto';
 import { PluginService } from './plugin.service';
 import { type PluginToolResponse } from './types/plugin.types';
+import { PluginSchemaValidator } from './validators/plugin-schema.validator';
 
 @Injectable()
 export class PluginToolService {
@@ -15,6 +16,7 @@ export class PluginToolService {
     private readonly prisma: PrismaService,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly pluginService: PluginService,
+    private readonly schemaValidator: PluginSchemaValidator,
   ) {}
 
   private get db(): PrismaService & Record<string, any> {
@@ -27,11 +29,21 @@ export class PluginToolService {
     dto: CreatePluginToolDto,
   ): Promise<PluginToolResponse> {
     const plugin = await this.pluginService.findPluginOrThrow(pluginId);
-    await this.workspaceAccessService.ensureCanManage(userId, plugin.workspaceId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      plugin.workspaceId,
+    );
 
-    this.validateSchema(dto.inputSchema, 'inputSchema');
-    if (dto.outputSchema) {
-      this.validateLooseObject(dto.outputSchema, 'outputSchema');
+    this.schemaValidator.validateDefinition(dto.inputSchema);
+    if (
+      dto.outputSchema &&
+      (typeof dto.outputSchema !== 'object' || Array.isArray(dto.outputSchema))
+    ) {
+      throw new BusinessException(
+        'outputSchema 必须是对象',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const existing = await this.db.pluginTool.findFirst({
@@ -71,15 +83,25 @@ export class PluginToolService {
     dto: UpdatePluginToolDto,
   ): Promise<PluginToolResponse> {
     const plugin = await this.pluginService.findPluginOrThrow(pluginId);
-    await this.workspaceAccessService.ensureCanManage(userId, plugin.workspaceId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      plugin.workspaceId,
+    );
 
     const tool = await this.findToolOrThrow(pluginId, toolId);
 
     if (dto.inputSchema) {
-      this.validateSchema(dto.inputSchema, 'inputSchema');
+      this.schemaValidator.validateDefinition(dto.inputSchema);
     }
-    if (dto.outputSchema) {
-      this.validateLooseObject(dto.outputSchema, 'outputSchema');
+    if (
+      dto.outputSchema &&
+      (typeof dto.outputSchema !== 'object' || Array.isArray(dto.outputSchema))
+    ) {
+      throw new BusinessException(
+        'outputSchema 必须是对象',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (dto.code && dto.code !== tool.code) {
@@ -133,28 +155,6 @@ export class PluginToolService {
 
     return tool;
   }
-
-  private validateSchema(schema: Record<string, unknown>, fieldName: string) {
-    this.validateLooseObject(schema, fieldName);
-    if (schema.type !== 'object') {
-      throw new BusinessException(
-        `${fieldName} 必须声明 type 为 object`,
-        ErrorCode.BadRequest,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  private validateLooseObject(value: Record<string, unknown>, fieldName: string) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw new BusinessException(
-        `${fieldName} 必须是对象`,
-        ErrorCode.BadRequest,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
   private toPluginToolResponse(tool: any): PluginToolResponse {
     return {
       id: tool.id,
@@ -163,7 +163,10 @@ export class PluginToolService {
       description: tool.description,
       status: tool.status,
       inputSchema: (tool.inputSchema ?? {}) as Record<string, unknown>,
-      outputSchema: (tool.outputSchema ?? null) as Record<string, unknown> | null,
+      outputSchema: (tool.outputSchema ?? null) as Record<
+        string,
+        unknown
+      > | null,
       meta: (tool.meta ?? null) as Record<string, unknown> | null,
       createdAt: formatShanghaiDateTime(tool.createdAt),
       updatedAt: formatShanghaiDateTime(tool.updatedAt),

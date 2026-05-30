@@ -19,10 +19,7 @@ export const AGENT_PLUGIN_BINDING_STATUS_VALUES = [
 export type AgentPluginBindingStatusValue =
   (typeof AGENT_PLUGIN_BINDING_STATUS_VALUES)[number];
 
-export const PLUGIN_CREDENTIAL_STATUS_VALUES = [
-  'ACTIVE',
-  'DISABLED',
-] as const;
+export const PLUGIN_CREDENTIAL_STATUS_VALUES = ['ACTIVE', 'DISABLED'] as const;
 export type PluginCredentialStatusValue =
   (typeof PLUGIN_CREDENTIAL_STATUS_VALUES)[number];
 
@@ -33,6 +30,21 @@ export interface AgentPluginBindingConfig {
   disabledTools?: string[];
   defaults?: Record<string, Record<string, unknown>>;
   forcedOverrides?: Record<string, Record<string, unknown>>;
+}
+
+export interface PluginMaskRule {
+  maskPaths?: string[];
+  dropPaths?: string[];
+  maxStringLength?: number;
+}
+
+export interface PluginMaskStrategy {
+  enabled?: boolean;
+  input?: PluginMaskRule;
+  output?: PluginMaskRule;
+  error?: {
+    maxStringLength?: number;
+  };
 }
 
 export interface PluginToolResponse {
@@ -84,4 +96,15 @@ export interface AgentPluginBindingResponse {
   config: AgentPluginBindingConfig | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ResolvedPluginTool {
+  binding: any;
+  plugin: any;
+  tool: any;
+  metadata: {
+    pluginId: string;
+    pluginCode: string;
+    toolCode: string;
+  };
 }

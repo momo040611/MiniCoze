@@ -56,7 +56,8 @@ export class PluginRegistryService {
     const tools: ToolDefinition[] = [];
 
     for (const binding of bindings) {
-      const bindingConfig = (binding.config ?? null) as AgentPluginBindingConfig | null;
+      const bindingConfig = (binding.config ??
+        null) as AgentPluginBindingConfig | null;
       const disabledTools = Array.isArray(bindingConfig?.disabledTools)
         ? bindingConfig.disabledTools
         : [];

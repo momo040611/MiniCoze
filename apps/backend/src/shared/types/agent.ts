@@ -31,6 +31,10 @@ export interface ToolCall {
 export interface ToolResult {
   toolCallId: string;
   output: string;
+  metadata?: RuntimeToolMetadata;
+  maskedArgs?: unknown;
+  maskedOutput?: unknown;
+  maskedError?: string;
 }
 
 export interface RuntimeToolMetadata {
