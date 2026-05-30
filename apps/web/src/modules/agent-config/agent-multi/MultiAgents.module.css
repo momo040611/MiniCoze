@@ -6,34 +6,313 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 
-.canvasArea {
+/* 画布视口 */
+.canvasViewport {
   flex: 1;
   position: relative;
   min-height: 0;
+  overflow: hidden;
+  background: #f8f9fb;
+  cursor: default;
+}
+
+.canvasViewport.panning {
+  cursor: grabbing;
+}
+
+.canvasViewport.connecting {
+  cursor: crosshair;
+}
+
+/* 画布内容层（transform 变换层） */
+.canvasContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 网格背景 */
+.canvasGrid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8000px;
+  height: 8000px;
   background-image:
-    linear-gradient(#e5e7eb 1px, transparent 1px),
-    linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
+    linear-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
   background-size: 24px 24px;
-  background-position: center center;
-  overflow: auto;
+  pointer-events: none;
 }
 
-.canvasArea::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* SVG 连线层 */
+.canvasSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8000px;
+  height: 8000px;
+  pointer-events: none;
+  overflow: visible;
 }
 
-.canvasArea::-webkit-scrollbar-track {
-  background: transparent;
+.canvasSvg path {
+  pointer-events: stroke;
 }
 
-.canvasArea::-webkit-scrollbar-thumb {
-  background: #d0d5dd;
-  border-radius: 3px;
+/* ============================================
+   节点通用样式
+   ============================================ */
+.canvasNode {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  cursor: grab;
+  z-index: 10;
+  transition: box-shadow 0.15s;
 }
 
+.canvasNode:active {
+  cursor: grabbing;
+}
+
+.canvasNodeSelected {
+  z-index: 20;
+}
+
+.canvasNodeDragging {
+  z-index: 30;
+  opacity: 0.9;
+  cursor: grabbing;
+}
+
+/* ============================================
+   开始节点（绿色圆角）
+   ============================================ */
+.startNode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: #ecfdf5;
+  border: 2px solid #22c55e;
+  border-radius: 22px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.startNode:hover {
+  box-shadow: 0 2px 12px rgba(34, 197, 94, 0.22);
+}
+
+.startNodeSelected {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+.startIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   主 Agent 节点（紫色边框）
+   ============================================ */
+.agentNode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #fff;
+  border: 1.5px solid #7c3aed;
+  border-radius: 10px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.agentNode:hover {
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.18);
+}
+
+.agentNodeSelected {
+  border-color: #6d28d9;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.agentAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.agentIconPlaceholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.agentInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.agentName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #18202f;
+  white-space: nowrap;
+}
+
+.agentRole {
+  font-size: 11px;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+/* ============================================
+   子 Agent 节点（浅紫色边框）
+   ============================================ */
+.subAgentNode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #fafafe;
+  border: 1.5px solid rgba(124, 58, 237, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.subAgentNode:hover {
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.55);
+}
+
+.subAgentNodeSelected {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.subAgentIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #506070;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   连接点（Port）
+   ============================================ */
+.portWrap {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+}
+
+.portDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #7c3aed;
+  background: #fff;
+  transition: width 0.15s, height 0.15s, background 0.15s;
+  cursor: crosshair;
+}
+
+.portDot:hover {
+  width: 14px;
+  height: 14px;
+  background: #7c3aed;
+}
+
+.portDotActive {
+  width: 14px;
+  height: 14px;
+  background: #7c3aed;
+}
+
+.outputPort {
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.inputPort {
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ============================================
+   连线样式
+   ============================================ */
+.connectionLine {
+  fill: none;
+  stroke: #b0b8c8;
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke 0.15s;
+}
+
+.connectionLine:hover {
+  stroke: #7c3aed;
+  stroke-width: 3;
+}
+
+.connectionLineSelected {
+  stroke: #7c3aed;
+  stroke-width: 3;
+}
+
+.connectionArrow {
+  fill: #b0b8c8;
+}
+
+/* 正在拖拽的临时连线 */
+.tempConnection {
+  fill: none;
+  stroke: #7c3aed;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+/* ============================================
+   底部工具栏
+   ============================================ */
 .canvasToolbar {
   display: flex;
   align-items: center;
@@ -67,106 +346,126 @@
   color: #506070;
   font-size: 12px;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
 }
 
 .canvasToolBtn:hover {
   background: #f3f4f6;
   border-color: rgba(104, 119, 144, 0.25);
+  color: #374151;
 }
 
-/* 画布节点 */
-.canvasStartNode {
+.canvasToolBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.canvasToolBtn:disabled:hover {
+  background: #fff;
+  border-color: rgba(104, 119, 144, 0.15);
+  color: #506070;
+}
+
+.canvasToolBtnActive {
+  background: #f5f3ff;
+  border-color: rgba(124, 58, 237, 0.3);
+  color: #7c3aed;
+}
+
+.zoomLabel {
+  font-size: 12px;
+  color: #8896a6;
+  font-weight: 500;
+  min-width: 36px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.zoomLabel:hover {
+  color: #7c3aed;
+}
+
+/* ============================================
+   节点添加菜单
+   ============================================ */
+.nodeMenu {
   position: absolute;
-  top: 60px;
-  left: 60px;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: #fff;
+  border: 1px solid rgba(104, 119, 144, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  padding: 4px;
+  z-index: 50;
+  min-width: 180px;
+}
+
+.nodeMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-family: inherit;
+}
+
+.nodeMenuItem:hover {
+  background: #f3f4f6;
+}
+
+.nodeMenuIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 20px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.nodeMenuIconStart {
   background: #ecfdf5;
-  border: 2px solid #22c55e;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #166534;
-  cursor: pointer;
-  transition: box-shadow 0.15s;
-  z-index: 2;
+  color: #22c55e;
 }
 
-.canvasStartNode:hover {
-  box-shadow: 0 2px 10px rgba(34, 197, 94, 0.2);
+.nodeMenuIconAgent {
+  background: #f5f3ff;
+  color: #7c3aed;
 }
 
-.canvasAgentNode {
-  position: absolute;
-  top: 60px;
-  left: 240px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  background: #fff;
-  border: 1.5px solid #7c3aed;
-  border-radius: 10px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  transition: box-shadow 0.15s;
-  z-index: 2;
+.nodeMenuIconSub {
+  background: #f3f4f6;
+  color: #506070;
 }
 
-.canvasAgentNode:hover {
-  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.15);
-}
-
-.canvasAgentAvatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  object-fit: cover;
-}
-
-.canvasAgentInfo {
+.nodeMenuInfo {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
 
-.canvasAgentName {
-  font-size: 13px;
-  font-weight: 600;
-  color: #18202f;
-}
-
-.canvasAgentRole {
-  font-size: 11px;
-  color: #7c3aed;
+.nodeMenuName {
   font-weight: 500;
 }
 
-.canvasConnector {
-  position: absolute;
-  top: 78px;
-  left: 170px;
-  width: 70px;
-  height: 2px;
-  background: #d0d5dd;
-  z-index: 1;
+.nodeMenuDesc {
+  font-size: 11px;
+  color: #8896a6;
 }
 
-.canvasConnectorArrow {
-  position: absolute;
-  top: 72px;
-  left: 234px;
-  width: 0;
-  height: 0;
-  border-top: 7px solid transparent;
-  border-bottom: 7px solid transparent;
-  border-left: 10px solid #d0d5dd;
-  z-index: 1;
-}
-
+/* 画布空状态提示 */
 .canvasPlaceholder {
   position: absolute;
   top: 50%;
@@ -175,4 +474,20 @@
   font-size: 13px;
   color: #a0aec0;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvasPlaceholderIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px dashed #d0d5dd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #a0aec0;
 }
