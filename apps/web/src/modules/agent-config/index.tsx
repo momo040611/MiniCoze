@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Modal } from "antd";
 import styles from "./index.module.css";
 import { CreateAgent } from "./creatAgent";
-import { AgentDetail } from "./agent-detail";
-import type { AgentDetailData } from "./agent-detail";
-import { AgentConfig, createAgent, getAgentDetail, getAgentList, deleteAgent } from "../../api/agent-config/index";
+import type { AgentConfig } from "../../api/agent-config/index";
+import { createAgent, getAgentList, deleteAgent } from "../../api/agent-config/index";
 
 export function CreatAgent() {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<AgentConfig[]>([]);
   const [search, setSearch] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<AgentConfig | null>(null);
 
   useEffect(() => {
     getAgentList().then(setAgents);
@@ -23,49 +24,29 @@ export function CreatAgent() {
     const newAgent = await createAgent(params);
     setAgents((prev) => [newAgent, ...prev]);
     setModalVisible(false);
-    // 创建完自动跳转到详情页
-    setSelectedAgent(newAgent);
+    navigate(`/agents/${newAgent.id}`);
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteAgent(id);
-    setAgents((prev) => prev.filter((a) => a.id !== id));
+  const handleDelete = (agent: AgentConfig) => {
+    Modal.confirm({
+      title: '删除智能体',
+      content: `确定要删除智能体「${agent.name}」吗？此操作不可恢复，该智能体的所有配置和对话记录将被永久删除。`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        await deleteAgent(agent.id);
+        setAgents((prev) => prev.filter((a) => a.id !== agent.id));
+      },
+    });
   };
 
-  const handleSelectAgent = async (id: string) => {
-    const detail = await getAgentDetail(id);
-    if (detail) {
-      setSelectedAgent(detail);
-    }
+  const handleSelectAgent = (id: string) => {
+    navigate(`/agents/${id}`);
   };
 
-  const handleBack = () => {
-    setSelectedAgent(null);
-    getAgentList().then(setAgents);
-  };
-
-  // ===== 详情页视图 =====
-  if (selectedAgent) {
-    const detailData: AgentDetailData = {
-      id: selectedAgent.id,
-      name: selectedAgent.name,
-      avatar: selectedAgent.avatar,
-      description: selectedAgent.description,
-      mode: selectedAgent.mode,
-      persona: selectedAgent.persona,
-      orchestration: selectedAgent.orchestration,
-      model: selectedAgent.model ?? 'deepseek-v4-flash',
-      temperature: selectedAgent.temperature ?? 0.7,
-      openingMessage: selectedAgent.openingMessage ?? '',
-      contextLimit: selectedAgent.contextLimit ?? 20,
-    };
-    return <AgentDetail agent={detailData} onBack={handleBack} />;
-  }
-
-  // ===== 列表页视图 =====
   return (
     <div className={styles.agentConfig}>
-      {/* ===== 顶部栏 ===== */}
       <div className={styles.topBar}>
         <span className={styles.topBarTitle}>智能体</span>
         <div className={styles.topBarRight}>
@@ -81,13 +62,13 @@ export function CreatAgent() {
           </div>
           <button
             onClick={() => setModalVisible(true)}
+            className={styles.topBarCreateBtn}
           >
             + 新建智能体
           </button>
         </div>
       </div>
 
-      {/* ===== 智能体列表 ===== */}
       <div className={styles.agentList}>
         {filteredAgents.length === 0 ? (
           <div className={styles.agentListEmpty}>
@@ -116,7 +97,7 @@ export function CreatAgent() {
                 className={styles.agentCardDelete}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDelete(agent.id);
+                  handleDelete(agent);
                 }}
                 title="删除"
               >
@@ -127,7 +108,6 @@ export function CreatAgent() {
         )}
       </div>
 
-      {/* ===== 创建弹窗 ===== */}
       <CreateAgent
         visible={modalVisible}
         onCancel={() => setModalVisible(false)}

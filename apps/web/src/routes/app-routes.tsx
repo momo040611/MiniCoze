@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage, RegisterPage } from '../modules/auth';
 import { ArchitecturePage } from '../modules/architecture';
 import { CreatAgent } from '../modules/agent-config';
+import { AgentDetailPage } from '../modules/agent-config/AgentDetailPage';
 import { HomepageIndex } from '../modules/homepage';
 import { KnowledgeBasePage, KnowledgeCreate, KnowledgeDetail, KnowledgeList } from '../modules/knowledge-base';
 import { Productionline } from '../modules/knowledge-base/page/Productionline';
@@ -60,6 +61,7 @@ export function AppRoutes() {
           <Route path="/workspace" element={<HomepageIndex />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/agents" element={<CreatAgent />} />
+          <Route path="/agents/:agentId" element={<AgentDetailPage />} />
           <Route path="/workflows" element={<WorkflowCanvasPage />} />
           <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/publish" element={<PublishPage />} />
