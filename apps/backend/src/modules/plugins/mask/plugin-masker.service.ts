@@ -28,10 +28,7 @@ export class PluginMaskerService {
 
   summarizeError(error: unknown, strategy?: PluginMaskStrategy | null): string {
     const message = error instanceof Error ? error.message : String(error);
-    return this.truncate(
-      message,
-      strategy?.error?.maxStringLength ?? 500,
-    );
+    return this.truncate(message, strategy?.error?.maxStringLength ?? 500);
   }
 
   private applyRule(

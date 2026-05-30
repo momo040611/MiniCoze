@@ -57,6 +57,7 @@ export class PluginController {
     @CurrentUserInfo() currentUser: CurrentUser,
     @Param('pluginId') pluginId: string,
   ) {
+    console.log('获取插件详情');
     return this.pluginService.findOneForUser(currentUser.id, pluginId);
   }
 
