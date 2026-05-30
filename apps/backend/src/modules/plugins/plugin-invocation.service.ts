@@ -34,21 +34,57 @@ export class PluginInvocationService {
   async start(input: {
     target: ResolvedPluginTool;
     runId: string;
-    conversationId: string;
+    conversationId: string | null;
     args: Record<string, unknown>;
   }): Promise<InvocationContext> {
-    const strategy = this.getMaskStrategy(input.target.plugin.maskStrategy);
+    return this.createInvocation({
+      pluginId: input.target.plugin.id,
+      agentId: input.target.binding.agentId,
+      conversationId: input.conversationId,
+      runId: input.runId,
+      toolCode: input.target.tool.code,
+      maskStrategy: input.target.plugin.maskStrategy,
+      args: input.args,
+    });
+  }
+
+  async startToolTest(input: {
+    plugin: { id: string; maskStrategy?: unknown };
+    tool: { code: string };
+    args: Record<string, unknown>;
+  }): Promise<InvocationContext> {
+    return this.createInvocation({
+      pluginId: input.plugin.id,
+      agentId: null,
+      conversationId: null,
+      runId: `test:${input.plugin.id}:${input.tool.code}:${Date.now()}`,
+      toolCode: input.tool.code,
+      maskStrategy: input.plugin.maskStrategy,
+      args: input.args,
+    });
+  }
+
+  private async createInvocation(input: {
+    pluginId: string;
+    agentId: string | null;
+    conversationId: string | null;
+    runId: string;
+    toolCode: string;
+    maskStrategy?: unknown;
+    args: Record<string, unknown>;
+  }): Promise<InvocationContext> {
+    const strategy = this.getMaskStrategy(input.maskStrategy);
     const argsSummary = this.masker.summarizeInput(input.args, strategy);
     const created = await this.db.pluginInvocation.create({
       data: {
-        pluginId: input.target.plugin.id,
-        agentId: input.target.binding.agentId,
+        pluginId: input.pluginId,
+        agentId: input.agentId,
         conversationId: input.conversationId,
         runId: input.runId,
-        toolCode: input.target.tool.code,
+        toolCode: input.toolCode,
         status: 'RUNNING',
         argsSummary: argsSummary as any,
-      },
+      } as any,
     });
 
     return {
@@ -160,7 +196,7 @@ export class PluginInvocationService {
     return {
       id: record.id,
       pluginId: record.pluginId,
-      agentId: record.agentId,
+      agentId: record.agentId ?? null,
       conversationId: record.conversationId ?? null,
       runId: record.runId,
       toolCode: record.toolCode,

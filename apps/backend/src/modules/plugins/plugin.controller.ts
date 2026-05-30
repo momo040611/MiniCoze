@@ -16,6 +16,7 @@ import { CreatePluginDto } from './dto/create-plugin.dto';
 import { CreatePluginToolDto } from './dto/create-plugin-tool.dto';
 import { PluginInvocationQueryDto } from './dto/plugin-invocation-query.dto';
 import { PluginQueryDto } from './dto/plugin-query.dto';
+import { TestPluginToolDto } from './dto/test-plugin-tool.dto';
 import { UpdatePluginDto } from './dto/update-plugin.dto';
 import { UpdatePluginToolDto } from './dto/update-plugin-tool.dto';
 import { PluginInvocationService } from './plugin-invocation.service';
@@ -122,5 +123,16 @@ export class PluginController {
     @Body() dto: UpdatePluginToolDto,
   ) {
     return this.pluginToolService.update(currentUser.id, pluginId, toolId, dto);
+  }
+
+  @Post(':pluginId/tools/:toolId/test')
+  @ApiOperation({ summary: '测试插件工具' })
+  testTool(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('pluginId') pluginId: string,
+    @Param('toolId') toolId: string,
+    @Body() dto: TestPluginToolDto,
+  ) {
+    return this.pluginToolService.test(currentUser.id, pluginId, toolId, dto);
   }
 }
