@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.3",
+    "@flowgram.ai/free-layout-editor": "latest",
     "antd": "^6.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
