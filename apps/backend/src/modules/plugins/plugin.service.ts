@@ -130,7 +130,10 @@ export class PluginService {
     dto: UpdatePluginDto,
   ): Promise<PluginDetailResponse> {
     const plugin = await this.findPluginOrThrow(pluginId);
-    await this.workspaceAccessService.ensureCanManage(userId, plugin.workspaceId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      plugin.workspaceId,
+    );
 
     if (dto.code && dto.code !== plugin.code) {
       const existing = await this.db.pluginDefinition.findFirst({
@@ -212,7 +215,10 @@ export class PluginService {
       description: tool.description,
       status: tool.status,
       inputSchema: (tool.inputSchema ?? {}) as Record<string, unknown>,
-      outputSchema: (tool.outputSchema ?? null) as Record<string, unknown> | null,
+      outputSchema: (tool.outputSchema ?? null) as Record<
+        string,
+        unknown
+      > | null,
       meta: (tool.meta ?? null) as Record<string, unknown> | null,
       createdAt: formatShanghaiDateTime(tool.createdAt),
       updatedAt: formatShanghaiDateTime(tool.updatedAt),
@@ -220,7 +226,9 @@ export class PluginService {
   }
 
   private toPluginDetailResponse(plugin: any): PluginDetailResponse {
-    const credentials = Array.isArray(plugin.credentials) ? plugin.credentials : [];
+    const credentials = Array.isArray(plugin.credentials)
+      ? plugin.credentials
+      : [];
     return {
       id: plugin.id,
       workspaceId: plugin.workspaceId,
@@ -234,7 +242,10 @@ export class PluginService {
       version: plugin.version,
       isBuiltin: Boolean(plugin.isBuiltin),
       invocationEnabled: Boolean(plugin.invocationEnabled),
-      maskStrategy: (plugin.maskStrategy ?? null) as Record<string, unknown> | null,
+      maskStrategy: (plugin.maskStrategy ?? null) as Record<
+        string,
+        unknown
+      > | null,
       tools: Array.isArray(plugin.tools)
         ? plugin.tools.map((tool: any) => this.toPluginToolResponse(tool))
         : [],

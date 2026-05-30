@@ -1,11 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsIn,
-  IsInt,
-  IsObject,
-  IsOptional,
-} from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsObject, IsOptional } from 'class-validator';
 import {
   AGENT_PLUGIN_BINDING_STATUS_VALUES,
   type AgentPluginBindingConfig,
