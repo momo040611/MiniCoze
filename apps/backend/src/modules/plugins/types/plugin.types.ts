@@ -101,7 +101,7 @@ export interface AgentPluginBindingResponse {
 export interface PluginInvocationResponse {
   id: string;
   pluginId: string;
-  agentId: string;
+  agentId: string | null;
   conversationId: string | null;
   runId: string;
   toolCode: string;
@@ -112,6 +112,13 @@ export interface PluginInvocationResponse {
   durationMs: number | null;
   startedAt: string;
   finishedAt: string | null;
+}
+
+export interface PluginToolTestResponse {
+  success: boolean;
+  output: unknown;
+  error: string | null;
+  durationMs: number;
 }
 
 export interface ResolvedPluginTool {

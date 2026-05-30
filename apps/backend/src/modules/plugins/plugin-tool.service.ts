@@ -5,9 +5,15 @@ import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { CreatePluginToolDto } from './dto/create-plugin-tool.dto';
+import { TestPluginToolDto } from './dto/test-plugin-tool.dto';
 import { UpdatePluginToolDto } from './dto/update-plugin-tool.dto';
+import { PluginExecutionService } from './plugin-execution.service';
 import { PluginService } from './plugin.service';
-import { type PluginToolResponse } from './types/plugin.types';
+import {
+  type AgentPluginBindingConfig,
+  type PluginToolResponse,
+  type PluginToolTestResponse,
+} from './types/plugin.types';
 import { PluginSchemaValidator } from './validators/plugin-schema.validator';
 
 @Injectable()
@@ -17,6 +23,7 @@ export class PluginToolService {
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly pluginService: PluginService,
     private readonly schemaValidator: PluginSchemaValidator,
+    private readonly pluginExecutionService: PluginExecutionService,
   ) {}
 
   private get db(): PrismaService & Record<string, any> {
@@ -155,6 +162,28 @@ export class PluginToolService {
 
     return tool;
   }
+
+  async test(
+    userId: string,
+    pluginId: string,
+    toolId: string,
+    dto: TestPluginToolDto,
+  ): Promise<PluginToolTestResponse> {
+    const plugin = await this.pluginService.findPluginOrThrow(pluginId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      plugin.workspaceId,
+    );
+    const tool = await this.findToolOrThrow(pluginId, toolId);
+
+    return this.pluginExecutionService.testTool({
+      plugin,
+      tool,
+      args: dto.arguments ?? {},
+      bindingConfig: (dto.bindingConfig ?? null) as AgentPluginBindingConfig | null,
+    });
+  }
+
   private toPluginToolResponse(tool: any): PluginToolResponse {
     return {
       id: tool.id,

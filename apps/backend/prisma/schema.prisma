@@ -261,7 +261,7 @@ model PluginCredential {
 model PluginInvocation {
   id             String                 @id @default(cuid())
   pluginId       String
-  agentId        String
+  agentId        String?
   conversationId String?
   runId          String
   toolCode       String
@@ -274,7 +274,7 @@ model PluginInvocation {
   finishedAt     DateTime?
 
   plugin PluginDefinition @relation(fields: [pluginId], references: [id], onDelete: Cascade)
-  agent  Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agent  Agent?           @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([pluginId, startedAt])
   @@index([agentId, startedAt])

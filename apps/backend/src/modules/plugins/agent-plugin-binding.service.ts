@@ -72,6 +72,27 @@ export class AgentPluginBindingService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      const pluginMap = new Map(
+        plugins.map((plugin: any) => [plugin.id, plugin]),
+      );
+      for (const binding of dto.bindings) {
+        const plugin = pluginMap.get(binding.pluginId);
+        if (!plugin) {
+          continue;
+        }
+        const wantsActiveBinding = (binding.status ?? 'ACTIVE') === 'ACTIVE';
+        if (
+          wantsActiveBinding &&
+          (plugin.status !== 'ACTIVE' || plugin.invocationEnabled !== true)
+        ) {
+          throw new BusinessException(
+            `插件不可绑定或不可调用: ${plugin.name}`,
+            ErrorCode.BadRequest,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      }
     }
 
     await this.db.$transaction(async (tx: any) => {
@@ -111,6 +132,19 @@ export class AgentPluginBindingService {
       userId,
       binding.agent.workspaceId,
     );
+
+    if ((dto.status ?? binding.status) === 'ACTIVE') {
+      if (
+        binding.plugin.status !== 'ACTIVE' ||
+        binding.plugin.invocationEnabled !== true
+      ) {
+        throw new BusinessException(
+          `插件不可绑定或不可调用: ${binding.plugin.name}`,
+          ErrorCode.BadRequest,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
 
     const updated = await this.db.agentPluginBinding.update({
       where: {

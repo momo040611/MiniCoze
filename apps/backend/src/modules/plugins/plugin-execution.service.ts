@@ -5,7 +5,10 @@ import { BuiltinPluginExecutor } from './executors/builtin-plugin.executor';
 import { HttpPluginExecutor } from './executors/http-plugin.executor';
 import { PluginInvocationService } from './plugin-invocation.service';
 import { PluginResolverService } from './plugin-resolver.service';
-import { type AgentPluginBindingConfig } from './types/plugin.types';
+import {
+  type AgentPluginBindingConfig,
+  type PluginToolTestResponse,
+} from './types/plugin.types';
 import { PluginSchemaValidator } from './validators/plugin-schema.validator';
 
 @Injectable()
@@ -71,6 +74,77 @@ export class PluginExecutionService implements ToolExecutor {
         error,
       );
       throw new Error(maskedError);
+    }
+  }
+
+  async testTool(input: {
+    plugin: any;
+    tool: any;
+    args?: Record<string, unknown>;
+    bindingConfig?: AgentPluginBindingConfig | null;
+  }): Promise<PluginToolTestResponse> {
+    const startedAt = Date.now();
+    const rawArgs = input.args ?? {};
+    const mergedArgs = this.mergeArgs(
+      input.tool.code,
+      input.bindingConfig ?? null,
+      rawArgs,
+    );
+    let invocation: { invocationId: string; startedAt: number; argsSummary: unknown } | null = null;
+
+    try {
+      invocation = await this.invocationService.startToolTest({
+        plugin: input.plugin,
+        tool: input.tool,
+        args: mergedArgs,
+      });
+
+      this.schemaValidator.validateInput(
+        (input.tool.inputSchema ?? {}) as Record<string, unknown>,
+        mergedArgs,
+      );
+
+      const output = await this.dispatchExecution(
+        `${input.plugin.code}__${input.tool.code}`,
+        {
+          plugin: input.plugin,
+          tool: input.tool,
+        },
+        mergedArgs,
+      );
+
+      await this.invocationService.completeSuccess(
+        invocation,
+        {
+          plugin: input.plugin,
+          tool: input.tool,
+        } as any,
+        output,
+      );
+
+      return {
+        success: true,
+        output,
+        error: null,
+        durationMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      if (invocation) {
+        await this.invocationService.completeFailure(
+          invocation,
+          {
+            plugin: input.plugin,
+            tool: input.tool,
+          } as any,
+          error,
+        );
+      }
+      return {
+        success: false,
+        output: null,
+        error: error instanceof Error ? error.message : '工具测试失败',
+        durationMs: Date.now() - startedAt,
+      };
     }
   }
 
