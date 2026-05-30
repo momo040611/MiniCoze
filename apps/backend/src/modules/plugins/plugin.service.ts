@@ -5,6 +5,7 @@ import { createPaginatedData } from '../../common/types/pagination-response.type
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
+import { BUILTIN_PLUGIN_DEFINITIONS } from './constants/builtin-plugin-definitions';
 import { CreatePluginDto } from './dto/create-plugin.dto';
 import { PluginQueryDto } from './dto/plugin-query.dto';
 import { UpdatePluginDto } from './dto/update-plugin.dto';
@@ -70,6 +71,7 @@ export class PluginService {
 
   async findByWorkspace(userId: string, query: PluginQueryDto) {
     await this.workspaceAccessService.ensureMember(userId, query.workspaceId);
+    await this.ensureBuiltinPlugins(userId, query.workspaceId);
 
     const where: any = {
       workspaceId: query.workspaceId,
@@ -120,6 +122,7 @@ export class PluginService {
     pluginId: string,
   ): Promise<PluginDetailResponse> {
     const plugin = await this.findPluginOrThrow(pluginId);
+    await this.ensureBuiltinPlugins(userId, plugin.workspaceId);
     await this.workspaceAccessService.ensureMember(userId, plugin.workspaceId);
     return this.toPluginDetailResponse(plugin);
   }
@@ -205,6 +208,92 @@ export class PluginService {
     }
 
     return plugin;
+  }
+
+  async ensureBuiltinPlugins(userId: string, workspaceId: string): Promise<void> {
+    await this.workspaceAccessService.ensureMember(userId, workspaceId);
+
+    const existingPlugins = await this.db.pluginDefinition.findMany({
+      where: {
+        workspaceId,
+        isBuiltin: true,
+      },
+      select: {
+        id: true,
+        code: true,
+      },
+    });
+
+    const existingCodeSet = new Set(
+      existingPlugins.map((plugin: { code: string }) => plugin.code),
+    );
+
+    for (const definition of BUILTIN_PLUGIN_DEFINITIONS) {
+      if (existingCodeSet.has(definition.code)) {
+        const existing = existingPlugins.find(
+          (item: { code: string }) => item.code === definition.code,
+        );
+        if (existing?.id) {
+          await this.ensureBuiltinTools(existing.id, definition);
+        }
+        continue;
+      }
+
+      const created = await this.db.pluginDefinition.create({
+        data: {
+          workspaceId,
+          creatorId: userId,
+          code: definition.code,
+          name: definition.name,
+          description: definition.description,
+          type: 'BUILTIN',
+          status: 'ACTIVE',
+          version: definition.version,
+          isBuiltin: true,
+          invocationEnabled: true,
+        },
+      });
+
+      await this.ensureBuiltinTools(created.id, definition);
+    }
+  }
+
+  private async ensureBuiltinTools(
+    pluginId: string,
+    definition: (typeof BUILTIN_PLUGIN_DEFINITIONS)[number],
+  ): Promise<void> {
+    const existingTools = await this.db.pluginTool.findMany({
+      where: {
+        pluginId,
+      },
+      select: {
+        code: true,
+      },
+    });
+    const existingToolCodeSet = new Set(
+      existingTools.map((tool: { code: string }) => tool.code),
+    );
+
+    for (const tool of definition.tools) {
+      if (existingToolCodeSet.has(tool.code)) {
+        continue;
+      }
+
+      await this.db.pluginTool.create({
+        data: {
+          pluginId,
+          code: tool.code,
+          name: tool.name,
+          description: tool.description,
+          status: 'ACTIVE',
+          inputSchema: tool.inputSchema as any,
+          outputSchema: tool.outputSchema as any,
+          meta: {
+            handler: tool.handler,
+          } as any,
+        },
+      });
+    }
   }
 
   private toPluginToolResponse(tool: any): PluginToolResponse {

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ToolDefinition } from '../../shared/types/agent';
 import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
+import { PluginService } from './plugin.service';
 import { type AgentPluginBindingConfig } from './types/plugin.types';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class PluginRegistryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly pluginService: PluginService,
   ) {}
 
   private get db(): PrismaService & Record<string, any> {
@@ -21,6 +23,10 @@ export class PluginRegistryService {
     userId: string;
   }): Promise<ToolDefinition[]> {
     await this.workspaceAccessService.ensureMember(
+      input.userId,
+      input.workspaceId,
+    );
+    await this.pluginService.ensureBuiltinPlugins(
       input.userId,
       input.workspaceId,
     );

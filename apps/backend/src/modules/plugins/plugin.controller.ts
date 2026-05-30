@@ -14,9 +14,11 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
 import { CreatePluginDto } from './dto/create-plugin.dto';
 import { CreatePluginToolDto } from './dto/create-plugin-tool.dto';
+import { PluginInvocationQueryDto } from './dto/plugin-invocation-query.dto';
 import { PluginQueryDto } from './dto/plugin-query.dto';
 import { UpdatePluginDto } from './dto/update-plugin.dto';
 import { UpdatePluginToolDto } from './dto/update-plugin-tool.dto';
+import { PluginInvocationService } from './plugin-invocation.service';
 import { PluginService } from './plugin.service';
 import { PluginToolService } from './plugin-tool.service';
 
@@ -28,6 +30,7 @@ export class PluginController {
   constructor(
     private readonly pluginService: PluginService,
     private readonly pluginToolService: PluginToolService,
+    private readonly pluginInvocationService: PluginInvocationService,
   ) {}
 
   @Post()
@@ -55,6 +58,20 @@ export class PluginController {
     @Param('pluginId') pluginId: string,
   ) {
     return this.pluginService.findOneForUser(currentUser.id, pluginId);
+  }
+
+  @Get(':pluginId/invocations')
+  @ApiOperation({ summary: '获取插件调用日志' })
+  findInvocations(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('pluginId') pluginId: string,
+    @Query() query: PluginInvocationQueryDto,
+  ) {
+    return this.pluginInvocationService.findByPlugin(
+      currentUser.id,
+      pluginId,
+      query,
+    );
   }
 
   @Patch(':pluginId')
