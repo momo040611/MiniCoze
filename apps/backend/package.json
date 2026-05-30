@@ -23,6 +23,7 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@flowgram.ai/free-layout-editor": "^1.0.11",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",

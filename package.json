@@ -12,6 +12,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@flowgram.ai/free-layout-editor": "^1.0.11"
+  }
 }
-
