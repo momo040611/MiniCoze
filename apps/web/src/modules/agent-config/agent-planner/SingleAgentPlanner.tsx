@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import styles from '../agent-detail.module.css'
+import styles from '../agent-detail/agent-detail.module.css'
 import plannerStyles from './SingleAgentPlanner.module.css'
 import type { AgentDetailData, PlannerConfig, OpeningConfig } from '../agent-detail'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'

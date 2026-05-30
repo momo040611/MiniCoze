@@ -99,7 +99,7 @@ export function setupAgentMocks() {
   });
 
   // ③ 更新：PATCH /agents/:id（通过前缀匹配命中 /agents/xxx）
-  registerMockHandler('PATCH', 'agents', async (body) => {
+  registerMockHandler('PATCH', 'agents', async (body, _headers, path) => {
     const params = body as {
       name?: string;
       description?: string;
@@ -110,11 +110,17 @@ export function setupAgentMocks() {
       openingMessage?: string;
       contextLimit?: number;
     };
-    const agent = mockAgents[mockAgents.length - 1];
+    const agentId = path.split('/').pop() ?? '';
+    const agent = mockAgents.find((a) => a.id === agentId);
     if (agent) {
       if (params.name !== undefined) agent.name = params.name;
       if (params.description !== undefined) agent.description = params.description;
       if (params.avatarUrl !== undefined) agent.avatarUrl = params.avatarUrl;
+      if (params.systemPrompt !== undefined) agent.systemPrompt = params.systemPrompt;
+      if (params.model !== undefined) agent.model = params.model;
+      if (params.temperature !== undefined) agent.temperature = params.temperature;
+      if (params.openingMessage !== undefined) agent.openingMessage = params.openingMessage;
+      if (params.contextLimit !== undefined) agent.contextLimit = params.contextLimit;
       agent.updatedAt = new Date().toISOString();
     }
     return { code: 0, message: 'ok', data: agent };

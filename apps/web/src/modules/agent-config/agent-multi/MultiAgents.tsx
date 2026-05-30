@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import styles from '../agent-detail.module.css'
+import styles from '../agent-detail/agent-detail.module.css'
 import multiStyles from './MultiAgents.module.css'
 import type { AgentDetailData, MultiConfig, OpeningConfig } from '../agent-detail'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'

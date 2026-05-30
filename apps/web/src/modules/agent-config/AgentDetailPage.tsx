@@ -39,6 +39,30 @@ export function AgentDetailPage() {
     }
   }, [agentId]);
 
+  const refreshAgent = useCallback(async () => {
+    if (!agentId) return;
+    try {
+      const detail = await getAgentDetail(agentId);
+      if (!detail) return;
+      const detailData: AgentDetailData = {
+        id: detail.id,
+        name: detail.name,
+        avatar: detail.avatar,
+        description: detail.description,
+        mode: detail.mode,
+        persona: detail.persona,
+        orchestration: detail.orchestration,
+        model: detail.model ?? 'deepseek-v4-flash',
+        temperature: detail.temperature ?? 0.7,
+        openingMessage: detail.openingMessage ?? '',
+        contextLimit: detail.contextLimit ?? 20,
+      };
+      setAgent(detailData);
+    } catch {
+      // silently ignore refresh failures
+    }
+  }, [agentId]);
+
   useEffect(() => {
     loadAgent();
   }, [loadAgent]);
@@ -63,5 +87,5 @@ export function AgentDetailPage() {
       </div>
     );
   }
-  return <AgentDetail agent={agent} onBack={handleBack} onAgentUpdated={loadAgent} />;
+  return <AgentDetail agent={agent} onBack={handleBack} onAgentUpdated={refreshAgent} />;
 }

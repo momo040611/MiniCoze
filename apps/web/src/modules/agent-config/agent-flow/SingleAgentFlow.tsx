@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import styles from '../agent-detail.module.css'
+import styles from '../agent-detail/agent-detail.module.css'
 import flowStyles from './SingleAgentFlow.module.css'
 import type { AgentDetailData, FlowConfig, OpeningConfig } from '../agent-detail'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
