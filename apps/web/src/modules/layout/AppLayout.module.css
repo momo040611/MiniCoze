@@ -206,29 +206,6 @@
   width: 260px;
 }
 
-.headerRight {
-  flex: 1;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}
-
-.headerAvatarBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border: 2px solid transparent;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.headerAvatarBtn:hover {
-  border-color: var(--sidebar-nav-selected-color);
-}
-
 .content {
   flex: 1;
   min-height: 0;
