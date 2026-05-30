@@ -265,7 +265,19 @@
 }
 
 .collapseContent {
-  padding: 8px 0 12px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.35s ease;
+}
+
+.collapseContentOpen {
+  max-height: 4000px;
+  opacity: 1;
+  padding-top: 8px;
+  padding-bottom: 12px;
 }
 
 /* ============================================

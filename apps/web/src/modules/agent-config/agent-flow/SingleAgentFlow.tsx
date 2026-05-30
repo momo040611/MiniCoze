@@ -4,7 +4,8 @@ import flowStyles from './SingleAgentFlow.module.css'
 import type { AgentDetailData, FlowConfig, OpeningConfig } from '../agent-detail'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
 import { PreviewChat } from '../components/PreviewChat'
-
+import { useNavigate } from 'react-router-dom'
+import { SelectModal } from '../components/SelectModal'
 const MIN_LEFT_PCT = 30
 const MAX_LEFT_PCT = 78
 const DEFAULT_LEFT_PCT = 58
@@ -35,18 +36,10 @@ function CollapsePanel({ title, defaultOpen = true, children }: { title: string;
           </svg>
         </span>
       </div>
-      {open && <div className={styles.collapseContent}>{children}</div>}
+      <div className={`${styles.collapseContent} ${open ? styles.collapseContentOpen : ''}`}>{children}</div>
     </div>
   )
 }
-
-const NODE_TYPES = [
-  { key: 'start', label: '开始节点', icon: '▶' },
-  { key: 'condition', label: '条件节点', icon: '◇' },
-  { key: 'reply', label: '回复节点', icon: '💬' },
-  { key: 'api', label: 'API 节点', icon: '🔌' },
-  { key: 'end', label: '结束节点', icon: '⏹' },
-] as const
 
 export function SingleAgentFlow({
   agent,
@@ -56,16 +49,16 @@ export function SingleAgentFlow({
   contextLimit,
   onTemperatureChange,
   onContextLimitChange,
-  config,
-  onConfigChange,
   openingConfig,
   onOpeningChange,
 }: Props) {
-  const { nodes, variables, databases } = config
+  const navigate = useNavigate()
   const [leftPct, setLeftPct] = useState(DEFAULT_LEFT_PCT)
   const [dragging, setDragging] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const leftPctRef = useRef(leftPct)
+  const [dialogFlow, setdialogFlow] = useState(false)
+  const [dialogDatabase, setdialogDatabase] = useState(false)
 
   useEffect(() => {
     leftPctRef.current = leftPct
@@ -107,23 +100,6 @@ export function SingleAgentFlow({
     }
   }, [dragging, handleMouseMove, handleMouseUp])
 
-  const handleAddNode = (nodeType: (typeof NODE_TYPES)[number]) => {
-    const newNode = {
-      id: `${nodeType.key}-${Date.now()}`,
-      type: nodeType.key,
-      x: 200 + nodes.length * 40,
-      y: 200 + nodes.length * 40,
-    }
-    onConfigChange({ ...config, nodes: [...nodes, newNode] })
-  }
-
-  const handleAddVariable = () => {
-    onConfigChange({ ...config, variables: [...variables, `变量 ${variables.length + 1}`] })
-  }
-
-  const handleAddDatabase = () => {
-    onConfigChange({ ...config, databases: [...databases, `数据库 ${databases.length + 1}`] })
-  }
 
   return (
     <div
@@ -136,108 +112,11 @@ export function SingleAgentFlow({
         </div>
         <div className={styles.colBody}>
           <div className={flowStyles.flowAddArea}>
-            <div className={flowStyles.flowAddIcon}>+</div>
-            <span className={flowStyles.flowAddText}>点击添加对话流</span>
-            <span className={flowStyles.flowAddDesc}>
+            <button onClick={() => setdialogFlow(true)} className={styles.flowAddButton}>+点击添加对话流</button>
+          </div>
+          <span className={styles.flowAddDesc}>
               每次对话都会调用该对话流，用户"本轮对话输入"会作为对话流的输入参数"USER_INPUT"传入
             </span>
-          </div>
-
-          <div style={{
-            display: 'flex',
-            gap: 8,
-            padding: '8px 0',
-            flexWrap: 'wrap',
-            marginBottom: 16,
-          }}>
-            {NODE_TYPES.map((node) => (
-              <button
-                key={node.key}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '5px 12px',
-                  border: '1px solid rgba(104,119,144,0.15)',
-                  borderRadius: 6,
-                  background: '#fff',
-                  color: '#506070',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleAddNode(node)}
-              >
-                <span>{node.icon}</span>
-                <span>{node.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div style={{
-            border: '1px solid rgba(104,119,144,0.15)',
-            borderRadius: 8,
-            minHeight: 300,
-            backgroundImage:
-              'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-            {nodes.length === 0 && (
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                color: '#a0aec0',
-                fontSize: 13,
-                pointerEvents: 'none',
-              }}>
-                <div style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  border: '2px dashed #d0d5dd',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 22,
-                }}>+</div>
-                <span>从上方工具栏添加节点</span>
-              </div>
-            )}
-            {nodes.map((node) => (
-              <div
-                key={node.id}
-                style={{
-                  position: 'absolute',
-                  left: node.x,
-                  top: node.y,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '7px 14px',
-                  background: '#fff',
-                  border: '1px solid rgba(104,119,144,0.2)',
-                  borderRadius: 6,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: '#18202f',
-                  cursor: 'pointer',
-                }}
-              >
-                <span>{NODE_TYPES.find((n) => n.key === node.type)?.icon}</span>
-                <span>{NODE_TYPES.find((n) => n.key === node.type)?.label}</span>
-              </div>
-            ))}
-          </div>
-
           <div style={{ marginTop: 20 }}>
             <CollapsePanel title="模型参数">
               <div className={styles.configRow}>
@@ -307,10 +186,8 @@ export function SingleAgentFlow({
                   </div>
                 </div>
                 <div className={styles.configRowRight}>
-                  {variables.length > 0 && (
-                    <span className={styles.configRowCount}>{variables.length} 个变量</span>
-                  )}
-                  <button className={styles.addBtn} onClick={handleAddVariable}><span>+</span></button>
+                  
+                  <button className={styles.addBtn}><span>+</span></button>
                 </div>
               </div>
               <div className={styles.configRow}>
@@ -320,10 +197,7 @@ export function SingleAgentFlow({
                   </div>
                 </div>
                 <div className={styles.configRowRight}>
-                  {databases.length > 0 && (
-                    <span className={styles.configRowCount}>{databases.length} 个数据库</span>
-                  )}
-                  <button className={styles.addBtn} onClick={handleAddDatabase}><span>+</span></button>
+                  <button className={styles.addBtn} onClick={() => setdialogDatabase(true)}><span>+</span></button>
                 </div>
               </div>
             </CollapsePanel>
@@ -360,6 +234,22 @@ export function SingleAgentFlow({
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
+          />
+          <SelectModal
+            visible={dialogFlow}
+            title="添加对话流"
+            emptyText="暂无对话流"
+            createLabel="添加对话流"
+            onClose={() => setdialogFlow(false)}
+            onCreate={() =>navigate('/workflows') }
+          />
+          <SelectModal
+            visible={dialogDatabase}
+            title="添加知识库"
+            emptyText="暂无知识库"
+            createLabel="添加知识库"
+            onClose={() => setdialogDatabase(false)}
+            onCreate={() =>navigate('/knowledge-bases/document') }
           />
         </div>
       </div>

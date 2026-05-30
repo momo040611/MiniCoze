@@ -40,7 +40,7 @@ function CollapsePanel({ title, defaultOpen = true, children }: { title: string;
           </svg>
         </span>
       </div>
-      {open && <div className={styles.collapseContent}>{children}</div>}
+      <div className={`${styles.collapseContent} ${open ? styles.collapseContentOpen : ''}`}>{children}</div>
     </div>
   )
 }
@@ -64,25 +64,12 @@ export function SingleAgentPlanner({
   const [modelOpen, setModelOpen] = useState(false)
   const [knowledgeModalOpen, setKnowledgeModalOpen] = useState(false)
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false)
-  const { knowledgeEnabled, plugins, workflows, fileBoxEnabled, longMemoryEnabled, variables, databases } = config
+  const { plugins, fileBoxEnabled, longMemoryEnabled, variables, databases } = config
 
   const updateConfig = useCallback(
     (patch: Partial<PlannerConfig>) => onConfigChange({ ...config, ...patch }),
     [config, onConfigChange],
   )
-
-  const handleAddPlugin = () => {
-    updateConfig({ plugins: [...plugins, `插件 ${plugins.length + 1}`] })
-  }
-
-  const handleAddVariable = () => {
-    updateConfig({ variables: [...variables, `变量 ${variables.length + 1}`] })
-  }
-
-  const handleAddDatabase = () => {
-    updateConfig({ databases: [...databases, `数据库 ${databases.length + 1}`] })
-  }
-
   return (
     <>
       <div className={styles.col} style={{ flex: '0 0 340px', minWidth: 280 }}>
@@ -233,7 +220,7 @@ export function SingleAgentPlanner({
                 {plugins.length > 0 && (
                   <span className={styles.configRowCount}>{plugins.length} 个插件</span>
                 )}
-                <button className={styles.addBtn} onClick={handleAddPlugin}>
+                <button className={styles.addBtn} >
                   <span>+</span>
                 </button>
               </div>
@@ -297,7 +284,7 @@ export function SingleAgentPlanner({
                 {variables.length > 0 && (
                   <span className={styles.configRowCount}>{variables.length} 个变量</span>
                 )}
-                <button className={styles.addBtn} onClick={handleAddVariable}><span>+</span></button>
+                <button className={styles.addBtn} ><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
@@ -310,7 +297,7 @@ export function SingleAgentPlanner({
                 {databases.length > 0 && (
                   <span className={styles.configRowCount}>{databases.length} 个数据库</span>
                 )}
-                <button className={styles.addBtn} onClick={handleAddDatabase}><span>+</span></button>
+                <button className={styles.addBtn}><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>

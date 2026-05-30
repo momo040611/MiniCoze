@@ -4,7 +4,8 @@ import multiStyles from './MultiAgents.module.css'
 import type { AgentDetailData, MultiConfig, OpeningConfig } from '../agent-detail'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
 import { PreviewChat } from '../components/PreviewChat'
-
+import { SelectModal } from '../components/SelectModal'
+import { useNavigate } from 'react-router-dom'
 interface Props {
   agent: AgentDetailData
   persona: string
@@ -32,7 +33,7 @@ function CollapsePanel({ title, defaultOpen = true, children }: { title: string;
           </svg>
         </span>
       </div>
-      {open && <div className={styles.collapseContent}>{children}</div>}
+      <div className={`${styles.collapseContent} ${open ? styles.collapseContentOpen : ''}`}>{children}</div>
     </div>
   )
 }
@@ -51,8 +52,10 @@ export function MultiAgents({
   openingConfig,
   onOpeningChange,
 }: Props) {
-  const { subAgents, plugins, workflows, triggers, variables, databases, longMemoryEnabled } = config
-
+  const navigate = useNavigate()
+  const { subAgents, longMemoryEnabled } = config
+  const [database, setDatabase] = useState(false)
+  const [dialogFlow, setDialogFlow] = useState(false)
   const handleAddAgent = () => {
     const newAgent = {
       id: `agent-${Date.now()}`,
@@ -60,27 +63,6 @@ export function MultiAgents({
     }
     onConfigChange({ ...config, subAgents: [...subAgents, newAgent] })
   }
-
-  const handleAddPlugin = () => {
-    onConfigChange({ ...config, plugins: [...plugins, `插件 ${plugins.length + 1}`] })
-  }
-
-  const handleAddWorkflow = () => {
-    onConfigChange({ ...config, workflows: [...workflows, `工作流 ${workflows.length + 1}`] })
-  }
-
-  const handleAddTrigger = () => {
-    onConfigChange({ ...config, triggers: [...triggers, `触发器 ${triggers.length + 1}`] })
-  }
-
-  const handleAddVariable = () => {
-    onConfigChange({ ...config, variables: [...variables, `变量 ${variables.length + 1}`] })
-  }
-
-  const handleAddDatabase = () => {
-    onConfigChange({ ...config, databases: [...databases, `数据库 ${databases.length + 1}`] })
-  }
-
   const updateConfig = (patch: Partial<MultiConfig>) => {
     onConfigChange({ ...config, ...patch })
   }
@@ -172,10 +154,7 @@ export function MultiAgents({
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                {plugins.length > 0 && (
-                  <span className={styles.configRowCount}>{plugins.length} 个插件</span>
-                )}
-                <button className={styles.addBtn} onClick={handleAddPlugin}><span>+</span></button>
+                <button className={styles.addBtn} ><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
@@ -185,10 +164,7 @@ export function MultiAgents({
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                {workflows.length > 0 && (
-                  <span className={styles.configRowCount}>{workflows.length} 个工作流</span>
-                )}
-                <button className={styles.addBtn} onClick={handleAddWorkflow}><span>+</span></button>
+                <button className={styles.addBtn} onClick={() => setDialogFlow(true)}><span>+</span></button>
               </div>
             </div>
           </CollapsePanel>
@@ -202,10 +178,8 @@ export function MultiAgents({
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                {triggers.length > 0 && (
-                  <span className={styles.configRowCount}>{triggers.length} 个触发器</span>
-                )}
-                <button className={styles.addBtn} onClick={handleAddTrigger}><span>+</span></button>
+                
+                <button className={styles.addBtn}><span>+</span></button>
               </div>
             </div>
           </CollapsePanel>
@@ -218,10 +192,8 @@ export function MultiAgents({
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                {variables.length > 0 && (
-                  <span className={styles.configRowCount}>{variables.length} 个变量</span>
-                )}
-                <button className={styles.addBtn} onClick={handleAddVariable}><span>+</span></button>
+                
+                <button className={styles.addBtn} ><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
@@ -231,10 +203,8 @@ export function MultiAgents({
                 </div>
               </div>
               <div className={styles.configRowRight}>
-                {databases.length > 0 && (
-                  <span className={styles.configRowCount}>{databases.length} 个数据库</span>
-                )}
-                <button className={styles.addBtn} onClick={handleAddDatabase}><span>+</span></button>
+                
+                <button className={styles.addBtn} onClick={() => setDatabase(true)}><span>+</span></button>
               </div>
             </div>
             <div className={styles.configRow}>
@@ -399,6 +369,22 @@ export function MultiAgents({
             temperature={temperature}
             openingConfig={openingConfig}
           />
+          <SelectModal
+          visible={dialogFlow}
+            title="添加对话流"
+            emptyText="暂无对话流"
+            createLabel="添加对话流"
+            onClose={() => setDialogFlow(false)}
+            onCreate={() =>navigate('/workflows') }
+          />
+          <SelectModal
+            visible={database}
+            title="添加知识库"
+            emptyText="暂无知识库"
+            createLabel="添加知识库"
+            onClose={() => setDatabase(false)}
+            onCreate={() =>navigate('/knowledge-bases/document') }
+                    />
         </div>
       </div>
     </>
