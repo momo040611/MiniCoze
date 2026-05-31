@@ -74,6 +74,7 @@ export function AgentDetailContent({
           agent={agent}
           persona={persona}
           model={model}
+          onModelChange={onModelChange}
           temperature={temperature}
           contextLimit={contextLimit}
           onTemperatureChange={onTemperatureChange}

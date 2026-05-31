@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import styles from '../agent-detail/agent-detail.module.css'
 import plannerStyles from './SingleAgentPlanner.module.css'
 import type { AgentDetailData, PlannerConfig, OpeningConfig } from '../agent-detail'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
 import { PreviewChat } from '../components/PreviewChat'
-import { SelectModal } from '../components/SelectModal'
+import { KnowledgeSelectModal } from '../components/KnowledgeSelectModal'
+import { DatabaseTags } from '../components/DatabaseTags'
+import { WorkflowSelectModal } from '../components/WorkflowSelectModal'
+import { WorkflowTags } from '../components/WorkflowTags'
 
 interface Props {
   agent: AgentDetailData
@@ -60,7 +62,6 @@ export function SingleAgentPlanner({
   openingConfig,
   onOpeningChange,
 }: Props) {
-  const navigate = useNavigate()
   const [modelOpen, setModelOpen] = useState(false)
   const [knowledgeModalOpen, setKnowledgeModalOpen] = useState(false)
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false)
@@ -226,18 +227,20 @@ export function SingleAgentPlanner({
               </div>
             </div>
             <div className={styles.configRow}>
-              <div className={styles.configRowInfo}>
-                <div className={styles.configRowText}>
-                  <span className={styles.configRowName}>工作流</span>
-                  <span className={styles.configRowDesc}>配置对话流程</span>
-                </div>
-              </div>
-              <div className={styles.configRowRight}>
-                <button className={styles.addBtn} onClick={() => setWorkflowModalOpen(true)}>
-                  <span>+</span>
-                </button>
+            <div className={styles.configRowInfo}>
+              <div className={styles.configRowText}>
+                <span className={styles.configRowName}>工作流</span>
+                <span className={styles.configRowDesc}>配置对话流程</span>
               </div>
             </div>
+            <div className={styles.configRowRight}>
+              <WorkflowTags
+                ids={config.workflows}
+                onRemove={(id) => updateConfig({ workflows: config.workflows.filter(w => w !== id) })}
+                onAdd={() => setWorkflowModalOpen(true)}
+              />
+            </div>
+          </div>
           </CollapsePanel>
 
           <CollapsePanel title="知识">
@@ -288,18 +291,19 @@ export function SingleAgentPlanner({
               </div>
             </div>
             <div className={styles.configRow}>
-              <div className={styles.configRowInfo}>
-                <div className={styles.configRowText}>
-                  <span className={styles.configRowName}>数据库</span>
-                </div>
-              </div>
-              <div className={styles.configRowRight}>
-                {databases.length > 0 && (
-                  <span className={styles.configRowCount}>{databases.length} 个数据库</span>
-                )}
-                <button className={styles.addBtn}><span>+</span></button>
+            <div className={styles.configRowInfo}>
+              <div className={styles.configRowText}>
+                <span className={styles.configRowName}>知识库</span>
               </div>
             </div>
+            <div className={styles.configRowRight}>
+              <DatabaseTags
+                ids={databases}
+                onRemove={(id) => updateConfig({ databases: databases.filter(d => d !== id) })}
+                onAdd={() => setKnowledgeModalOpen(true)}
+              />
+            </div>
+          </div>
             <div className={styles.configRow}>
               <div className={styles.configRowInfo}>
                 <div className={styles.configRowText}>
@@ -367,21 +371,23 @@ export function SingleAgentPlanner({
           />
         </div>
       </div>
-      <SelectModal
-        visible={knowledgeModalOpen}
-        title="选择知识库"
-        emptyText="暂无知识库，请先创建"
-        createLabel="新建知识库"
-        onClose={() => setKnowledgeModalOpen(false)}
-        onCreate={() => navigate('/knowledge-bases/document')}
-      />
-      <SelectModal
+      <WorkflowSelectModal
         visible={workflowModalOpen}
-        title="选择工作流"
-        emptyText="暂无工作流，请先创建"
-        createLabel="新建工作流"
         onClose={() => setWorkflowModalOpen(false)}
-        onCreate={() => navigate('/workflows')}
+        onSelect={(wf) => {
+          if (!config.workflows.includes(wf.id)) {
+            updateConfig({ workflows: [...config.workflows, wf.id] })
+          }
+        }}
+      />
+      <KnowledgeSelectModal
+        visible={knowledgeModalOpen}
+        onClose={() => setKnowledgeModalOpen(false)}
+        onSelect={(kb) => {
+          if (!config.databases.includes(kb.id)) {
+            onConfigChange({ ...config, databases: [...config.databases, kb.id] })
+          }
+        }}
       />
     </>
   )

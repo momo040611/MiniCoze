@@ -34,7 +34,7 @@ export function defaultPlannerConfig(): PlannerConfig {
 }
 
 export function defaultFlowConfig(): FlowConfig {
-  return { nodes: [], variables: [], databases: [] };
+  return { nodes: [], workflows: [], variables: [], databases: [] };
 }
 
 export function defaultMultiConfig(): MultiConfig {

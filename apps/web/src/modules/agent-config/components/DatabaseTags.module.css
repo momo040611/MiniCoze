@@ -1,0 +1,83 @@
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 4px;
+  background: #fafafe;
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.5;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.tag:hover {
+  border-color: rgba(124, 58, 237, 0.5);
+  background: #f5f3ff;
+}
+
+.tagIcon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tagName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+}
+
+.tagRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #8896a6;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.12s, background 0.12s;
+  margin-left: 2px;
+}
+
+.tagRemove:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.tagAdd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px dashed rgba(104, 119, 144, 0.25);
+  border-radius: 4px;
+  background: transparent;
+  color: #8896a6;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+
+.tagAdd:hover {
+  border-color: #7c3aed;
+  color: #7c3aed;
+  background: #f5f3ff;
+}
