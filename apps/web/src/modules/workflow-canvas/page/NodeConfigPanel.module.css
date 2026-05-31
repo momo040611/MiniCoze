@@ -1,0 +1,87 @@
+.configPanel {
+    position: absolute;
+    top: 64px;
+    right: 0;
+    width: 360px;
+    height: calc(100vh - 64px);
+    padding: 16px;
+    overflow-y: auto;
+    background: #fff;
+    border-left: 1px solid rgba(31, 35, 41, 0.1);
+    box-shadow: -8px 0 24px rgba(31, 35, 41, 0.08);
+    z-index: 20;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #eff0f3;
+}
+
+.title {
+    max-width: 300px;
+    overflow: hidden;
+    color: #1f2329;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.subTitle {
+    margin-top: 4px;
+    color: #8f959e;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.empty {
+    padding: 18px;
+    color: #646a73;
+    font-size: 13px;
+    line-height: 22px;
+    background: #f7f8fa;
+    border: 1px dashed #d8dadf;
+    border-radius: 8px;
+}
+
+.form {
+    padding-bottom: 24px;
+}
+
+.section {
+    margin-bottom: 18px;
+}
+
+.sectionTitle {
+    margin-bottom: 10px;
+    color: #1f2329;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 20px;
+}
+
+.variableList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.variableCard {
+    padding: 12px;
+    background: #f7f8fa;
+    border: 1px solid #eff0f3;
+    border-radius: 8px;
+}
+
+.variableCard :global(.ant-form-item) {
+    margin-bottom: 10px;
+}
+
+.variableCard :global(.ant-form-item:last-of-type) {
+    margin-bottom: 0;
+}

@@ -1,0 +1,63 @@
+.nodeTitle {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2329;
+    line-height: 22px;
+    margin-bottom: 4px;
+}
+
+.llmNode,
+.inputNode,
+.outputNode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.variableRow,
+.configRow {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    align-items: center;
+    column-gap: 8px;
+}
+
+.variableLabel {
+    font-size: 12px;
+    color: #8a8f99;
+    line-height: 18px;
+    white-space: nowrap;
+}
+
+.variableTag {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #f1f3f8;
+    font-size: 12px;
+    line-height: 18px;
+    white-space: nowrap;
+}
+
+.variableType,
+.dot {
+    color: #8a8f99;
+}
+
+.dot {
+    margin: 0 1px;
+}
+
+.variableName {
+    color: #3f4654;
+    font-weight: 500;
+}
+
+.configText {
+    font-size: 12px;
+    color: #3f4654;
+    line-height: 18px;
+    white-space: nowrap;
+}
