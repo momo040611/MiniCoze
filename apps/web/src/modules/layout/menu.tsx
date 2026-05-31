@@ -44,8 +44,8 @@ export const appMenuItems: AppMenuItem[] = [
     icon: <DeploymentUnitOutlined />,
     children: [
       {
-        key: 'workflows.canvas',
-        label: '画布编辑',
+        key: 'workflows.list',
+        label: '工作流管理',
         path: '/workflows',
         icon: <NodeIndexOutlined />,
       },
