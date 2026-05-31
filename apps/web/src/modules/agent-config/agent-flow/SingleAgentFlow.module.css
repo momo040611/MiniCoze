@@ -1,0 +1,77 @@
+/* ============================================
+   H — 对话流配置区（SingleAgentFlow 专属）
+   ============================================ */
+.flowAddArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  border: 2px dashed rgba(104, 119, 144, 0.15);
+  border-radius: 10px;
+  background: #fafbfc;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 16px;
+}
+
+.flowAddArea:hover {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+.flowAddIcon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: #8896a6;
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.flowAddText {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.flowAddDesc {
+  font-size: 12px;
+  color: #8896a6;
+  margin-top: 4px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.splitter {
+  width: 6px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.15s;
+  z-index: 10;
+}
+
+.splitter:hover {
+  background: rgba(124, 58, 237, 0.08);
+}
+
+.splitterLine {
+  width: 2px;
+  height: 40px;
+  border-radius: 1px;
+  background: rgba(104, 119, 144, 0.25);
+  transition: background 0.2s, height 0.2s;
+}
+
+.splitter:hover .splitterLine {
+  background: #7c3aed;
+  height: 56px;
+}

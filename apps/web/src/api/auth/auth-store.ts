@@ -76,6 +76,12 @@ export function saveAuthData(token: string, user: UserInfo) {
   notifyListeners();
 }
 
+export function updateUserData(user: UserInfo) {
+  persistUser(user);
+  currentUser = user;
+  notifyListeners();
+}
+
 export function clearAuthData() {
   persistToken(null);
   persistUser(null);

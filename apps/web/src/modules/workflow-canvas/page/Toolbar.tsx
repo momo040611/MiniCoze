@@ -102,6 +102,7 @@ function Toolbar({ onAddNode }: ToolbarProps) {
 
   const handleAddNode = (type: string) => {
     onAddNode?.(type)
+
     ctx.document.createWorkflowNodeByType(
       type,
       { x: 200, y: 200 },

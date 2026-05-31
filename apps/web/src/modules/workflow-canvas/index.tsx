@@ -1,21 +1,18 @@
-import { useEffect, useState } from 'react'
+import Header from './page/Header'
+import Toolbar from './page/Toolbar'
+import styles from './index.module.css'
 import { useParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import {
   EditorRenderer,
   FreeLayoutEditorProvider,
-  type WorkflowNodeEntity,
 } from '@flowgram.ai/free-layout-editor'
+import type { WorkflowNodeEntity } from '@flowgram.ai/free-layout-editor'
 import '@flowgram.ai/free-layout-editor/index.css'
-import { getWorkflowDetail, type Workflow } from '../../api'
-import { useSimpleEditorProps } from './hooks/useSimpleEditorProps'
-import Header from './page/Header'
-import NodeConfigPanel from './page/NodeConfigPanel'
-import Toolbar from './page/Toolbar'
-import styles from './index.module.css'
 
-const handleAddNode = (type: string) => {
-  console.log('add workflow node:', type)
-}
+import { getWorkflowDetail, type Workflow } from '../../api'
+import NodeConfigPanel from './page/NodeConfigPanel'
+import { useSimpleEditorProps } from './hooks/useSimpleEditorProps'
 
 function WorkflowCanvasPage() {
   const { workflowId } = useParams()
@@ -25,30 +22,19 @@ function WorkflowCanvasPage() {
 
   useEffect(() => {
     if (!workflowId) {
-      setWorkflow(null)
       setLoading(false)
       return
     }
 
-    let ignore = false
     setLoading(true)
-    setSelectedNode(null)
 
     getWorkflowDetail(workflowId)
       .then((res) => {
-        if (!ignore) {
-          setWorkflow(res)
-        }
+        setWorkflow(res)
       })
       .finally(() => {
-        if (!ignore) {
-          setLoading(false)
-        }
+        setLoading(false)
       })
-
-    return () => {
-      ignore = true
-    }
   }, [workflowId])
 
   const editorProps = useSimpleEditorProps({
@@ -68,12 +54,15 @@ function WorkflowCanvasPage() {
   return (
     <FreeLayoutEditorProvider {...editorProps}>
       <div className={styles.workflowPage}>
-        <Header workflow={workflow} />
+        <Header />
+
         <main className={styles.canvasArea}>
           <EditorRenderer />
         </main>
+
         <NodeConfigPanel selectedNode={selectedNode} />
-        <Toolbar onAddNode={handleAddNode} />
+
+        <Toolbar />
       </div>
     </FreeLayoutEditorProvider>
   )

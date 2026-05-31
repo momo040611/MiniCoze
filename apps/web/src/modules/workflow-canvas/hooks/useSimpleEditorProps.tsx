@@ -1,5 +1,8 @@
 import { useMemo, useRef } from 'react'
-import { WorkflowNodeRenderer, useNodeRender } from '@flowgram.ai/free-layout-editor'
+import {
+    WorkflowNodeRenderer,
+    useNodeRender,
+} from '@flowgram.ai/free-layout-editor'
 import type {
     WorkflowNodeProps,
     FreeLayoutProps,
@@ -9,21 +12,22 @@ import type {
 } from '@flowgram.ai/free-layout-editor'
 
 import styles from './useSimpleEditorProps.module.css'
+
 import {
     renderStartNode,
     renderEndNode,
     renderLLMNode,
     renderInputNode,
-    renderOutputNode
+    renderOutputNode,
 } from '../nodeRenders'
 
 import {
     DEFAULT_WORKFLOW_CANVAS_DATA,
     updateWorkflow,
-    type WorkflowCanvasData
+    type WorkflowCanvasData,
 } from '../../../api/workflows'
 
-// 画布初始数据
+// 节点注册配置
 const nodeRegistries: WorkflowNodeRegistry[] = [
     {
         type: 'start',
@@ -31,38 +35,35 @@ const nodeRegistries: WorkflowNodeRegistry[] = [
             isStart: true,
             deleteDisable: true,
             copyDisable: true,
-            defaultPorts: [{ type: 'output' }]
-        }
+            defaultPorts: [{ type: 'output' }],
+        },
     },
     {
         type: 'llm',
         meta: {
-            defaultPorts: [
-                { type: 'input' },
-                { type: 'output' }
-            ]
-        }
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
     },
     {
         type: 'end',
         meta: {
             deleteDisable: true,
             copyDisable: true,
-            defaultPorts: [{ type: 'input' }]
-        }
+            defaultPorts: [{ type: 'input' }],
+        },
     },
     {
         type: 'input',
         meta: {
-            defaultPorts: [{ type: 'input' }]
-        }
+            defaultPorts: [{ type: 'input' }],
+        },
     },
     {
         type: 'output',
         meta: {
-            defaultPorts: [{ type: 'output' }]
-        }
-    }
+            defaultPorts: [{ type: 'output' }],
+        },
+    },
 ]
 
 type UseSimpleEditorPropsParams = {
@@ -116,8 +117,8 @@ export const useSimpleEditorProps = ({
                             }
 
                             return null
-                        }
-                    }
+                        },
+                    },
                 }
             },
 
@@ -140,7 +141,7 @@ export const useSimpleEditorProps = ({
                             </WorkflowNodeRenderer>
                         </div>
                     )
-                }
+                },
             },
 
             nodeEngine: {
@@ -149,7 +150,7 @@ export const useSimpleEditorProps = ({
 
             history: {
                 enable: true,
-                enableChangeNode: true
+                enableChangeNode: true,
             },
 
             onContentChange(ctx) {
@@ -170,8 +171,8 @@ export const useSimpleEditorProps = ({
 
                     console.log('画布已自动保存：', nextCanvasData)
                 }, 500)
-            }
+            },
         }),
-        [workflowId, canvasData, onSelectNode]
+        [workflowId, canvasData, onSelectNode],
     )
 }

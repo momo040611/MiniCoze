@@ -72,6 +72,8 @@ export function initDefaultUser() {
       id: generateId(),
       username: 'admin',
       email: 'admin@minicoze.com',
+      phone: '',
+      bio: '',
       password: 'admin123',
       avatarUrl: null,
       status: 'active',
@@ -107,6 +109,8 @@ export function handleRegister(username: string, email: string, password: string
     id: generateId(),
     username,
     email,
+    phone: '',
+    bio: '',
     password,
     avatarUrl: null,
     status: 'active',
@@ -134,4 +138,43 @@ export function handleGetProfile(token: string): UserInfo {
     throw new Error('用户不存在');
   }
   return stripPassword(user);
+}
+
+export function handleUpdateProfile(token: string, updates: Partial<Omit<StoredUser, 'id' | 'password' | 'createdAt'>>): UserInfo {
+  const payload = parseToken(token);
+  if (!payload) {
+    throw new Error('未登录或 token 已过期');
+  }
+  const users = readUsers();
+  const idx = users.findIndex((u) => u.id === payload.sub);
+  if (idx === -1) {
+    throw new Error('用户不存在');
+  }
+  if (updates.username !== undefined) users[idx].username = updates.username;
+  if (updates.email !== undefined) users[idx].email = updates.email;
+  if (updates.phone !== undefined) users[idx].phone = updates.phone;
+  if (updates.bio !== undefined) users[idx].bio = updates.bio;
+  if (updates.avatarUrl !== undefined) users[idx].avatarUrl = updates.avatarUrl;
+  users[idx].updatedAt = new Date().toISOString();
+  writeUsers(users);
+  return stripPassword(users[idx]);
+}
+
+export function handleChangePassword(token: string, oldPassword: string, newPassword: string): boolean {
+  const payload = parseToken(token);
+  if (!payload) {
+    throw new Error('未登录或 token 已过期');
+  }
+  const users = readUsers();
+  const idx = users.findIndex((u) => u.id === payload.sub);
+  if (idx === -1) {
+    throw new Error('用户不存在');
+  }
+  if (users[idx].password !== oldPassword) {
+    throw new Error('旧密码错误');
+  }
+  users[idx].password = newPassword;
+  users[idx].updatedAt = new Date().toISOString();
+  writeUsers(users);
+  return true;
 }
