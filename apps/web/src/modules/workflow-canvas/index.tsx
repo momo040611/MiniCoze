@@ -56,11 +56,14 @@ function WorkflowCanvasPage() {
       <div className={styles.workflowPage}>
         <Header />
 
-        <main className={styles.canvasArea}>
+        <main className={styles.canvasArea} onClick={() => setSelectedNode(null)}>
           <EditorRenderer />
         </main>
 
-        <NodeConfigPanel selectedNode={selectedNode} />
+        <NodeConfigPanel
+          selectedNode={selectedNode}
+          onClose={() => setSelectedNode(null)}
+        />
 
         <Toolbar />
       </div>

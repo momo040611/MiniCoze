@@ -8,7 +8,11 @@
 
 .llmNode,
 .inputNode,
-.outputNode {
+.outputNode,
+.conditionNode,
+.pluginNode,
+.databaseNode,
+.genericNode {
     display: flex;
     flex-direction: column;
     gap: 8px;

@@ -19,6 +19,10 @@ import {
     renderLLMNode,
     renderInputNode,
     renderOutputNode,
+    renderConditionNode,
+    renderPluginNode,
+    renderDatabaseNode,
+    renderGenericNode,
 } from '../nodeRenders'
 
 import {
@@ -40,6 +44,24 @@ const nodeRegistries: WorkflowNodeRegistry[] = [
     },
     {
         type: 'llm',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'condition',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'plugin',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'database',
         meta: {
             defaultPorts: [{ type: 'input' }, { type: 'output' }],
         },
@@ -108,6 +130,18 @@ export const useSimpleEditorProps = ({
                                 return renderEndNode()
                             }
 
+                            if (type === 'condition' || type === 'selector') {
+                                return renderConditionNode()
+                            }
+
+                            if (type === 'plugin') {
+                                return renderPluginNode()
+                            }
+
+                            if (type === 'database') {
+                                return renderDatabaseNode()
+                            }
+
                             if (type === 'input') {
                                 return renderInputNode()
                             }
@@ -116,7 +150,7 @@ export const useSimpleEditorProps = ({
                                 return renderOutputNode()
                             }
 
-                            return null
+                            return renderGenericNode()
                         },
                     },
                 }

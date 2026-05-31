@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from 'react';
 import {
   AimOutlined,
   AppstoreOutlined,
@@ -9,18 +9,18 @@ import {
   PlayCircleOutlined,
   PlusOutlined,
   ToolOutlined,
-} from '@ant-design/icons'
-import { Dropdown, Popover } from 'antd'
-import { useClientContext } from '@flowgram.ai/free-layout-editor'
-import NodeSelectorPanel from '../components/NodeSelectorPanel'
-import { Tooltip } from '../components/Tooltip'
-import styles from './Toolbar.module.css'
+} from '@ant-design/icons';
+import { Dropdown, Popover } from 'antd';
+import { useClientContext } from '@flowgram.ai/free-layout-editor';
+import NodeSelectorPanel from '../components/NodeSelectorPanel';
+import { Tooltip } from '../components/Tooltip';
+import styles from './Toolbar.module.css';
 
 const exportItems = [
   { key: 'png', label: '导出为 PNG' },
   { key: 'jpeg', label: '导出为 JPEG' },
   { key: 'svg', label: '导出为 SVG' },
-]
+];
 
 const scaleItems = [
   { key: 'zoomOut', label: '缩小' },
@@ -31,22 +31,18 @@ const scaleItems = [
   { key: '100', label: '缩放到 100%' },
   { key: '150', label: '缩放到 150%' },
   { key: '200', label: '缩放到 200%' },
-]
+];
 
 interface ToolbarProps {
-  onAddNode?: (type: string) => void
+  onAddNode?: (type: string) => void;
 }
 
-const handleExportClick = ({ key }: { key: string }) => {
-  console.log(`导出为 ${key}`)
-}
-
-const getDefaultNodeData = (type: string) => {
+function getDefaultNodeData(type: string) {
   if (type === 'input') {
     return {
       nodeMeta: { title: '输入' },
       outputs: [{ label: '输出', type: 'string', name: 'query' }],
-    }
+    };
   }
 
   if (type === 'output') {
@@ -54,7 +50,7 @@ const getDefaultNodeData = (type: string) => {
       nodeMeta: { title: '输出' },
       inputs: [{ label: '输入', type: 'string', name: 'content' }],
       config: { outputMode: '返回变量' },
-    }
+    };
   }
 
   if (type === 'llm') {
@@ -64,44 +60,88 @@ const getDefaultNodeData = (type: string) => {
       outputs: [{ label: '输出', type: 'string', name: 'content' }],
       config: {
         model: 'deepseek-chat',
-        systemPrompt: '你是一个简洁的助手',
-        prompt: '用一句话欢迎新用户',
+        temperature: 0.7,
+        systemPrompt: '你是一个简洁、可靠的助手。',
+        prompt: '请根据输入生成回答。',
       },
-    }
+    };
+  }
+
+  if (type === 'condition') {
+    return {
+      nodeMeta: { title: '条件节点' },
+      inputs: [{ label: '输入', type: 'string', name: 'value' }],
+      outputs: [
+        { label: '是', type: 'boolean', name: 'trueBranch' },
+        { label: '否', type: 'boolean', name: 'falseBranch' },
+      ],
+      config: {
+        operator: 'equals',
+        compareValue: '',
+        expression: '',
+      },
+    };
+  }
+
+  if (type === 'plugin') {
+    return {
+      nodeMeta: { title: '插件节点' },
+      inputs: [{ label: '入参', type: 'object', name: 'payload' }],
+      outputs: [{ label: '结果', type: 'object', name: 'result' }],
+      config: {
+        pluginId: '',
+        action: '',
+        timeout: 30,
+      },
+    };
+  }
+
+  if (type === 'database') {
+    return {
+      nodeMeta: { title: '数据库节点' },
+      inputs: [{ label: '查询参数', type: 'object', name: 'params' }],
+      outputs: [{ label: '查询结果', type: 'array', name: 'rows' }],
+      config: {
+        source: '',
+        query: '',
+        readonly: true,
+      },
+    };
   }
 
   return {
     nodeMeta: { title: type },
-    inputs: [],
-    outputs: [],
+    inputs: [{ label: '输入', type: 'string', name: 'input' }],
+    outputs: [{ label: '输出', type: 'string', name: 'output' }],
     config: {},
-  }
+  };
 }
 
 function Toolbar({ onAddNode }: ToolbarProps) {
-  const [scale, setScale] = useState(75)
-  const ctx = useClientContext()
+  const [scale, setScale] = useState(75);
+  const ctx = useClientContext();
 
-  const handleScaleClick = ({ key }: { key: string }) => {
-    if (key === '50') {
-      setScale(50)
-    } else if (key === '100') {
-      setScale(100)
-    } else if (key === '150') {
-      setScale(150)
-    } else if (key === '200') {
-      setScale(200)
-    } else if (key === 'zoomOut') {
-      setScale((prev) => Math.max(50, prev - 10))
+  function handleExportClick({ key }: { key: string }) {
+    console.log(`导出为 ${key.toUpperCase()}`);
+  }
+
+  function handleScaleClick({ key }: { key: string }) {
+    if (key === '50' || key === '100' || key === '150' || key === '200') {
+      setScale(Number(key));
+      return;
+    }
+
+    if (key === 'zoomOut') {
+      setScale((prev) => Math.max(50, prev - 10));
     } else if (key === 'zoomIn') {
-      setScale((prev) => Math.min(200, prev + 10))
+      setScale((prev) => Math.min(200, prev + 10));
     } else if (key === 'fit') {
-      setScale(85)
+      setScale(85);
     }
   }
 
-  const handleAddNode = (type: string) => {
-    onAddNode?.(type)
+  function handleAddNode(type: string) {
+    onAddNode?.(type);
 
     ctx.document.createWorkflowNodeByType(
       type,
@@ -110,7 +150,7 @@ function Toolbar({ onAddNode }: ToolbarProps) {
         id: `${type}_${Date.now()}`,
         data: getDefaultNodeData(type),
       },
-    )
+    );
   }
 
   return (
@@ -208,7 +248,7 @@ function Toolbar({ onAddNode }: ToolbarProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default Toolbar
+export default Toolbar;
