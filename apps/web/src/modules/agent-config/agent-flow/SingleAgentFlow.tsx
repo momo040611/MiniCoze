@@ -1,11 +1,18 @@
-import React, { useState } from 'react'
-import styles from '../agent-detail.module.css'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
+import styles from '../agent-detail/agent-detail.module.css'
+import flowStyles from './SingleAgentFlow.module.css'
 import type { AgentDetailData, FlowConfig, OpeningConfig } from '../agent-detail'
-import { OpeningMessageEditor } from './OpeningMessageEditor'
-import { PreviewChat } from './PreviewChat'
+import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
+import { PreviewChat } from '../components/PreviewChat'
+import { useNavigate } from 'react-router-dom'
+import { SelectModal } from '../components/SelectModal'
+const MIN_LEFT_PCT = 30
+const MAX_LEFT_PCT = 78
+const DEFAULT_LEFT_PCT = 58
 
 interface Props {
   agent: AgentDetailData
+  persona: string
   model: string
   temperature: number
   contextLimit: number
@@ -29,163 +36,91 @@ function CollapsePanel({ title, defaultOpen = true, children }: { title: string;
           </svg>
         </span>
       </div>
-      {open && <div className={styles.collapseContent}>{children}</div>}
+      <div className={`${styles.collapseContent} ${open ? styles.collapseContentOpen : ''}`}>{children}</div>
     </div>
   )
 }
 
-const NODE_TYPES = [
-  { key: 'start', label: '开始节点', icon: '▶' },
-  { key: 'condition', label: '条件节点', icon: '◇' },
-  { key: 'reply', label: '回复节点', icon: '💬' },
-  { key: 'api', label: 'API 节点', icon: '🔌' },
-  { key: 'end', label: '结束节点', icon: '⏹' },
-] as const
-
 export function SingleAgentFlow({
   agent,
+  persona,
   model,
   temperature,
   contextLimit,
   onTemperatureChange,
   onContextLimitChange,
-  config,
-  onConfigChange,
   openingConfig,
   onOpeningChange,
 }: Props) {
-  const { nodes } = config
+  const navigate = useNavigate()
+  const [leftPct, setLeftPct] = useState(DEFAULT_LEFT_PCT)
+  const [dragging, setDragging] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const leftPctRef = useRef(leftPct)
+  const [dialogFlow, setdialogFlow] = useState(false)
+  const [dialogDatabase, setdialogDatabase] = useState(false)
 
-  const handleAddNode = (nodeType: (typeof NODE_TYPES)[number]) => {
-    const newNode = {
-      id: `${nodeType.key}-${Date.now()}`,
-      type: nodeType.key,
-      x: 200 + nodes.length * 40,
-      y: 200 + nodes.length * 40,
+  useEffect(() => {
+    leftPctRef.current = leftPct
+  }, [leftPct])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setDragging(true)
+  }, [])
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const pct = (x / rect.width) * 100
+      const clamped = Math.min(MAX_LEFT_PCT, Math.max(MIN_LEFT_PCT, pct))
+      leftPctRef.current = clamped
+      setLeftPct(clamped)
+    },
+    [],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    setDragging(false)
+  }, [])
+
+  useEffect(() => {
+    if (!dragging) return
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
     }
-    onConfigChange({ nodes: [...nodes, newNode] })
-  }
+  }, [dragging, handleMouseMove, handleMouseUp])
+
 
   return (
-    <>
-      {/* 左侧栏：编排 */}
-      <div className={styles.col} style={{ flex: 1, minWidth: 420 }}>
+    <div
+      ref={containerRef}
+      style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}
+    >
+      <div className={styles.col} style={{ width: `${leftPct}%`, minWidth: 320, flexShrink: 0 }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>编排</h3>
         </div>
         <div className={styles.colBody}>
-          {/* 对话流配置区 */}
-          <div className={styles.flowAddArea}>
-            <div className={styles.flowAddIcon}>+</div>
-            <span className={styles.flowAddText}>点击添加对话流</span>
-            <span className={styles.flowAddDesc}>
+          <div className={flowStyles.flowAddArea}>
+            <button onClick={() => setdialogFlow(true)} className={styles.flowAddButton}>+点击添加对话流</button>
+          </div>
+          <span className={styles.flowAddDesc}>
               每次对话都会调用该对话流，用户"本轮对话输入"会作为对话流的输入参数"USER_INPUT"传入
             </span>
-          </div>
-
-          {/* 节点工具栏 */}
-          <div style={{
-            display: 'flex',
-            gap: 8,
-            padding: '8px 0',
-            flexWrap: 'wrap',
-            marginBottom: 16,
-          }}>
-            {NODE_TYPES.map((node) => (
-              <button
-                key={node.key}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  padding: '5px 12px',
-                  border: '1px solid rgba(104,119,144,0.15)',
-                  borderRadius: 6,
-                  background: '#fff',
-                  color: '#506070',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleAddNode(node)}
-              >
-                <span>{node.icon}</span>
-                <span>{node.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* 画布区域 */}
-          <div style={{
-            border: '1px solid rgba(104,119,144,0.15)',
-            borderRadius: 8,
-            minHeight: 300,
-            backgroundImage:
-              'linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-            position: 'relative',
-            overflow: 'hidden',
-          }}>
-            {nodes.length === 0 && (
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                color: '#a0aec0',
-                fontSize: 13,
-                pointerEvents: 'none',
-              }}>
-                <div style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  border: '2px dashed #d0d5dd',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 22,
-                }}>+</div>
-                <span>从上方工具栏添加节点</span>
-              </div>
-            )}
-            {nodes.map((node) => (
-              <div
-                key={node.id}
-                style={{
-                  position: 'absolute',
-                  left: node.x,
-                  top: node.y,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '7px 14px',
-                  background: '#fff',
-                  border: '1px solid rgba(104,119,144,0.2)',
-                  borderRadius: 6,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: '#18202f',
-                  cursor: 'pointer',
-                }}
-              >
-                <span>{NODE_TYPES.find((n) => n.key === node.type)?.icon}</span>
-                <span>{NODE_TYPES.find((n) => n.key === node.type)?.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* 可折叠配置面板 */}
           <div style={{ marginTop: 20 }}>
             <CollapsePanel title="模型参数">
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>T</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>Temperature</span>
                     <span className={styles.configRowDesc}>控制回复随机性，数值越高越发散</span>
@@ -219,7 +154,6 @@ export function SingleAgentFlow({
               </div>
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>CTX</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>上下文轮数</span>
                     <span className={styles.configRowDesc}>控制运行时携带的历史消息数量</span>
@@ -247,24 +181,23 @@ export function SingleAgentFlow({
             <CollapsePanel title="记忆">
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>📝</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>变量</span>
                   </div>
                 </div>
                 <div className={styles.configRowRight}>
+                  
                   <button className={styles.addBtn}><span>+</span></button>
                 </div>
               </div>
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
-                  <span className={styles.configRowIcon}>🗄️</span>
                   <div className={styles.configRowText}>
                     <span className={styles.configRowName}>数据库</span>
                   </div>
                 </div>
                 <div className={styles.configRowRight}>
-                  <button className={styles.addBtn}><span>+</span></button>
+                  <button className={styles.addBtn} onClick={() => setdialogDatabase(true)}><span>+</span></button>
                 </div>
               </div>
             </CollapsePanel>
@@ -281,23 +214,45 @@ export function SingleAgentFlow({
         </div>
       </div>
 
-      {/* 右侧栏：预览与调试 */}
-      <div className={styles.col} style={{ flex: '0 0 360px', minWidth: 320 }}>
+      <div
+        className={flowStyles.splitter}
+        onMouseDown={handleMouseDown}
+      >
+        <div className={flowStyles.splitterLine} />
+      </div>
+
+      <div className={styles.col} style={{ flex: 1, minWidth: 260, overflow: 'hidden' }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>预览与调试</h3>
         </div>
-        <div className={styles.colBody} style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+        <div className={styles.colBody} style={{ padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <PreviewChat
             agentId={agent.id}
             agentName={agent.name}
             avatar={agent.avatar}
-            persona={agent.persona}
+            persona={persona}
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
           />
+          <SelectModal
+            visible={dialogFlow}
+            title="添加对话流"
+            emptyText="暂无对话流"
+            createLabel="添加对话流"
+            onClose={() => setdialogFlow(false)}
+            onCreate={() =>navigate('/workflows') }
+          />
+          <SelectModal
+            visible={dialogDatabase}
+            title="添加知识库"
+            emptyText="暂无知识库"
+            createLabel="添加知识库"
+            onClose={() => setdialogDatabase(false)}
+            onCreate={() =>navigate('/knowledge-bases/document') }
+          />
         </div>
       </div>
-    </>
+    </div>
   )
 }

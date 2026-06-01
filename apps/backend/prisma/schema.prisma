@@ -20,8 +20,9 @@ model User {
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
   workspaceMembers WorkspaceMember[]
 
-  createdAgents Agent[]
-  conversations Conversation[]
+  createdAgents  Agent[]
+  createdPlugins PluginDefinition[]
+  conversations  Conversation[]
   uploadedFiles FileAsset[]       @relation("FileAssetOwner")
   createdWorkflows Workflow[]        @relation("WorkflowCreator")
   createdWorkflowVersions WorkflowVersion[] @relation("WorkflowVersionCreator")
@@ -42,12 +43,14 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner        User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members      WorkspaceMember[]
-  agents       Agent[]
+  owner                  User               @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members                WorkspaceMember[]
+  agents                 Agent[]
   workflows    Workflow[]
   workflowRuns WorkflowRun[]
   files        FileAsset[]       @relation("WorkspaceFiles")
+  plugins           PluginDefinition[]
+  pluginCredentials PluginCredential[]
 
   @@index([ownerId])
 }
@@ -144,6 +147,41 @@ enum WorkflowRunNodeStatus {
   SKIPPED
 }
 
+enum PluginType {
+  BUILTIN
+  HTTP
+}
+
+enum PluginStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+  ARCHIVED
+}
+
+enum PluginToolStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AgentPluginBindingStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum PluginInvocationStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMEOUT
+  CANCELED
+}
+
+enum PluginCredentialStatus {
+  ACTIVE
+  DISABLED
+}
+
 model Agent {
   id             String      @id @default(cuid())
   workspaceId    String
@@ -159,12 +197,11 @@ model Agent {
   status         AgentStatus @default(DRAFT)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
-
-  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator       User            @relation(fields: [creatorId], references: [id], onDelete: Restrict)
-  conversations Conversation[]
-  workflows     AgentWorkflow[]
-  workflowRuns  WorkflowRun[]
+  workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator           User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  conversations     Conversation[]
+  pluginBindings    AgentPluginBinding[]
+  pluginInvocations PluginInvocation[]
 
   @@index([workspaceId])
   @@index([creatorId])
@@ -180,10 +217,9 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agent        Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages     Message[]
-  workflowRuns WorkflowRun[]
+  agent    Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
 
   @@index([agentId])
   @@index([userId])
@@ -201,8 +237,7 @@ model Message {
   errorMessage   String?     @db.Text
   createdAt      DateTime    @default(now())
 
-  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  workflowRuns WorkflowRun[]
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([conversationId, createdAt])
@@ -303,4 +338,112 @@ model WorkflowRunNode {
   @@index([runId])
   @@index([runId, status])
   @@index([runId, createdAt])
+}
+
+model PluginDefinition {
+  id                String       @id @default(cuid())
+  workspaceId       String
+  creatorId         String
+  code              String
+  name              String
+  description       String?      @db.Text
+  iconUrl           String?
+  type              PluginType
+  status            PluginStatus @default(DRAFT)
+  version           String       @default("v1.0.0")
+  isBuiltin         Boolean      @default(false)
+  maskStrategy      Json?
+  invocationEnabled Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  tools       PluginTool[]
+  bindings    AgentPluginBinding[]
+  credentials PluginCredential[]
+  invocations PluginInvocation[]
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId, status])
+  @@index([workspaceId, type])
+}
+
+model PluginTool {
+  id           String           @id @default(cuid())
+  pluginId     String
+  code         String
+  name         String
+  description  String           @db.Text
+  status       PluginToolStatus @default(ACTIVE)
+  inputSchema  Json
+  outputSchema Json?
+  meta         Json?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  plugin PluginDefinition @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+
+  @@unique([pluginId, code])
+  @@index([pluginId, status])
+}
+
+model AgentPluginBinding {
+  id         String                   @id @default(cuid())
+  agentId    String
+  pluginId   String
+  status     AgentPluginBindingStatus @default(ACTIVE)
+  autoInvoke Boolean                  @default(true)
+  sortOrder  Int                      @default(0)
+  config     Json?
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+
+  agent  Agent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  plugin PluginDefinition @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, pluginId])
+  @@index([agentId, status])
+  @@index([pluginId, status])
+}
+
+model PluginCredential {
+  id              String                 @id @default(cuid())
+  pluginId        String
+  workspaceId     String
+  name            String
+  status          PluginCredentialStatus @default(ACTIVE)
+  authType        String
+  secretEncrypted String?                @db.Text
+  config          Json?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  plugin    PluginDefinition @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([pluginId, workspaceId, status])
+}
+
+model PluginInvocation {
+  id             String                 @id @default(cuid())
+  pluginId       String
+  agentId        String?
+  conversationId String?
+  runId          String
+  toolCode       String
+  status         PluginInvocationStatus
+  argsSummary    Json?
+  outputSummary  Json?
+  errorSummary   String?                @db.Text
+  durationMs     Int?
+  startedAt      DateTime               @default(now())
+  finishedAt     DateTime?
+
+  plugin PluginDefinition @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  agent  Agent?           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([pluginId, startedAt])
+  @@index([agentId, startedAt])
+  @@index([runId])
 }

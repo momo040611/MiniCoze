@@ -1,53 +1,37 @@
-import { useMemo } from 'react'
-import { Field, WorkflowNodeRenderer, useNodeRender } from '@flowgram.ai/free-layout-editor'
-import type { WorkflowNodeProps, FreeLayoutProps, WorkflowJSON, WorkflowNodeRegistry } from '@flowgram.ai/free-layout-editor'
+import { useMemo, useRef } from 'react'
+import {
+    WorkflowNodeRenderer,
+    useNodeRender,
+} from '@flowgram.ai/free-layout-editor'
+import type {
+    WorkflowNodeProps,
+    FreeLayoutProps,
+    WorkflowJSON,
+    WorkflowNodeRegistry,
+    WorkflowNodeEntity,
+} from '@flowgram.ai/free-layout-editor'
+
 import styles from './useSimpleEditorProps.module.css'
-const initialData: WorkflowJSON = {
-    nodes: [
-        {
-            id: 'start_1',
-            type: 'start',
-            meta: {
-                position: { x: 120, y: 230 }
-            },
-            data: {
-                title: '开始节点',
-                inputLabel: '输入',
-                inputType: 'str',
-                inputName: '待定'
-            }
-        },
-        {
-            id: 'llm_1',
-            type: 'llm',
-            meta: {
-                position: { x: 300, y: 230 }
-            },
-            data: {
-                title: '大模型节点',
-                model: 'deepseek',
-                prompt: '你是智能助手'
-            }
-        },
-        {
-            id: 'end_1',
-            type: 'end',
-            meta: {
-                position: { x: 500, y: 230 }
-            },
-            data: {
-                title: '结束节点',
-                outputLabel: '输出',
-                outputType: 'str',
-                outputName: '待定',
-                outputModeLabel: '输出类型',
-                outputMode: '返回变量',
-            }
-        }
-    ],
-    edges: []
-}
-// 画布初始数据
+
+import {
+    renderStartNode,
+    renderEndNode,
+    renderLLMNode,
+    renderInputNode,
+    renderOutputNode,
+    renderConditionNode,
+    renderPluginNode,
+    renderDatabaseNode,
+    renderGenericNode,
+} from '../nodeRenders'
+
+import {
+    DEFAULT_WORKFLOW_CANVAS_DATA,
+    updateWorkflow,
+    type WorkflowCanvasData,
+} from '../../../api/workflows'
+
+// 节点注册配置
 const nodeRegistries: WorkflowNodeRegistry[] = [
     {
         type: 'start',
@@ -55,145 +39,80 @@ const nodeRegistries: WorkflowNodeRegistry[] = [
             isStart: true,
             deleteDisable: true,
             copyDisable: true,
-            defaultPorts: [{ type: 'output' }]
-        }
+            defaultPorts: [{ type: 'output' }],
+        },
     },
     {
         type: 'llm',
         meta: {
-            defaultPorts: [
-                { type: 'input' },
-                { type: 'output' }]
-        }
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'condition',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'plugin',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'database',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
     },
     {
         type: 'end',
         meta: {
             deleteDisable: true,
-            copyDiable: true,
-            defaultPorts: [{ type: 'input' }]
-        }
-    }
-]//对于不同的节点的处理情况
-const renderInputNode = () =>
-(
-    <div className={styles.inputNode}>
-        <Field<string> name='title'>
-            {({ field }) => (
-                <div className={styles.workflowNodeTitle}>
-                    {field.value}
-                </div>
-            )}
-        </Field>
-        <div className={styles.inputRow}>
-            <Field<string> name='inputLabel'>
-                {({ field }) => (
-                    <span>
-                        {field.value}
-                    </span>
-                )}
-            </Field>
-            <div className={styles.inputValueBox}>
-                <Field<string> name='inputType'>
-                    {({ field }) => (
-                        <span className={styles.inputType}>
-                            {field.value}
-                        </span>
-                    )}
-                </Field>
-                <Field<string> name='inputName'>
-                    {({ field }) => (
-                        <span className={styles.inputName}>
-                            {field.value}
-                        </span>
-                    )}
-                </Field>
-            </div>
-        </div >
-    </div>
-)
+            copyDisable: true,
+            defaultPorts: [{ type: 'input' }],
+        },
+    },
+    {
+        type: 'input',
+        meta: {
+            defaultPorts: [{ type: 'input' }],
+        },
+    },
+    {
+        type: 'output',
+        meta: {
+            defaultPorts: [{ type: 'output' }],
+        },
+    },
+]
 
-const renderLLMNode = () => (
-    <div className={styles.llmNode}>
-        {renderInputNode()}
-        <Field<string> name="model">
-            {({ field }) => (
-                <div className={styles.workflowNodeDesc}>
-                    模型：{field.value}
-                </div>
-            )}
-        </Field>
-    </div>
-)
-const renderOutputNode = () => (
-    <div className={styles.outputNode}>
-        <Field<string> name="title">
-            {({ field }) => (
-                <div className={styles.outputTitle}>
-                    {field.value}
-                </div>
-            )}
-        </Field>
+type UseSimpleEditorPropsParams = {
+    workflowId?: string
+    canvasData?: WorkflowCanvasData
+    onSelectNode?: (node: WorkflowNodeEntity) => void
+}
 
-        <div className={styles.outputContent}>
-            <div className={styles.outputRow}>
-                <Field<string> name="outputLabel">
-                    {({ field }) => (
-                        <span className={styles.outputLabel}>
-                            {field.value}
-                        </span>
-                    )}
-                </Field>
+export const useSimpleEditorProps = ({
+    workflowId,
+    canvasData,
+    onSelectNode,
+}: UseSimpleEditorPropsParams) => {
+    const saveTimerRef = useRef<number | null>(null)
 
-                <div className={styles.outputTag}>
-                    <Field<string> name="outputType">
-                        {({ field }) => (
-                            <span className={styles.outputType}>
-                                {field.value}
-                            </span>
-                        )}
-                    </Field>
-
-                    <span className={styles.dot}>.</span>
-
-                    <Field<string> name="outputName">
-                        {({ field }) => (
-                            <span className={styles.outputName}>
-                                {field.value}
-                            </span>
-                        )}
-                    </Field>
-                </div>
-            </div>
-
-            <div className={styles.outputRow}>
-                <Field<string> name="outputModeLabel">
-                    {({ field }) => (
-                        <span className={styles.outputLabel}>
-                            {field.value}
-                        </span>
-                    )}
-                </Field>
-
-                <Field<string> name="outputMode">
-                    {({ field }) => (
-                        <span className={styles.outputMode}>
-                            {field.value}
-                        </span>
-                    )}
-                </Field>
-            </div>
-        </div>
-    </div>
-)
-
-export const useSimpleEditorProps = () => {
     return useMemo<FreeLayoutProps>(
         () => ({
             background: false,
             readonly: false,
-            initialData,
+
+            initialData:
+                canvasData && canvasData.nodes.length > 0
+                    ? (canvasData as WorkflowJSON)
+                    : (DEFAULT_WORKFLOW_CANVAS_DATA as WorkflowJSON),
+
             nodeRegistries,
+
             getNodeDefaultRegistry(type) {
                 return {
                     type,
@@ -201,34 +120,93 @@ export const useSimpleEditorProps = () => {
                         render: () => {
                             if (type === 'llm') {
                                 return renderLLMNode()
-                            } else if (type === 'start') {
+                            }
+
+                            if (type === 'start') {
+                                return renderStartNode()
+                            }
+
+                            if (type === 'end') {
+                                return renderEndNode()
+                            }
+
+                            if (type === 'condition' || type === 'selector') {
+                                return renderConditionNode()
+                            }
+
+                            if (type === 'plugin') {
+                                return renderPluginNode()
+                            }
+
+                            if (type === 'database') {
+                                return renderDatabaseNode()
+                            }
+
+                            if (type === 'input') {
                                 return renderInputNode()
-                            } else if (type === 'end') {
+                            }
+
+                            if (type === 'output') {
                                 return renderOutputNode()
                             }
-                        }
-                    }
+
+                            return renderGenericNode()
+                        },
+                    },
                 }
-            },//节点内部显示的内容
+            },
+
             materials: {
                 renderDefaultNode: (props: WorkflowNodeProps) => {
                     const { form } = useNodeRender()
+
                     return (
-                        <WorkflowNodeRenderer
-                            node={props.node}
-                            className={styles.workflowNode}
+                        <div
+                            onClick={(event) => {
+                                event.stopPropagation()
+                                onSelectNode?.(props.node)
+                            }}
                         >
-                            {form?.render()}
-                        </WorkflowNodeRenderer>
+                            <WorkflowNodeRenderer
+                                node={props.node}
+                                className={styles.workflowNode}
+                            >
+                                {form?.render()}
+                            </WorkflowNodeRenderer>
+                        </div>
                     )
-                }
-            }, nodeEngine: {
+                },
+            },
+
+            nodeEngine: {
                 enable: true,
             },
 
+            history: {
+                enable: true,
+                enableChangeNode: true,
+            },
+
             onContentChange(ctx) {
-                console.log('当前画布数据：', ctx.document.toJSON())
-            }
-        }), []
+                const nextCanvasData = ctx.document.toJSON() as WorkflowCanvasData
+
+                if (!workflowId) {
+                    return
+                }
+
+                if (saveTimerRef.current) {
+                    window.clearTimeout(saveTimerRef.current)
+                }
+
+                saveTimerRef.current = window.setTimeout(() => {
+                    updateWorkflow(workflowId, {
+                        canvasData: nextCanvasData,
+                    })
+
+                    console.log('画布已自动保存：', nextCanvasData)
+                }, 500)
+            },
+        }),
+        [workflowId, canvasData, onSelectNode],
     )
 }

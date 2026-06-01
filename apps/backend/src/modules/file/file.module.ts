@@ -18,5 +18,6 @@ import { FILE_STORAGE } from './storage/storage.interface';
       useExisting: LocalStorageService,
     },
   ],
+  exports: [FileService],
 })
 export class FileModule {}

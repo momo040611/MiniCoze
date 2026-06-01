@@ -15,12 +15,12 @@ export class StartNodeExecutor implements WorkflowNodeExecutor {
     const query = this.pickTextInput(context.input);
     context.state.currentText = query;
 
-    return {
+    return await Promise.resolve({
       output: {
         input: context.input,
         query,
       },
-    };
+    });
   }
 
   private pickTextInput(input: Record<string, unknown>): string {
@@ -34,4 +34,3 @@ export class StartNodeExecutor implements WorkflowNodeExecutor {
     return '';
   }
 }
-

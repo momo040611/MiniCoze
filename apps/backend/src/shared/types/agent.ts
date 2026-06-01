@@ -31,6 +31,16 @@ export interface ToolCall {
 export interface ToolResult {
   toolCallId: string;
   output: string;
+  metadata?: RuntimeToolMetadata;
+  maskedArgs?: unknown;
+  maskedOutput?: unknown;
+  maskedError?: string;
+}
+
+export interface RuntimeToolMetadata {
+  pluginId?: string;
+  pluginCode?: string;
+  toolCode?: string;
 }
 
 // ── Agent 配置 ──
@@ -90,20 +100,27 @@ export type RuntimeEvent =
       messageId: string;
       content: string;
     }
-  | {
+  | ({
       type: 'tool.call.created';
       runId: string;
       toolCallId: string;
       name: string;
       args: unknown;
-    }
-  | {
+    } & RuntimeToolMetadata)
+  | ({
       type: 'tool.call.completed';
       runId: string;
       toolCallId: string;
       name: string;
       result: unknown;
-    }
+    } & RuntimeToolMetadata)
+  | ({
+      type: 'tool.call.failed';
+      runId: string;
+      toolCallId: string;
+      name: string;
+      error: string;
+    } & RuntimeToolMetadata)
   | { type: 'run.completed'; runId: string; usage?: TokenUsage }
   | { type: 'run.failed'; runId: string; error: string }
   | { type: 'stream.done'; runId: string };
