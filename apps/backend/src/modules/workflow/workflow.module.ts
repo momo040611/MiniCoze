@@ -4,6 +4,7 @@ import { WorkspaceModule } from '../workspace/workspace.module';
 import { WorkflowAsyncRunner } from './internal/compose/workflow-async-runner';
 import { EndNodeExecutor } from './internal/nodes/end-node.executor';
 import { LlmNodeExecutor } from './internal/nodes/llm-node.executor';
+import { SelectorNodeExecutor } from './internal/nodes/selector-node.executor';
 import { StartNodeExecutor } from './internal/nodes/start-node.executor';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowMapper } from './workflow.mapper';
@@ -21,6 +22,7 @@ import { WorkflowService } from './workflow.service';
     StartNodeExecutor,
     LlmNodeExecutor,
     EndNodeExecutor,
+    SelectorNodeExecutor,
   ],
 })
 export class WorkflowModule {}

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   WorkflowNodeExecutionContext,
   WorkflowNodeExecutionResult,
@@ -8,12 +8,14 @@ import {
 @Injectable()
 export class EndNodeExecutor implements WorkflowNodeExecutor {
   readonly type = 'end';
+  private readonly logger = new Logger(EndNodeExecutor.name);
 
-  async execute(
+  execute(
     context: WorkflowNodeExecutionContext,
   ): Promise<WorkflowNodeExecutionResult> {
     const resultText = context.state.currentText;
-    return await Promise.resolve({
+    this.logger.debug(`[end] 收尾输出 result="${resultText}"`);
+    return Promise.resolve({
       output: {
         result: resultText,
         final: true,

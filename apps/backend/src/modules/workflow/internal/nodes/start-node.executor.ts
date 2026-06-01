@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   WorkflowNodeExecutionContext,
   WorkflowNodeExecutionResult,
@@ -8,14 +8,18 @@ import {
 @Injectable()
 export class StartNodeExecutor implements WorkflowNodeExecutor {
   readonly type = 'start';
+  private readonly logger = new Logger(StartNodeExecutor.name);
 
-  async execute(
+  execute(
     context: WorkflowNodeExecutionContext,
   ): Promise<WorkflowNodeExecutionResult> {
     const query = this.pickTextInput(context.input);
     context.state.currentText = query;
+    this.logger.debug(
+      `[start] 提取起始文本 query="${query}" 原始输入=${JSON.stringify(context.input)}`,
+    );
 
-    return await Promise.resolve({
+    return Promise.resolve({
       output: {
         input: context.input,
         query,
