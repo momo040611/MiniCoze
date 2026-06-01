@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { BingWebSearchClient } from '../builtin/bing-web-search.client';
 
 type BuiltinToolHandler = (args: Record<string, unknown>) => unknown;
 
@@ -6,7 +7,7 @@ type BuiltinToolHandler = (args: Record<string, unknown>) => unknown;
 export class BuiltinPluginExecutor {
   private readonly handlers = new Map<string, BuiltinToolHandler>();
 
-  constructor() {
+  constructor(private readonly bingWebSearchClient: BingWebSearchClient) {
     this.register('echo_text', (args) => ({
       text:
         typeof args.text === 'string'
@@ -18,6 +19,51 @@ export class BuiltinPluginExecutor {
     this.register('time_now', () => ({
       now: new Date().toISOString(),
     }));
+    this.register('bing_web_search', (args) =>
+      this.bingWebSearchClient.searchWebpages({
+        query: typeof args.query === 'string' ? args.query : '',
+        count: typeof args.count === 'number' ? args.count : undefined,
+        mkt: typeof args.mkt === 'string' ? args.mkt : undefined,
+        freshness:
+          args.freshness === 'Day' ||
+          args.freshness === 'Week' ||
+          args.freshness === 'Month'
+            ? args.freshness
+            : undefined,
+        safeSearch:
+          args.safeSearch === 'Off' ||
+          args.safeSearch === 'Moderate' ||
+          args.safeSearch === 'Strict'
+            ? args.safeSearch
+            : undefined,
+      }),
+    );
+    this.register('bing_page_summary', (args) =>
+      this.bingWebSearchClient.summarizePage({
+        url: typeof args.url === 'string' ? args.url : '',
+        maxChars: typeof args.maxChars === 'number' ? args.maxChars : undefined,
+      }),
+    );
+    this.register('bing_paged_search', (args) =>
+      this.bingWebSearchClient.pagedSearch({
+        query: typeof args.query === 'string' ? args.query : '',
+        page: typeof args.page === 'number' ? args.page : undefined,
+        pageSize: typeof args.pageSize === 'number' ? args.pageSize : undefined,
+        mkt: typeof args.mkt === 'string' ? args.mkt : undefined,
+        freshness:
+          args.freshness === 'Day' ||
+          args.freshness === 'Week' ||
+          args.freshness === 'Month'
+            ? args.freshness
+            : undefined,
+        safeSearch:
+          args.safeSearch === 'Off' ||
+          args.safeSearch === 'Moderate' ||
+          args.safeSearch === 'Strict'
+            ? args.safeSearch
+            : undefined,
+      }),
+    );
   }
 
   register(name: string, handler: BuiltinToolHandler): void {

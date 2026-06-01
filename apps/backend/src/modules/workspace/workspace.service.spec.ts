@@ -139,7 +139,7 @@ describe('WorkspaceService', () => {
       service.findOneForUser('user-id', workspace.id),
     ).rejects.toMatchObject({
       status: HttpStatus.FORBIDDEN,
-    } satisfies Partial<BusinessException>);
+    } satisfies { status: number });
   });
 
   it('rejects workspace update for member role', async () => {
@@ -154,7 +154,7 @@ describe('WorkspaceService', () => {
       service.update('user-id', workspace.id, { name: '新空间' }),
     ).rejects.toMatchObject({
       status: HttpStatus.FORBIDDEN,
-    } satisfies Partial<BusinessException>);
+    } satisfies { status: number });
   });
 
   it('rejects workspace removal for non-owner role', async () => {
@@ -168,7 +168,7 @@ describe('WorkspaceService', () => {
     await expect(service.remove('user-id', workspace.id)).rejects.toMatchObject(
       {
         status: HttpStatus.FORBIDDEN,
-      } satisfies Partial<BusinessException>,
+      } satisfies { status: number },
     );
   });
 });

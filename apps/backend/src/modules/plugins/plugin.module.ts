@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { AgentPluginBindingController } from './agent-plugin-binding.controller';
+import { BingWebSearchClient } from './builtin/bing-web-search.client';
 import { AgentPluginBindingService } from './agent-plugin-binding.service';
 import { BuiltinPluginExecutor } from './executors/builtin-plugin.executor';
 import { HttpPluginExecutor } from './executors/http-plugin.executor';
@@ -29,6 +30,7 @@ import { PluginSchemaValidator } from './validators/plugin-schema.validator';
     PluginResolverService,
     PluginSchemaValidator,
     PluginMaskerService,
+    BingWebSearchClient,
     BuiltinPluginExecutor,
     HttpPluginExecutor,
   ],
@@ -43,6 +45,7 @@ import { PluginSchemaValidator } from './validators/plugin-schema.validator';
     PluginResolverService,
     PluginSchemaValidator,
     PluginMaskerService,
+    BingWebSearchClient,
     BuiltinPluginExecutor,
     HttpPluginExecutor,
   ],

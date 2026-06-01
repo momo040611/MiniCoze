@@ -13,11 +13,11 @@ export class EndNodeExecutor implements WorkflowNodeExecutor {
     context: WorkflowNodeExecutionContext,
   ): Promise<WorkflowNodeExecutionResult> {
     const resultText = context.state.currentText;
-    return {
+    return await Promise.resolve({
       output: {
         result: resultText,
         final: true,
       },
-    };
+    });
   }
 }

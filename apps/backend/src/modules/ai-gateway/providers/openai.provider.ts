@@ -201,7 +201,7 @@ export class OpenAiProvider implements AiProviderInterface {
         entry.type = 'function';
       }
 
-      const functionCall = item.function;
+      const functionCall: unknown = item.function;
       if (this.isRecord(functionCall)) {
         if (typeof functionCall.name === 'string') {
           entry.name = functionCall.name;
@@ -238,7 +238,7 @@ export class OpenAiProvider implements AiProviderInterface {
     return merged.length ? merged : undefined;
   }
 
-  private isRecord(value: unknown): value is Record<string, any> {
+  private isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null;
   }
 

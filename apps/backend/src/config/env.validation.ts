@@ -67,6 +67,19 @@ class EnvironmentVariables {
   @IsInt()
   @Min(1)
   FILE_MAX_DOCUMENT_SIZE = 52428800;
+
+  @IsString()
+  @IsOptional()
+  BING_SEARCH_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  BING_SEARCH_ENDPOINT = 'https://api.bing.microsoft.com/v7.0/search';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  BING_SEARCH_TIMEOUT_MS = 10000;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

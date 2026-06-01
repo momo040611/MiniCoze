@@ -42,4 +42,13 @@ export default () => ({
       model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
     },
   },
+  search: {
+    bing: {
+      apiKey: process.env.BING_SEARCH_API_KEY,
+      endpoint:
+        process.env.BING_SEARCH_ENDPOINT ??
+        'https://api.bing.microsoft.com/v7.0/search',
+      timeoutMs: Number(process.env.BING_SEARCH_TIMEOUT_MS ?? 10000),
+    },
+  },
 });
