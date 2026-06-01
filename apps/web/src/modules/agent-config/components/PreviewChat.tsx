@@ -4,15 +4,18 @@ import { PaperClipOutlined, CloseOutlined } from '@ant-design/icons'
 import styles from './PreviewChat.module.css'
 import { runAgentStream } from '../../../api/agent-runtime'
 import type { RuntimeEvent, MessageDeltaEvent } from '../../../api/agent-runtime'
+import type { IToolCallRecord } from '../../../api/plugins'
 import type { OpeningConfig } from '../agent-detail'
 import { deleteConversation, getConversation, getConversations } from '../../../api/homepage'
 import { formatFileSize } from '../../homepage/utils/format'
+import { ToolCallCard } from '../../plugins/components/ToolCallCard'
 
 interface ChatMessage {
   id: string
   text: string
   sender: 'user' | 'agent'
   time: string
+  toolCall?: IToolCallRecord
 }
 
 interface Props {
@@ -177,8 +180,48 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
               break
 
             case 'run.in_progress':
-            case 'tool.call.created':
+              break
+
+            case 'tool.call.created': {
+              const params = event.args && typeof event.args === 'object' && !Array.isArray(event.args)
+                ? event.args as Record<string, unknown>
+                : { value: event.args }
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `tool-${event.toolCallId}`,
+                  text: '',
+                  sender: 'agent',
+                  time: timeStr,
+                  toolCall: {
+                    callId: event.toolCallId,
+                    toolName: event.name,
+                    params,
+                    status: 'running',
+                    startedAt: new Date().toISOString(),
+                  },
+                },
+              ])
+              break
+            }
+
             case 'tool.call.completed':
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === `tool-${event.toolCallId}` && m.toolCall
+                    ? {
+                        ...m,
+                        toolCall: {
+                          ...m.toolCall,
+                          toolName: event.name,
+                          status: 'success',
+                          result: event.result,
+                          finishedAt: new Date().toISOString(),
+                        },
+                      }
+                    : m
+                )
+              )
               break
 
             default:
@@ -309,9 +352,13 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
             <div key={msg.id} className={styles.previewBubble}>
               <img src={avatar} alt="" className={styles.previewAvatarSmall} />
               <div style={{ maxWidth: '75%', minWidth: 0 }}>
-                <div className={styles.previewMsg}>
+                {msg.toolCall ? (
+                  <ToolCallCard record={msg.toolCall} />
+                ) : (
+                  <div className={styles.previewMsg}>
                   {msg.text || (sending ? '思考中...' : '无法获取回复')}
-                </div>
+                  </div>
+                )}
                 <div className={styles.previewMeta}><span>{msg.time}</span></div>
               </div>
             </div>
