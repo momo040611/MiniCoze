@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { type Prisma } from '@prisma/client';
 import { ToolDefinition } from '../../shared/types/agent';
 import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
@@ -13,8 +14,11 @@ export class PluginRegistryService {
     private readonly pluginService: PluginService,
   ) {}
 
-  private get db(): PrismaService & Record<string, any> {
-    return this.prisma as PrismaService & Record<string, any>;
+  private getBindingConfig(value: unknown): AgentPluginBindingConfig | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    return value;
   }
 
   async listRunnableTools(input: {
@@ -31,7 +35,7 @@ export class PluginRegistryService {
       input.workspaceId,
     );
 
-    const bindings = await this.db.agentPluginBinding.findMany({
+    const bindings = await this.prisma.agentPluginBinding.findMany({
       where: {
         agentId: input.agentId,
         status: 'ACTIVE',
@@ -62,8 +66,7 @@ export class PluginRegistryService {
     const tools: ToolDefinition[] = [];
 
     for (const binding of bindings) {
-      const bindingConfig = (binding.config ??
-        null) as AgentPluginBindingConfig | null;
+      const bindingConfig = this.getBindingConfig(binding.config);
       const disabledTools = Array.isArray(bindingConfig?.disabledTools)
         ? bindingConfig.disabledTools
         : [];
@@ -78,7 +81,7 @@ export class PluginRegistryService {
           function: {
             name: `${binding.plugin.code}__${tool.code}`,
             description: tool.description,
-            parameters: (tool.inputSchema ?? {}) as Record<string, unknown>,
+            parameters: (tool.inputSchema ?? {}) as Prisma.InputJsonObject,
           },
         });
       }

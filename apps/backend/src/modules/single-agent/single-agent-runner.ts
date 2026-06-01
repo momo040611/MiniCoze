@@ -103,7 +103,8 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
             name: toolCall.function.name,
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           yield {
             type: 'tool.call.failed',
             runId: context.runId,

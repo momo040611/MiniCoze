@@ -1,3 +1,6 @@
+import type { PluginDefinition, PluginTool, Prisma } from '@prisma/client';
+import type { RuntimeToolMetadata } from '../../../shared/types/agent';
+
 export const PLUGIN_TYPE_VALUES = ['BUILTIN', 'HTTP'] as const;
 export type PluginTypeValue = (typeof PLUGIN_TYPE_VALUES)[number];
 
@@ -28,8 +31,8 @@ export type PluginAuthTypeValue = (typeof PLUGIN_AUTH_TYPE_VALUES)[number];
 
 export interface AgentPluginBindingConfig {
   disabledTools?: string[];
-  defaults?: Record<string, Record<string, unknown>>;
-  forcedOverrides?: Record<string, Record<string, unknown>>;
+  defaults?: Record<string, Record<string, Prisma.JsonValue>>;
+  forcedOverrides?: Record<string, Record<string, Prisma.JsonValue>>;
 }
 
 export interface PluginMaskRule {
@@ -121,13 +124,39 @@ export interface PluginToolTestResponse {
   durationMs: number;
 }
 
+export type AgentPluginBindingWithPluginAndTools =
+  Prisma.AgentPluginBindingGetPayload<{
+    include: {
+      plugin: {
+        include: {
+          tools: true;
+        };
+      };
+    };
+  }>;
+
+export type PluginWithTools = AgentPluginBindingWithPluginAndTools['plugin'];
+export type PluginToolEntity = PluginWithTools['tools'][number];
+
 export interface ResolvedPluginTool {
-  binding: any;
-  plugin: any;
-  tool: any;
-  metadata: {
-    pluginId: string;
-    pluginCode: string;
-    toolCode: string;
-  };
+  binding: AgentPluginBindingWithPluginAndTools;
+  plugin: PluginWithTools;
+  tool: PluginToolEntity;
+  metadata: Required<
+    Pick<RuntimeToolMetadata, 'pluginId' | 'pluginCode' | 'toolCode'>
+  >;
 }
+
+export type PluginEntityForToolTest = Pick<
+  PluginDefinition,
+  'id' | 'code' | 'type' | 'maskStrategy'
+>;
+
+export type PluginToolEntityForToolTest = Pick<
+  PluginTool,
+  'code' | 'inputSchema' | 'meta'
+>;
+
+export type PluginInvocationTarget =
+  | Pick<ResolvedPluginTool, 'plugin' | 'tool'>
+  | { plugin: PluginEntityForToolTest; tool: PluginToolEntityForToolTest };

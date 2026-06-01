@@ -231,9 +231,8 @@ export class OpenAiProvider implements AiProviderInterface {
         };
       })
       .filter(
-        (
-          item,
-        ): item is NonNullable<AiStreamChunk['toolCalls']>[number] => item !== null,
+        (item): item is NonNullable<AiStreamChunk['toolCalls']>[number] =>
+          item !== null,
       );
 
     return merged.length ? merged : undefined;

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ToolResult } from '../../shared/types/agent';
+import { type ToolCall, ToolResult } from '../../shared/types/agent';
 import { RuntimeContext, ToolExecutor } from '../../shared/types/runtime';
 import { BuiltinPluginExecutor } from './executors/builtin-plugin.executor';
 import { HttpPluginExecutor } from './executors/http-plugin.executor';
@@ -8,8 +8,15 @@ import { PluginResolverService } from './plugin-resolver.service';
 import {
   type AgentPluginBindingConfig,
   type PluginToolTestResponse,
+  type PluginEntityForToolTest,
+  type PluginToolEntityForToolTest,
+  type ResolvedPluginTool,
 } from './types/plugin.types';
 import { PluginSchemaValidator } from './validators/plugin-schema.validator';
+
+type PluginExecutionTarget =
+  | ResolvedPluginTool
+  | { plugin: PluginEntityForToolTest; tool: PluginToolEntityForToolTest };
 
 @Injectable()
 export class PluginExecutionService implements ToolExecutor {
@@ -22,7 +29,7 @@ export class PluginExecutionService implements ToolExecutor {
   ) {}
 
   async execute(input: {
-    toolCall: { id: string; function: { name: string; arguments: string } };
+    toolCall: ToolCall;
     context: RuntimeContext;
   }): Promise<ToolResult> {
     const target = await this.pluginResolver.resolve(
@@ -78,8 +85,8 @@ export class PluginExecutionService implements ToolExecutor {
   }
 
   async testTool(input: {
-    plugin: any;
-    tool: any;
+    plugin: PluginEntityForToolTest;
+    tool: PluginToolEntityForToolTest;
     args?: Record<string, unknown>;
     bindingConfig?: AgentPluginBindingConfig | null;
   }): Promise<PluginToolTestResponse> {
@@ -90,7 +97,9 @@ export class PluginExecutionService implements ToolExecutor {
       input.bindingConfig ?? null,
       rawArgs,
     );
-    let invocation: { invocationId: string; startedAt: number; argsSummary: unknown } | null = null;
+    let invocation: Awaited<
+      ReturnType<PluginInvocationService['startToolTest']>
+    > | null = null;
 
     try {
       invocation = await this.invocationService.startToolTest({
@@ -118,7 +127,7 @@ export class PluginExecutionService implements ToolExecutor {
         {
           plugin: input.plugin,
           tool: input.tool,
-        } as any,
+        },
         output,
       );
 
@@ -135,7 +144,7 @@ export class PluginExecutionService implements ToolExecutor {
           {
             plugin: input.plugin,
             tool: input.tool,
-          } as any,
+          },
           error,
         );
       }
@@ -150,7 +159,7 @@ export class PluginExecutionService implements ToolExecutor {
 
   private async dispatchExecution(
     functionName: string,
-    target: any,
+    target: PluginExecutionTarget,
     args: Record<string, unknown>,
   ): Promise<unknown> {
     if (this.builtinExecutor.supports(target.plugin.type)) {

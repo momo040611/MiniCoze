@@ -100,27 +100,27 @@ export type RuntimeEvent =
       messageId: string;
       content: string;
     }
-  | {
+  | ({
       type: 'tool.call.created';
       runId: string;
       toolCallId: string;
       name: string;
       args: unknown;
-    } & RuntimeToolMetadata
-  | {
+    } & RuntimeToolMetadata)
+  | ({
       type: 'tool.call.completed';
       runId: string;
       toolCallId: string;
       name: string;
       result: unknown;
-    } & RuntimeToolMetadata
-  | {
+    } & RuntimeToolMetadata)
+  | ({
       type: 'tool.call.failed';
       runId: string;
       toolCallId: string;
       name: string;
       error: string;
-    } & RuntimeToolMetadata
+    } & RuntimeToolMetadata)
   | { type: 'run.completed'; runId: string; usage?: TokenUsage }
   | { type: 'run.failed'; runId: string; error: string }
   | { type: 'stream.done'; runId: string };

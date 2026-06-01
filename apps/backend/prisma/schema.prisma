@@ -197,12 +197,6 @@ model Agent {
   status         AgentStatus @default(DRAFT)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
-
-  workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator           User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
-  conversations     Conversation[]
-  pluginBindings    AgentPluginBinding[]
-  pluginInvocations PluginInvocation[]
   workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   creator           User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
   conversations     Conversation[]

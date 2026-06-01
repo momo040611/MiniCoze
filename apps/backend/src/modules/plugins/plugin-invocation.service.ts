@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { type PluginInvocation, type Prisma } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { createPaginatedData } from '../../common/types/pagination-response.type';
@@ -10,6 +11,9 @@ import { PluginInvocationQueryDto } from './dto/plugin-invocation-query.dto';
 import {
   type PluginMaskStrategy,
   type PluginInvocationResponse,
+  type PluginEntityForToolTest,
+  type PluginInvocationTarget,
+  type PluginToolEntityForToolTest,
   type ResolvedPluginTool,
 } from './types/plugin.types';
 
@@ -26,10 +30,6 @@ export class PluginInvocationService {
     private readonly masker: PluginMaskerService,
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
-
-  private get db(): PrismaService & Record<string, any> {
-    return this.prisma as PrismaService & Record<string, any>;
-  }
 
   async start(input: {
     target: ResolvedPluginTool;
@@ -49,8 +49,8 @@ export class PluginInvocationService {
   }
 
   async startToolTest(input: {
-    plugin: { id: string; maskStrategy?: unknown };
-    tool: { code: string };
+    plugin: PluginEntityForToolTest;
+    tool: PluginToolEntityForToolTest;
     args: Record<string, unknown>;
   }): Promise<InvocationContext> {
     return this.createInvocation({
@@ -75,7 +75,7 @@ export class PluginInvocationService {
   }): Promise<InvocationContext> {
     const strategy = this.getMaskStrategy(input.maskStrategy);
     const argsSummary = this.masker.summarizeInput(input.args, strategy);
-    const created = await this.db.pluginInvocation.create({
+    const created = await this.prisma.pluginInvocation.create({
       data: {
         pluginId: input.pluginId,
         agentId: input.agentId,
@@ -83,8 +83,8 @@ export class PluginInvocationService {
         runId: input.runId,
         toolCode: input.toolCode,
         status: 'RUNNING',
-        argsSummary: argsSummary as any,
-      } as any,
+        argsSummary: argsSummary as Prisma.InputJsonValue,
+      },
     });
 
     return {
@@ -96,18 +96,18 @@ export class PluginInvocationService {
 
   async completeSuccess(
     context: InvocationContext,
-    target: ResolvedPluginTool,
+    target: PluginInvocationTarget,
     output: unknown,
   ): Promise<unknown> {
     const strategy = this.getMaskStrategy(target.plugin.maskStrategy);
     const outputSummary = this.masker.summarizeOutput(output, strategy);
-    await this.db.pluginInvocation.update({
+    await this.prisma.pluginInvocation.update({
       where: {
         id: context.invocationId,
       },
       data: {
         status: 'SUCCESS',
-        outputSummary: outputSummary as any,
+        outputSummary: outputSummary as Prisma.InputJsonValue,
         finishedAt: new Date(),
         durationMs: Date.now() - context.startedAt,
       },
@@ -117,12 +117,12 @@ export class PluginInvocationService {
 
   async completeFailure(
     context: InvocationContext,
-    target: ResolvedPluginTool,
+    target: PluginInvocationTarget,
     error: unknown,
   ): Promise<string> {
     const strategy = this.getMaskStrategy(target.plugin.maskStrategy);
     const errorSummary = this.masker.summarizeError(error, strategy);
-    await this.db.pluginInvocation.update({
+    await this.prisma.pluginInvocation.update({
       where: {
         id: context.invocationId,
       },
@@ -143,7 +143,7 @@ export class PluginInvocationService {
   ) {
     await this.workspaceAccessService.ensureMember(userId, query.workspaceId);
 
-    const plugin = await this.db.pluginDefinition.findFirst({
+    const plugin = await this.prisma.pluginDefinition.findFirst({
       where: {
         id: pluginId,
         workspaceId: query.workspaceId,
@@ -161,12 +161,12 @@ export class PluginInvocationService {
       );
     }
 
-    const where = {
+    const where: Prisma.PluginInvocationWhereInput = {
       pluginId,
     };
 
-    const [records, total] = await this.db.$transaction([
-      this.db.pluginInvocation.findMany({
+    const [records, total] = await this.prisma.$transaction([
+      this.prisma.pluginInvocation.findMany({
         where,
         orderBy: {
           startedAt: 'desc',
@@ -174,11 +174,11 @@ export class PluginInvocationService {
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
-      this.db.pluginInvocation.count({ where }),
+      this.prisma.pluginInvocation.count({ where }),
     ]);
 
     return createPaginatedData({
-      list: records.map((record: any) => this.toInvocationResponse(record)),
+      list: records.map((record) => this.toInvocationResponse(record)),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -189,10 +189,12 @@ export class PluginInvocationService {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return undefined;
     }
-    return value as PluginMaskStrategy;
+    return value;
   }
 
-  private toInvocationResponse(record: any): PluginInvocationResponse {
+  private toInvocationResponse(
+    record: PluginInvocation,
+  ): PluginInvocationResponse {
     return {
       id: record.id,
       pluginId: record.pluginId,

@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import type { PluginDefinition, PluginTool, Prisma } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
@@ -10,7 +11,6 @@ import { UpdatePluginToolDto } from './dto/update-plugin-tool.dto';
 import { PluginExecutionService } from './plugin-execution.service';
 import { PluginService } from './plugin.service';
 import {
-  type AgentPluginBindingConfig,
   type PluginToolResponse,
   type PluginToolTestResponse,
 } from './types/plugin.types';
@@ -26,8 +26,15 @@ export class PluginToolService {
     private readonly pluginExecutionService: PluginExecutionService,
   ) {}
 
-  private get db(): PrismaService & Record<string, any> {
-    return this.prisma as PrismaService & Record<string, any>;
+  private get db(): PrismaService {
+    return this.prisma;
+  }
+
+  private asJsonRecord(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    return value as Record<string, unknown>;
   }
 
   async create(
@@ -35,7 +42,8 @@ export class PluginToolService {
     pluginId: string,
     dto: CreatePluginToolDto,
   ): Promise<PluginToolResponse> {
-    const plugin = await this.pluginService.findPluginOrThrow(pluginId);
+    const plugin: PluginDefinition =
+      await this.pluginService.findPluginOrThrow(pluginId);
     await this.workspaceAccessService.ensureCanManage(
       userId,
       plugin.workspaceId,
@@ -74,9 +82,9 @@ export class PluginToolService {
         code: dto.code,
         name: dto.name,
         description: dto.description,
-        inputSchema: dto.inputSchema as any,
-        outputSchema: (dto.outputSchema ?? undefined) as any,
-        meta: (dto.meta ?? undefined) as any,
+        inputSchema: dto.inputSchema as Prisma.InputJsonValue,
+        outputSchema: (dto.outputSchema ?? undefined) as Prisma.InputJsonValue,
+        meta: (dto.meta ?? undefined) as Prisma.InputJsonValue,
       },
     });
 
@@ -89,7 +97,8 @@ export class PluginToolService {
     toolId: string,
     dto: UpdatePluginToolDto,
   ): Promise<PluginToolResponse> {
-    const plugin = await this.pluginService.findPluginOrThrow(pluginId);
+    const plugin: PluginDefinition =
+      await this.pluginService.findPluginOrThrow(pluginId);
     await this.workspaceAccessService.ensureCanManage(
       userId,
       plugin.workspaceId,
@@ -135,16 +144,16 @@ export class PluginToolService {
         name: dto.name,
         description: dto.description,
         status: dto.status,
-        inputSchema: (dto.inputSchema ?? undefined) as any,
-        outputSchema: (dto.outputSchema ?? undefined) as any,
-        meta: (dto.meta ?? undefined) as any,
+        inputSchema: (dto.inputSchema ?? undefined) as Prisma.InputJsonValue,
+        outputSchema: (dto.outputSchema ?? undefined) as Prisma.InputJsonValue,
+        meta: (dto.meta ?? undefined) as Prisma.InputJsonValue,
       },
     });
 
     return this.toPluginToolResponse(updated);
   }
 
-  async findToolOrThrow(pluginId: string, toolId: string): Promise<any> {
+  async findToolOrThrow(pluginId: string, toolId: string): Promise<PluginTool> {
     const tool = await this.db.pluginTool.findFirst({
       where: {
         id: toolId,
@@ -169,7 +178,8 @@ export class PluginToolService {
     toolId: string,
     dto: TestPluginToolDto,
   ): Promise<PluginToolTestResponse> {
-    const plugin = await this.pluginService.findPluginOrThrow(pluginId);
+    const plugin: PluginDefinition =
+      await this.pluginService.findPluginOrThrow(pluginId);
     await this.workspaceAccessService.ensureCanManage(
       userId,
       plugin.workspaceId,
@@ -180,23 +190,20 @@ export class PluginToolService {
       plugin,
       tool,
       args: dto.arguments ?? {},
-      bindingConfig: (dto.bindingConfig ?? null) as AgentPluginBindingConfig | null,
+      bindingConfig: dto.bindingConfig ?? null,
     });
   }
 
-  private toPluginToolResponse(tool: any): PluginToolResponse {
+  private toPluginToolResponse(tool: PluginTool): PluginToolResponse {
     return {
       id: tool.id,
       code: tool.code,
       name: tool.name,
       description: tool.description,
       status: tool.status,
-      inputSchema: (tool.inputSchema ?? {}) as Record<string, unknown>,
-      outputSchema: (tool.outputSchema ?? null) as Record<
-        string,
-        unknown
-      > | null,
-      meta: (tool.meta ?? null) as Record<string, unknown> | null,
+      inputSchema: this.asJsonRecord(tool.inputSchema) ?? {},
+      outputSchema: this.asJsonRecord(tool.outputSchema) ?? null,
+      meta: this.asJsonRecord(tool.meta) ?? null,
       createdAt: formatShanghaiDateTime(tool.createdAt),
       updatedAt: formatShanghaiDateTime(tool.updatedAt),
     };

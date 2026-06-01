@@ -1,15 +1,13 @@
 import { Injectable } from '@nestjs/common';
 
-type BuiltinToolHandler = (
-  args: Record<string, unknown>,
-) => Promise<unknown> | unknown;
+type BuiltinToolHandler = (args: Record<string, unknown>) => unknown;
 
 @Injectable()
 export class BuiltinPluginExecutor {
   private readonly handlers = new Map<string, BuiltinToolHandler>();
 
   constructor() {
-    this.register('echo_text', async (args) => ({
+    this.register('echo_text', (args) => ({
       text:
         typeof args.text === 'string'
           ? args.text
@@ -17,7 +15,7 @@ export class BuiltinPluginExecutor {
             ? args.value
             : JSON.stringify(args),
     }));
-    this.register('time_now', async () => ({
+    this.register('time_now', () => ({
       now: new Date().toISOString(),
     }));
   }
@@ -45,7 +43,7 @@ export class BuiltinPluginExecutor {
     for (const key of candidates) {
       const handler = this.handlers.get(key);
       if (handler) {
-        return handler(input.args);
+        return await Promise.resolve(handler(input.args));
       }
     }
 

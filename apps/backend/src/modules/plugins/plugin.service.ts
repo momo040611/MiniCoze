@@ -1,7 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
-import { createPaginatedData } from '../../common/types/pagination-response.type';
+import {
+  createPaginatedData,
+  type PaginatedData,
+} from '../../common/types/pagination-response.type';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
@@ -14,6 +18,21 @@ import {
   type PluginToolResponse,
 } from './types/plugin.types';
 
+const pluginDetailInclude = {
+  tools: {
+    orderBy: {
+      createdAt: 'asc',
+    },
+  },
+  credentials: true,
+} as const satisfies Prisma.PluginDefinitionInclude;
+
+type PluginDetailEntity = Prisma.PluginDefinitionGetPayload<{
+  include: typeof pluginDetailInclude;
+}>;
+
+type PluginToolEntity = PluginDetailEntity['tools'][number];
+
 @Injectable()
 export class PluginService {
   constructor(
@@ -21,17 +40,13 @@ export class PluginService {
     private readonly workspaceAccessService: WorkspaceAccessService,
   ) {}
 
-  private get db(): PrismaService & Record<string, any> {
-    return this.prisma as PrismaService & Record<string, any>;
-  }
-
   async create(
     userId: string,
     dto: CreatePluginDto,
   ): Promise<PluginDetailResponse> {
     await this.workspaceAccessService.ensureCanManage(userId, dto.workspaceId);
 
-    const existing = await this.db.pluginDefinition.findFirst({
+    const existing = await this.prisma.pluginDefinition.findFirst({
       where: {
         workspaceId: dto.workspaceId,
         code: dto.code,
@@ -46,7 +61,7 @@ export class PluginService {
       );
     }
 
-    const plugin = await this.db.pluginDefinition.create({
+    const plugin = await this.prisma.pluginDefinition.create({
       data: {
         workspaceId: dto.workspaceId,
         creatorId: userId,
@@ -57,35 +72,47 @@ export class PluginService {
         type: dto.type ?? 'BUILTIN',
         version: dto.version ?? 'v1.0.0',
         isBuiltin: dto.isBuiltin ?? false,
-        maskStrategy: (dto.maskStrategy ?? undefined) as any,
+        maskStrategy: (dto.maskStrategy ?? undefined) as
+          | Prisma.InputJsonValue
+          | undefined,
         invocationEnabled: dto.invocationEnabled ?? true,
       },
-      include: {
-        tools: true,
-        credentials: true,
-      },
+      include: pluginDetailInclude,
     });
 
     return this.toPluginDetailResponse(plugin);
   }
 
-  async findByWorkspace(userId: string, query: PluginQueryDto) {
+  async findByWorkspace(
+    userId: string,
+    query: PluginQueryDto,
+  ): Promise<PaginatedData<PluginDetailResponse>> {
     await this.workspaceAccessService.ensureMember(userId, query.workspaceId);
     await this.ensureBuiltinPlugins(userId, query.workspaceId);
 
-    const where: any = {
+    const where: Prisma.PluginDefinitionWhereInput = {
       workspaceId: query.workspaceId,
       ...(query.type ? { type: query.type } : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.keyword
         ? {
             OR: [
-              { name: { contains: query.keyword, mode: 'insensitive' as any } },
-              { code: { contains: query.keyword, mode: 'insensitive' as any } },
+              {
+                name: {
+                  contains: query.keyword,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                code: {
+                  contains: query.keyword,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
               {
                 description: {
                   contains: query.keyword,
-                  mode: 'insensitive' as any,
+                  mode: Prisma.QueryMode.insensitive,
                 },
               },
             ],
@@ -93,24 +120,21 @@ export class PluginService {
         : {}),
     };
 
-    const [plugins, total] = await this.db.$transaction([
-      this.db.pluginDefinition.findMany({
+    const [plugins, total] = await this.prisma.$transaction([
+      this.prisma.pluginDefinition.findMany({
         where,
-        include: {
-          tools: true,
-          credentials: true,
-        },
+        include: pluginDetailInclude,
         orderBy: {
           updatedAt: 'desc',
         },
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
-      this.db.pluginDefinition.count({ where }),
+      this.prisma.pluginDefinition.count({ where }),
     ]);
 
     return createPaginatedData({
-      list: plugins.map((plugin: any) => this.toPluginDetailResponse(plugin)),
+      list: plugins.map((plugin) => this.toPluginDetailResponse(plugin)),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -139,7 +163,7 @@ export class PluginService {
     );
 
     if (dto.code && dto.code !== plugin.code) {
-      const existing = await this.db.pluginDefinition.findFirst({
+      const existing = await this.prisma.pluginDefinition.findFirst({
         where: {
           workspaceId: plugin.workspaceId,
           code: dto.code,
@@ -155,7 +179,7 @@ export class PluginService {
       }
     }
 
-    const updated = await this.db.pluginDefinition.update({
+    const updated = await this.prisma.pluginDefinition.update({
       where: { id: pluginId },
       data: {
         code: dto.code,
@@ -166,13 +190,12 @@ export class PluginService {
         status: dto.status,
         version: dto.version,
         isBuiltin: dto.isBuiltin,
-        maskStrategy: (dto.maskStrategy ?? undefined) as any,
+        maskStrategy: (dto.maskStrategy ?? undefined) as
+          | Prisma.InputJsonValue
+          | undefined,
         invocationEnabled: dto.invocationEnabled,
       },
-      include: {
-        tools: true,
-        credentials: true,
-      },
+      include: pluginDetailInclude,
     });
 
     return this.toPluginDetailResponse(updated);
@@ -186,17 +209,10 @@ export class PluginService {
     return this.update(userId, pluginId, { status: 'DISABLED' });
   }
 
-  async findPluginOrThrow(pluginId: string): Promise<any> {
-    const plugin = await this.db.pluginDefinition.findUnique({
+  async findPluginOrThrow(pluginId: string): Promise<PluginDetailEntity> {
+    const plugin = await this.prisma.pluginDefinition.findUnique({
       where: { id: pluginId },
-      include: {
-        tools: {
-          orderBy: {
-            createdAt: 'asc',
-          },
-        },
-        credentials: true,
-      },
+      include: pluginDetailInclude,
     });
 
     if (!plugin) {
@@ -210,10 +226,13 @@ export class PluginService {
     return plugin;
   }
 
-  async ensureBuiltinPlugins(userId: string, workspaceId: string): Promise<void> {
+  async ensureBuiltinPlugins(
+    userId: string,
+    workspaceId: string,
+  ): Promise<void> {
     await this.workspaceAccessService.ensureMember(userId, workspaceId);
 
-    const existingPlugins = await this.db.pluginDefinition.findMany({
+    const existingPlugins = await this.prisma.pluginDefinition.findMany({
       where: {
         workspaceId,
         isBuiltin: true,
@@ -225,13 +244,13 @@ export class PluginService {
     });
 
     const existingCodeSet = new Set(
-      existingPlugins.map((plugin: { code: string }) => plugin.code),
+      existingPlugins.map((plugin) => plugin.code),
     );
 
     for (const definition of BUILTIN_PLUGIN_DEFINITIONS) {
       if (existingCodeSet.has(definition.code)) {
         const existing = existingPlugins.find(
-          (item: { code: string }) => item.code === definition.code,
+          (item) => item.code === definition.code,
         );
         if (existing?.id) {
           await this.ensureBuiltinTools(existing.id, definition);
@@ -239,7 +258,7 @@ export class PluginService {
         continue;
       }
 
-      const created = await this.db.pluginDefinition.create({
+      const created = await this.prisma.pluginDefinition.create({
         data: {
           workspaceId,
           creatorId: userId,
@@ -262,7 +281,7 @@ export class PluginService {
     pluginId: string,
     definition: (typeof BUILTIN_PLUGIN_DEFINITIONS)[number],
   ): Promise<void> {
-    const existingTools = await this.db.pluginTool.findMany({
+    const existingTools = await this.prisma.pluginTool.findMany({
       where: {
         pluginId,
       },
@@ -270,77 +289,76 @@ export class PluginService {
         code: true,
       },
     });
-    const existingToolCodeSet = new Set(
-      existingTools.map((tool: { code: string }) => tool.code),
-    );
+    const existingToolCodeSet = new Set(existingTools.map((tool) => tool.code));
 
     for (const tool of definition.tools) {
       if (existingToolCodeSet.has(tool.code)) {
         continue;
       }
 
-      await this.db.pluginTool.create({
+      await this.prisma.pluginTool.create({
         data: {
           pluginId,
           code: tool.code,
           name: tool.name,
           description: tool.description,
           status: 'ACTIVE',
-          inputSchema: tool.inputSchema as any,
-          outputSchema: tool.outputSchema as any,
+          inputSchema: tool.inputSchema as Prisma.InputJsonValue,
+          outputSchema: tool.outputSchema as Prisma.InputJsonValue,
           meta: {
             handler: tool.handler,
-          } as any,
+          },
         },
       });
     }
   }
 
-  private toPluginToolResponse(tool: any): PluginToolResponse {
+  private toPluginToolResponse(tool: PluginToolEntity): PluginToolResponse {
     return {
       id: tool.id,
       code: tool.code,
       name: tool.name,
       description: tool.description,
       status: tool.status,
-      inputSchema: (tool.inputSchema ?? {}) as Record<string, unknown>,
+      inputSchema: (tool.inputSchema ?? {}) as unknown as Record<
+        string,
+        unknown
+      >,
       outputSchema: (tool.outputSchema ?? null) as Record<
         string,
         unknown
       > | null,
-      meta: (tool.meta ?? null) as Record<string, unknown> | null,
+      meta: (tool.meta ?? null) as unknown as Record<string, unknown> | null,
       createdAt: formatShanghaiDateTime(tool.createdAt),
       updatedAt: formatShanghaiDateTime(tool.updatedAt),
     };
   }
 
-  private toPluginDetailResponse(plugin: any): PluginDetailResponse {
-    const credentials = Array.isArray(plugin.credentials)
-      ? plugin.credentials
-      : [];
+  private toPluginDetailResponse(
+    plugin: PluginDetailEntity,
+  ): PluginDetailResponse {
+    const credentials = plugin.credentials ?? [];
     return {
       id: plugin.id,
       workspaceId: plugin.workspaceId,
       creatorId: plugin.creatorId,
       code: plugin.code,
       name: plugin.name,
-      description: plugin.description,
-      iconUrl: plugin.iconUrl,
+      description: plugin.description ?? null,
+      iconUrl: plugin.iconUrl ?? null,
       type: plugin.type,
       status: plugin.status,
       version: plugin.version,
       isBuiltin: Boolean(plugin.isBuiltin),
       invocationEnabled: Boolean(plugin.invocationEnabled),
-      maskStrategy: (plugin.maskStrategy ?? null) as Record<
+      maskStrategy: (plugin.maskStrategy ?? null) as unknown as Record<
         string,
         unknown
       > | null,
-      tools: Array.isArray(plugin.tools)
-        ? plugin.tools.map((tool: any) => this.toPluginToolResponse(tool))
-        : [],
+      tools: plugin.tools.map((tool) => this.toPluginToolResponse(tool)),
       credentialSummary: {
         count: credentials.length,
-        activeCount: credentials.filter((item: any) => item.status === 'ACTIVE')
+        activeCount: credentials.filter((item) => item.status === 'ACTIVE')
           .length,
       },
       createdAt: formatShanghaiDateTime(plugin.createdAt),

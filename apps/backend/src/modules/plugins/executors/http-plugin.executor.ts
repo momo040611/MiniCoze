@@ -8,7 +8,7 @@ export class HttpPluginExecutor {
     return type === 'HTTP';
   }
 
-  async execute(): Promise<never> {
+  execute(): never {
     throw new BusinessException(
       'HTTP 插件执行器尚未实现',
       ErrorCode.BusinessError,

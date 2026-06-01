@@ -22,12 +22,17 @@ export class PluginSchemaValidator {
     }
   }
 
-  validateInput(schema: Record<string, unknown>, input: Record<string, unknown>): void {
+  validateInput(
+    schema: Record<string, unknown>,
+    input: Record<string, unknown>,
+  ): void {
     this.validateDefinition(schema);
 
     const properties = this.asObject(schema.properties);
     const required = Array.isArray(schema.required)
-      ? schema.required.filter((item): item is string => typeof item === 'string')
+      ? schema.required.filter(
+          (item): item is string => typeof item === 'string',
+        )
       : [];
 
     for (const key of required) {
@@ -54,7 +59,8 @@ export class PluginSchemaValidator {
     value: unknown,
     schema: Record<string, unknown>,
   ): void {
-    const expectedType = typeof schema.type === 'string' ? schema.type : undefined;
+    const expectedType =
+      typeof schema.type === 'string' ? schema.type : undefined;
     if (expectedType && !this.matchesType(expectedType, value)) {
       throw new BusinessException(
         `插件参数类型错误: ${key}`,
@@ -63,7 +69,11 @@ export class PluginSchemaValidator {
       );
     }
 
-    if (Array.isArray(schema.enum) && value !== undefined && !schema.enum.includes(value)) {
+    if (
+      Array.isArray(schema.enum) &&
+      value !== undefined &&
+      !schema.enum.includes(value)
+    ) {
       throw new BusinessException(
         `插件参数枚举错误: ${key}`,
         ErrorCode.BadRequest,

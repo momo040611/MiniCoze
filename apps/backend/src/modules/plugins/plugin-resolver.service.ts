@@ -12,8 +12,11 @@ import {
 export class PluginResolverService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private get db(): PrismaService & Record<string, any> {
-    return this.prisma as PrismaService & Record<string, any>;
+  private getBindingConfig(value: unknown): AgentPluginBindingConfig | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    return value;
   }
 
   async resolve(
@@ -22,7 +25,7 @@ export class PluginResolverService {
   ): Promise<ResolvedPluginTool> {
     const { pluginCode, toolCode } = this.parseFunctionName(functionName);
 
-    const binding = await this.db.agentPluginBinding.findFirst({
+    const binding = await this.prisma.agentPluginBinding.findFirst({
       where: {
         agentId: context.agentId,
         status: 'ACTIVE',
@@ -55,8 +58,7 @@ export class PluginResolverService {
       );
     }
 
-    const bindingConfig = (binding.config ??
-      null) as AgentPluginBindingConfig | null;
+    const bindingConfig = this.getBindingConfig(binding.config);
     const disabledTools = Array.isArray(bindingConfig?.disabledTools)
       ? bindingConfig.disabledTools
       : [];

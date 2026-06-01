@@ -37,12 +37,18 @@ export class WorkflowRunService {
   ): Promise<WorkflowRunResponse> {
     // Step 1) 读取工作流并做权限校验（至少是 workspace 成员才能运行）
     const workflow = await this.findWorkflowOrThrow(workflowId);
-    await this.workspaceAccessService.ensureMember(userId, workflow.workspaceId);
+    await this.workspaceAccessService.ensureMember(
+      userId,
+      workflow.workspaceId,
+    );
 
     // Step 2) 确定运行版本：
     // - 传了 dto.version -> 运行指定版本
     // - 没传 dto.version -> 优先当前发布版本，兜底草稿定义
-    const workflowVersion = await this.resolveRunVersion(workflowId, dto.version);
+    const workflowVersion = await this.resolveRunVersion(
+      workflowId,
+      dto.version,
+    );
     const definitionSource =
       workflowVersion?.definition ?? workflow.draftDefinition;
 
@@ -104,7 +110,9 @@ export class WorkflowRunService {
           nodeType: event.nodeType,
           status,
           input: event.input ? this.toInputJsonValue(event.input) : undefined,
-          output: event.output ? this.toInputJsonValue(event.output) : undefined,
+          output: event.output
+            ? this.toInputJsonValue(event.output)
+            : undefined,
           errorMessage: event.errorMessage,
           durationMs: event.durationMs ?? this.diffMs(nodeStartedAt, event.at),
           startedAt: nodeStartedAt,
@@ -168,9 +176,16 @@ export class WorkflowRunService {
     }
   }
 
-  async listRuns(userId: string, workflowId: string, query: WorkflowRunQueryDto) {
+  async listRuns(
+    userId: string,
+    workflowId: string,
+    query: WorkflowRunQueryDto,
+  ) {
     const workflow = await this.findWorkflowOrThrow(workflowId);
-    await this.workspaceAccessService.ensureMember(userId, workflow.workspaceId);
+    await this.workspaceAccessService.ensureMember(
+      userId,
+      workflow.workspaceId,
+    );
 
     const { page, pageSize, status } = query;
     const where: Prisma.WorkflowRunWhereInput = {
@@ -189,14 +204,19 @@ export class WorkflowRunService {
     ]);
 
     return createPaginatedData({
-      list: runs.map((run) => this.workflowMapper.toWorkflowRunResponse(run, false)),
+      list: runs.map((run) =>
+        this.workflowMapper.toWorkflowRunResponse(run, false),
+      ),
       total,
       page,
       pageSize,
     });
   }
 
-  async findRunForUser(userId: string, runId: string): Promise<WorkflowRunResponse> {
+  async findRunForUser(
+    userId: string,
+    runId: string,
+  ): Promise<WorkflowRunResponse> {
     const run = await this.prisma.workflowRun.findUnique({
       where: { id: runId },
       include: {
@@ -213,7 +233,10 @@ export class WorkflowRunService {
       );
     }
 
-    await this.workspaceAccessService.ensureMember(userId, run.workflow.workspaceId);
+    await this.workspaceAccessService.ensureMember(
+      userId,
+      run.workflow.workspaceId,
+    );
     return this.workflowMapper.toWorkflowRunResponse(run, true);
   }
 
@@ -263,7 +286,9 @@ export class WorkflowRunService {
     return workflow;
   }
 
-  private toInputJsonValue(value: Record<string, unknown>): Prisma.InputJsonValue {
+  private toInputJsonValue(
+    value: Record<string, unknown>,
+  ): Prisma.InputJsonValue {
     return value as Prisma.InputJsonValue;
   }
 
@@ -280,4 +305,3 @@ export class WorkflowRunService {
     return Math.max(0, end.getTime() - start.getTime());
   }
 }
-

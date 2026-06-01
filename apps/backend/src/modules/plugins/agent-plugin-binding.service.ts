@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { type Agent, type Prisma } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
@@ -7,7 +8,18 @@ import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { ReplaceAgentPluginBindingsDto } from './dto/replace-agent-plugin-bindings.dto';
 import { UpdateAgentPluginBindingDto } from './dto/update-agent-plugin-binding.dto';
 import { PluginService } from './plugin.service';
-import { type AgentPluginBindingResponse } from './types/plugin.types';
+import {
+  type AgentPluginBindingConfig,
+  type AgentPluginBindingResponse,
+} from './types/plugin.types';
+
+type BindingWithPlugin = Prisma.AgentPluginBindingGetPayload<{
+  include: { plugin: true };
+}>;
+
+type BindingWithPluginAndAgent = Prisma.AgentPluginBindingGetPayload<{
+  include: { plugin: true; agent: true };
+}>;
 
 @Injectable()
 export class AgentPluginBindingService {
@@ -17,8 +29,11 @@ export class AgentPluginBindingService {
     private readonly pluginService: PluginService,
   ) {}
 
-  private get db(): PrismaService & Record<string, any> {
-    return this.prisma as PrismaService & Record<string, any>;
+  private getBindingConfig(value: unknown): AgentPluginBindingConfig | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+    return value;
   }
 
   async listForAgent(
@@ -29,7 +44,7 @@ export class AgentPluginBindingService {
     await this.workspaceAccessService.ensureMember(userId, agent.workspaceId);
     await this.pluginService.ensureBuiltinPlugins(userId, agent.workspaceId);
 
-    const bindings = await this.db.agentPluginBinding.findMany({
+    const bindings = await this.prisma.agentPluginBinding.findMany({
       where: {
         agentId,
       },
@@ -41,7 +56,7 @@ export class AgentPluginBindingService {
       },
     });
 
-    return bindings.map((binding: any) => this.toBindingResponse(binding));
+    return bindings.map((binding) => this.toBindingResponse(binding));
   }
 
   async replaceForAgent(
@@ -50,7 +65,10 @@ export class AgentPluginBindingService {
     dto: ReplaceAgentPluginBindingsDto,
   ): Promise<AgentPluginBindingResponse[]> {
     const agent = await this.findAgentOrThrow(agentId);
-    await this.workspaceAccessService.ensureCanManage(userId, agent.workspaceId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      agent.workspaceId,
+    );
     await this.pluginService.ensureBuiltinPlugins(userId, agent.workspaceId);
 
     const pluginIds = Array.from(
@@ -58,7 +76,7 @@ export class AgentPluginBindingService {
     );
 
     if (pluginIds.length) {
-      const plugins = await this.db.pluginDefinition.findMany({
+      const plugins = await this.prisma.pluginDefinition.findMany({
         where: {
           id: { in: pluginIds },
           workspaceId: agent.workspaceId,
@@ -74,7 +92,7 @@ export class AgentPluginBindingService {
       }
 
       const pluginMap = new Map(
-        plugins.map((plugin: any) => [plugin.id, plugin]),
+        plugins.map((plugin) => [plugin.id, plugin] as const),
       );
       for (const binding of dto.bindings) {
         const plugin = pluginMap.get(binding.pluginId);
@@ -95,7 +113,7 @@ export class AgentPluginBindingService {
       }
     }
 
-    await this.db.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.agentPluginBinding.deleteMany({
         where: {
           agentId,
@@ -113,7 +131,9 @@ export class AgentPluginBindingService {
           status: binding.status ?? 'ACTIVE',
           autoInvoke: binding.autoInvoke ?? true,
           sortOrder: binding.sortOrder ?? index,
-          config: binding.config,
+          config: binding.config
+            ? (binding.config as Prisma.InputJsonValue)
+            : undefined,
         })),
       });
     });
@@ -146,7 +166,7 @@ export class AgentPluginBindingService {
       }
     }
 
-    const updated = await this.db.agentPluginBinding.update({
+    const updated = await this.prisma.agentPluginBinding.update({
       where: {
         id: bindingId,
       },
@@ -157,15 +177,15 @@ export class AgentPluginBindingService {
         status: dto.status,
         autoInvoke: dto.autoInvoke,
         sortOrder: dto.sortOrder,
-        config: (dto.config ?? undefined) as any,
+        config: dto.config ? (dto.config as Prisma.InputJsonValue) : undefined,
       },
     });
 
     return this.toBindingResponse(updated);
   }
 
-  private async findAgentOrThrow(agentId: string): Promise<any> {
-    const agent = await this.db.agent.findUnique({
+  private async findAgentOrThrow(agentId: string): Promise<Agent> {
+    const agent = await this.prisma.agent.findUnique({
       where: { id: agentId },
     });
 
@@ -183,8 +203,8 @@ export class AgentPluginBindingService {
   private async findBindingOrThrow(
     agentId: string,
     bindingId: string,
-  ): Promise<any> {
-    const binding = await this.db.agentPluginBinding.findFirst({
+  ): Promise<BindingWithPluginAndAgent> {
+    const binding = await this.prisma.agentPluginBinding.findFirst({
       where: {
         id: bindingId,
         agentId,
@@ -206,7 +226,9 @@ export class AgentPluginBindingService {
     return binding;
   }
 
-  private toBindingResponse(binding: any): AgentPluginBindingResponse {
+  private toBindingResponse(
+    binding: BindingWithPlugin,
+  ): AgentPluginBindingResponse {
     return {
       bindingId: binding.id,
       agentId: binding.agentId,
@@ -217,7 +239,7 @@ export class AgentPluginBindingService {
       status: binding.status,
       autoInvoke: Boolean(binding.autoInvoke),
       sortOrder: binding.sortOrder,
-      config: (binding.config ?? null) as Record<string, unknown> | null,
+      config: this.getBindingConfig(binding.config),
       createdAt: formatShanghaiDateTime(binding.createdAt),
       updatedAt: formatShanghaiDateTime(binding.updatedAt),
     };
