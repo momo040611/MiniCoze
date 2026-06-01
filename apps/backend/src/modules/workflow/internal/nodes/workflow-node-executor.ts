@@ -22,4 +22,3 @@ export interface WorkflowNodeExecutor {
     context: WorkflowNodeExecutionContext,
   ): Promise<WorkflowNodeExecutionResult>;
 }
-

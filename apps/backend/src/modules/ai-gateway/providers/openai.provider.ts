@@ -50,6 +50,10 @@ export class OpenAiProvider implements AiProviderInterface {
 
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
+    const toolCallState = new Map<
+      number | string,
+      { id?: string; type?: 'function'; name?: string; args: string }
+    >();
 
     try {
       while (true) {
@@ -62,13 +66,26 @@ export class OpenAiProvider implements AiProviderInterface {
 
         for (const line of lines) {
           const chunk = this.parseStreamLine(line);
-          if (chunk) yield chunk;
+          if (!chunk) continue;
+          const toolCalls = this.mergeToolCalls(toolCallState, chunk.toolCalls);
+          yield toolCalls
+            ? { ...chunk, toolCalls }
+            : chunk.toolCalls
+              ? { ...chunk, toolCalls: undefined }
+              : chunk;
         }
       }
 
       if (buffer) {
         const chunk = this.parseStreamLine(buffer);
-        if (chunk) yield chunk;
+        if (chunk) {
+          const toolCalls = this.mergeToolCalls(toolCallState, chunk.toolCalls);
+          yield toolCalls
+            ? { ...chunk, toolCalls }
+            : chunk.toolCalls
+              ? { ...chunk, toolCalls: undefined }
+              : chunk;
+        }
       }
     } finally {
       reader.releaseLock();
@@ -153,6 +170,76 @@ export class OpenAiProvider implements AiProviderInterface {
     } catch {
       return null;
     }
+  }
+
+  private mergeToolCalls(
+    state: Map<
+      number | string,
+      { id?: string; type?: 'function'; name?: string; args: string }
+    >,
+    value: unknown,
+  ): AiStreamChunk['toolCalls'] | undefined {
+    if (!Array.isArray(value)) {
+      return undefined;
+    }
+
+    for (const item of value) {
+      if (!this.isRecord(item)) continue;
+      const key =
+        typeof item.index === 'number'
+          ? item.index
+          : typeof item.id === 'string'
+            ? item.id
+            : undefined;
+      if (key === undefined) continue;
+
+      const entry = state.get(key) ?? { args: '' };
+      if (typeof item.id === 'string') {
+        entry.id = item.id;
+      }
+      if (item.type === 'function') {
+        entry.type = 'function';
+      }
+
+      const functionCall: unknown = item.function;
+      if (this.isRecord(functionCall)) {
+        if (typeof functionCall.name === 'string') {
+          entry.name = functionCall.name;
+        }
+        if (typeof functionCall.arguments === 'string') {
+          entry.args += functionCall.arguments;
+        }
+      }
+
+      state.set(key, entry);
+    }
+
+    const merged = Array.from(state.entries())
+      .sort(([a], [b]) => {
+        if (typeof a === 'number' && typeof b === 'number') return a - b;
+        return String(a).localeCompare(String(b));
+      })
+      .map(([, entry]) => {
+        if (!entry.id || !entry.name) return null;
+        return {
+          id: entry.id,
+          type: entry.type ?? 'function',
+          function: {
+            name: entry.name,
+            arguments: entry.args,
+          },
+        };
+      })
+      .filter(
+        (item): item is NonNullable<AiStreamChunk['toolCalls']>[number] =>
+          item !== null,
+      );
+
+    return merged.length ? merged : undefined;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
   }
 
   private handleApiError(data: OpenAiApiErrorResponse): never {
