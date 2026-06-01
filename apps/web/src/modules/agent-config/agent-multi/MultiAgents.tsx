@@ -247,6 +247,7 @@ export function MultiAgents({
     onNodeMouseDown: canvas.handleNodeMouseDown,
     onPortMouseDown: canvas.handlePortMouseDown,
     onPortMouseUp: canvas.handlePortMouseUp,
+    onNodeResize: canvas.setNodeHeight,
     getNodeClass,
   }
 
@@ -286,30 +287,38 @@ export function MultiAgents({
 
                 <svg className={multiStyles.canvasSvg}>
                   <defs>
-                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                      <polygon points="0 0, 10 3.5, 0 7" className={multiStyles.connectionArrow} />
+                    <marker id="arrowhead" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                      <path d="M0,0 L6,2.5 L0,5 Z" fill="#3b82f6" />
                     </marker>
                   </defs>
                   {canvas.connections.map(conn => {
                     const fromNode = canvas.nodeMap.get(conn.fromNodeId)
                     const toNode = canvas.nodeMap.get(conn.toNodeId)
                     if (!fromNode || !toNode) return null
-                    const fromPos = getPortPosition(fromNode, 'output')
-                    const toPos = getPortPosition(toNode, 'input')
+                    const fromH = canvas.nodeHeightsRef.current.get(fromNode.id)
+                    const toH = canvas.nodeHeightsRef.current.get(toNode.id)
+                    const fromPos = getPortPosition(fromNode, 'output', fromH)
+                    const toPos = getPortPosition(toNode, 'input', toH)
+                    const d = calculateBezierPath(fromPos.x, fromPos.y, toPos.x, toPos.y)
                     return (
-                      <path
-                        key={conn.id}
-                        d={calculateBezierPath(fromPos.x, fromPos.y, toPos.x, toPos.y)}
-                        className={multiStyles.connectionLine}
-                        markerEnd="url(#arrowhead)"
-                        onClick={() => canvas.handleConnectionClick()}
-                      />
+                      <g key={conn.id}>
+                        <path
+                          d={d}
+                          className={multiStyles.connectionHit}
+                        />
+                        <path
+                          d={d}
+                          className={multiStyles.connectionLine}
+                          markerEnd="url(#arrowhead)"
+                        />
+                      </g>
                     )
                   })}
                   {canvas.connectingFrom && (
                     <path
-                      d={calculateBezierPath(canvas.connectingFrom.x, canvas.connectingFrom.y, canvas.connectingFrom.x + 100, canvas.connectingFrom.y)}
+                      d={calculateBezierPath(canvas.connectingFrom.x, canvas.connectingFrom.y, canvas.connectingFrom.x + 200, canvas.connectingFrom.y)}
                       className={multiStyles.tempConnection}
+                      markerEnd="url(#arrowhead)"
                     />
                   )}
                 </svg>

@@ -339,6 +339,12 @@ export function useCanvas({ agent, subAgents }: UseCanvasOptions) {
     setSelectedNodeId(null)
   }, [])
 
+  const nodeHeightsRef = useRef<Map<string, number>>(new Map())
+
+  const setNodeHeight = useCallback((nodeId: string, height: number) => {
+    nodeHeightsRef.current.set(nodeId, height)
+  }, [])
+
   const nodeMap = useMemo(() => {
     const map = new Map<string, CanvasNode>()
     nodes.forEach(n => map.set(n.id, n))
@@ -360,6 +366,8 @@ export function useCanvas({ agent, subAgents }: UseCanvasOptions) {
     showNodeMenu,
     setShowNodeMenu,
     nodeMap,
+    nodeHeightsRef,
+    setNodeHeight,
     zoomPercent,
     addNode,
     handleUndo,
