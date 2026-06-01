@@ -203,6 +203,11 @@ model Agent {
   conversations     Conversation[]
   pluginBindings    AgentPluginBinding[]
   pluginInvocations PluginInvocation[]
+  workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator           User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  conversations     Conversation[]
+  pluginBindings    AgentPluginBinding[]
+  pluginInvocations PluginInvocation[]
 
   @@index([workspaceId])
   @@index([creatorId])
