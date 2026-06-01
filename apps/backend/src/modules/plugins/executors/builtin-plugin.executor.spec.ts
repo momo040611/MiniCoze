@@ -1,5 +1,6 @@
 import { BuiltinPluginExecutor } from './builtin-plugin.executor';
 import { BingWebSearchClient } from '../builtin/bing-web-search.client';
+import { ImageUnderstandingClient } from '../builtin/image-understanding.client';
 
 describe('BuiltinPluginExecutor', () => {
   const searchWebpages = jest.fn();
@@ -10,12 +11,25 @@ describe('BuiltinPluginExecutor', () => {
     summarizePage,
     pagedSearch,
   } as unknown as jest.Mocked<BingWebSearchClient>;
+  const extractOcrText = jest.fn();
+  const analyzeScreenshot = jest.fn();
+  const analyzeChartData = jest.fn();
+  const describeScene = jest.fn();
+  const imageUnderstandingClient = {
+    extractOcrText,
+    analyzeScreenshot,
+    analyzeChartData,
+    describeScene,
+  } as unknown as jest.Mocked<ImageUnderstandingClient>;
 
   let executor: BuiltinPluginExecutor;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    executor = new BuiltinPluginExecutor(bingWebSearchClient);
+    executor = new BuiltinPluginExecutor(
+      bingWebSearchClient,
+      imageUnderstandingClient,
+    );
   });
 
   it('delegates web search to Bing client', async () => {
@@ -100,6 +114,69 @@ describe('BuiltinPluginExecutor', () => {
     expect(result).toEqual({
       page: 2,
       hasMore: true,
+    });
+  });
+
+  it('delegates image ocr to image understanding client', async () => {
+    extractOcrText.mockResolvedValue({
+      text: 'console.log("hello");',
+    });
+
+    const context = {
+      userId: 'user-id',
+    };
+
+    const result = await executor.execute({
+      functionName: 'image_understanding__image_ocr',
+      toolCode: 'image_ocr',
+      handlerKey: 'image_ocr',
+      args: {
+        fileId: 'file-id',
+        question: '识别代码',
+      },
+      context: context as never,
+    });
+
+    expect(extractOcrText).toHaveBeenCalledWith(
+      {
+        imageUrl: undefined,
+        fileId: 'file-id',
+        detail: undefined,
+        question: '识别代码',
+      },
+      context,
+    );
+    expect(result).toEqual({
+      text: 'console.log("hello");',
+    });
+  });
+
+  it('delegates chart analysis to image understanding client', async () => {
+    analyzeChartData.mockResolvedValue({
+      chartType: 'bar',
+    });
+
+    const result = await executor.execute({
+      functionName: 'image_understanding__chart_data_analysis',
+      toolCode: 'chart_data_analysis',
+      handlerKey: 'chart_data_analysis',
+      args: {
+        imageUrl: 'https://example.com/chart.png',
+        detail: 'high',
+      },
+    });
+
+    expect(analyzeChartData).toHaveBeenCalledWith(
+      {
+        imageUrl: 'https://example.com/chart.png',
+        fileId: undefined,
+        detail: 'high',
+        question: undefined,
+      },
+      undefined,
+    );
+    expect(result).toEqual({
+      chartType: 'bar',
     });
   });
 });

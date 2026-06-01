@@ -51,4 +51,14 @@ export default () => ({
       timeoutMs: Number(process.env.BING_SEARCH_TIMEOUT_MS ?? 10000),
     },
   },
+  imageUnderstanding: {
+    apiKey:
+      process.env.IMAGE_UNDERSTANDING_API_KEY ?? process.env.OPENAI_API_KEY,
+    baseUrl:
+      process.env.IMAGE_UNDERSTANDING_BASE_URL ??
+      process.env.OPENAI_BASE_URL ??
+      'https://api.openai.com/v1',
+    model: process.env.IMAGE_UNDERSTANDING_MODEL ?? 'gpt-4o-mini',
+    timeoutMs: Number(process.env.IMAGE_UNDERSTANDING_TIMEOUT_MS ?? 20000),
+  },
 });

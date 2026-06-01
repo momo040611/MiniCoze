@@ -60,6 +60,7 @@ export class PluginExecutionService implements ToolExecutor {
         input.toolCall.function.name,
         target,
         mergedArgs,
+        input.context,
       );
       const maskedOutput = await this.invocationService.completeSuccess(
         invocation,
@@ -120,6 +121,7 @@ export class PluginExecutionService implements ToolExecutor {
           tool: input.tool,
         },
         mergedArgs,
+        undefined,
       );
 
       await this.invocationService.completeSuccess(
@@ -161,6 +163,7 @@ export class PluginExecutionService implements ToolExecutor {
     functionName: string,
     target: PluginExecutionTarget,
     args: Record<string, unknown>,
+    context: RuntimeContext | undefined,
   ): Promise<unknown> {
     if (this.builtinExecutor.supports(target.plugin.type)) {
       const handlerKey =
@@ -175,6 +178,7 @@ export class PluginExecutionService implements ToolExecutor {
         toolCode: target.tool.code,
         handlerKey,
         args,
+        context,
       });
     }
 

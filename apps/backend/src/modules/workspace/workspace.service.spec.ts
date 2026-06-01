@@ -1,7 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkspaceRole } from '@prisma/client';
-import { BusinessException } from '../../common/exceptions/business.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from './workspace-access.service';
 import { WorkspaceService } from './workspace.service';

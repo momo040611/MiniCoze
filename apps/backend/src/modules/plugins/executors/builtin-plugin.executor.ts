@@ -1,13 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { BingWebSearchClient } from '../builtin/bing-web-search.client';
+import { ImageUnderstandingClient } from '../builtin/image-understanding.client';
+import type { RuntimeContext } from '../../../shared/types/runtime';
 
-type BuiltinToolHandler = (args: Record<string, unknown>) => unknown;
+type BuiltinToolHandler = (
+  args: Record<string, unknown>,
+  context?: RuntimeContext,
+) => unknown;
 
 @Injectable()
 export class BuiltinPluginExecutor {
   private readonly handlers = new Map<string, BuiltinToolHandler>();
 
-  constructor(private readonly bingWebSearchClient: BingWebSearchClient) {
+  constructor(
+    private readonly bingWebSearchClient: BingWebSearchClient,
+    private readonly imageUnderstandingClient: ImageUnderstandingClient,
+  ) {
     this.register('echo_text', (args) => ({
       text:
         typeof args.text === 'string'
@@ -64,6 +72,78 @@ export class BuiltinPluginExecutor {
             : undefined,
       }),
     );
+    this.register('image_ocr', (args, context) =>
+      this.imageUnderstandingClient.extractOcrText(
+        {
+          imageUrl:
+            typeof args.imageUrl === 'string' ? args.imageUrl : undefined,
+          fileId: typeof args.fileId === 'string' ? args.fileId : undefined,
+          detail:
+            args.detail === 'low' ||
+            args.detail === 'high' ||
+            args.detail === 'auto'
+              ? args.detail
+              : undefined,
+          question:
+            typeof args.question === 'string' ? args.question : undefined,
+        },
+        context,
+      ),
+    );
+    this.register('screenshot_parse', (args, context) =>
+      this.imageUnderstandingClient.analyzeScreenshot(
+        {
+          imageUrl:
+            typeof args.imageUrl === 'string' ? args.imageUrl : undefined,
+          fileId: typeof args.fileId === 'string' ? args.fileId : undefined,
+          detail:
+            args.detail === 'low' ||
+            args.detail === 'high' ||
+            args.detail === 'auto'
+              ? args.detail
+              : undefined,
+          question:
+            typeof args.question === 'string' ? args.question : undefined,
+        },
+        context,
+      ),
+    );
+    this.register('chart_data_analysis', (args, context) =>
+      this.imageUnderstandingClient.analyzeChartData(
+        {
+          imageUrl:
+            typeof args.imageUrl === 'string' ? args.imageUrl : undefined,
+          fileId: typeof args.fileId === 'string' ? args.fileId : undefined,
+          detail:
+            args.detail === 'low' ||
+            args.detail === 'high' ||
+            args.detail === 'auto'
+              ? args.detail
+              : undefined,
+          question:
+            typeof args.question === 'string' ? args.question : undefined,
+        },
+        context,
+      ),
+    );
+    this.register('scene_description', (args, context) =>
+      this.imageUnderstandingClient.describeScene(
+        {
+          imageUrl:
+            typeof args.imageUrl === 'string' ? args.imageUrl : undefined,
+          fileId: typeof args.fileId === 'string' ? args.fileId : undefined,
+          detail:
+            args.detail === 'low' ||
+            args.detail === 'high' ||
+            args.detail === 'auto'
+              ? args.detail
+              : undefined,
+          question:
+            typeof args.question === 'string' ? args.question : undefined,
+        },
+        context,
+      ),
+    );
   }
 
   register(name: string, handler: BuiltinToolHandler): void {
@@ -79,6 +159,7 @@ export class BuiltinPluginExecutor {
     toolCode: string;
     handlerKey?: string;
     args: Record<string, unknown>;
+    context?: RuntimeContext;
   }): Promise<unknown> {
     const candidates = [
       input.handlerKey,
@@ -89,7 +170,7 @@ export class BuiltinPluginExecutor {
     for (const key of candidates) {
       const handler = this.handlers.get(key);
       if (handler) {
-        return await Promise.resolve(handler(input.args));
+        return await Promise.resolve(handler(input.args, input.context));
       }
     }
 

@@ -160,4 +160,132 @@ export const BUILTIN_PLUGIN_DEFINITIONS: BuiltinPluginDefinition[] = [
       },
     ],
   },
+  {
+    code: 'image_understanding',
+    name: '图片理解',
+    description:
+      '提供图片 OCR、截图解析、图表数据分析与画面内容描述能力，适合图文问答场景。',
+    version: 'v1.0.0',
+    tools: [
+      {
+        code: 'image_ocr',
+        name: '图片 OCR 文字识别',
+        description: '识别图片中的文字内容，可用于试卷、文档、截图文本提取。',
+        handler: 'image_ocr',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            imageUrl: { type: 'string' },
+            fileId: { type: 'string' },
+            detail: {
+              type: 'string',
+              enum: ['low', 'high', 'auto'],
+            },
+            question: { type: 'string' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            text: { type: 'string' },
+            summary: { type: 'string' },
+            languageHints: { type: 'array' },
+            answer: { type: 'string' },
+            raw: { type: 'string' },
+          },
+        },
+      },
+      {
+        code: 'screenshot_parse',
+        name: '截图解析',
+        description:
+          '解析产品截图、代码截图或界面截图中的结构、文本与关键元素。',
+        handler: 'screenshot_parse',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            imageUrl: { type: 'string' },
+            fileId: { type: 'string' },
+            detail: {
+              type: 'string',
+              enum: ['low', 'high', 'auto'],
+            },
+            question: { type: 'string' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            detectedText: { type: 'array' },
+            uiElements: { type: 'array' },
+            observations: { type: 'array' },
+            answer: { type: 'string' },
+            raw: { type: 'string' },
+          },
+        },
+      },
+      {
+        code: 'chart_data_analysis',
+        name: '图表数据分析',
+        description:
+          '识别图表类型、关键数据点、趋势与结论，适合分析统计图与业务图表。',
+        handler: 'chart_data_analysis',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            imageUrl: { type: 'string' },
+            fileId: { type: 'string' },
+            detail: {
+              type: 'string',
+              enum: ['low', 'high', 'auto'],
+            },
+            question: { type: 'string' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            chartType: { type: 'string' },
+            title: { type: 'string' },
+            axes: { type: 'array' },
+            series: { type: 'array' },
+            keyFindings: { type: 'array' },
+            answer: { type: 'string' },
+            raw: { type: 'string' },
+          },
+        },
+      },
+      {
+        code: 'scene_description',
+        name: '画面内容描述',
+        description:
+          '描述图片中的主体、场景、动作与文字信息，适合通用图像理解。',
+        handler: 'scene_description',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            imageUrl: { type: 'string' },
+            fileId: { type: 'string' },
+            detail: {
+              type: 'string',
+              enum: ['low', 'high', 'auto'],
+            },
+            question: { type: 'string' },
+          },
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            summary: { type: 'string' },
+            objects: { type: 'array' },
+            actions: { type: 'array' },
+            textInImage: { type: 'array' },
+            answer: { type: 'string' },
+            raw: { type: 'string' },
+          },
+        },
+      },
+    ],
+  },
 ];
