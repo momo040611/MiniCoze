@@ -23,4 +23,3 @@ export class EndNodeExecutor implements WorkflowNodeExecutor {
     });
   }
 }
-

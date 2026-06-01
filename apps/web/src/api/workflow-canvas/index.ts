@@ -1,3 +1,11 @@
-// 工作流画布模块 API 入口。
-// 后续该模块相关接口统一从这里导出，例如节点配置、边关系保存、流程运行和调试记录等。
-export {};
+// Workflow canvas API entry. Node, edge, run, debug, and persistence
+// APIs that belong to the editor surface should be exported from here.
+export interface WorkflowCanvasData {
+  nodes: unknown[];
+  edges: unknown[];
+  viewport?: {
+    x: number;
+    y: number;
+    zoom: number;
+  };
+}

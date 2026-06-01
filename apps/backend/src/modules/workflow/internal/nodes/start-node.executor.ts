@@ -38,4 +38,3 @@ export class StartNodeExecutor implements WorkflowNodeExecutor {
     return '';
   }
 }
-

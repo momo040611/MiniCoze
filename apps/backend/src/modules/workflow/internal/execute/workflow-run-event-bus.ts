@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { WorkflowRunEvent } from './workflow-run-event';
 
-type WorkflowRunEventHandler = (event: WorkflowRunEvent) => Promise<void> | void;
+type WorkflowRunEventHandler = (
+  event: WorkflowRunEvent,
+) => Promise<void> | void;
 
 @Injectable()
 export class WorkflowRunEventBus {
@@ -17,4 +19,3 @@ export class WorkflowRunEventBus {
     }
   }
 }
-

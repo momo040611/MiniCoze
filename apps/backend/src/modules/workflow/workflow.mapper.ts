@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Workflow, WorkflowRun, WorkflowRunNode, WorkflowVersion } from '@prisma/client';
+import {
+  Prisma,
+  Workflow,
+  WorkflowRun,
+  WorkflowRunNode,
+  WorkflowVersion,
+} from '@prisma/client';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { WorkflowResponse } from './types/workflow-response.type';
 import {
@@ -95,18 +101,19 @@ export class WorkflowMapper {
     };
   }
 
-  toObjectOrNull(value: Prisma.JsonValue | null): Record<string, unknown> | null {
+  toObjectOrNull(
+    value: Prisma.JsonValue | null,
+  ): Record<string, unknown> | null {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return null;
     }
-    return value as Record<string, unknown>;
+    return value;
   }
 
   toObjectOrEmpty(value: Prisma.JsonValue): Record<string, unknown> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       return {};
     }
-    return value as Record<string, unknown>;
+    return value;
   }
 }
-

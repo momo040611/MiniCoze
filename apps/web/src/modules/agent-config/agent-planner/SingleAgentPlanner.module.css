@@ -1,0 +1,84 @@
+/* ============================================
+   E — 模型选择器（SingleAgentPlanner 专属）
+   ============================================ */
+.modelSelector {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.modelTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid rgba(104, 119, 144, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.modelTrigger:hover {
+  border-color: #7c3aed;
+}
+
+.modelName {
+  flex: 1;
+  font-size: 13px;
+  color: #18202f;
+  font-weight: 500;
+}
+
+.modelArrow {
+  display: flex;
+  align-items: center;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.modelArrowOpen {
+  transform: rotate(180deg);
+}
+
+.modelDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid rgba(104, 119, 144, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  padding: 4px;
+  z-index: 10;
+  animation: dropdownIn 0.15s ease;
+}
+
+.modelOption {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.modelOption:hover {
+  background: #f3f4f6;
+}
+
+.modelOptionActive {
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-weight: 600;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

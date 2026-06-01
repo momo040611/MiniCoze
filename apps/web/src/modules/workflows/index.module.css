@@ -1,0 +1,38 @@
+.page {
+  min-height: 100%;
+  padding: 24px;
+  background: #f6f7fb;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 30px;
+  color: #1f2937;
+}
+
+.desc {
+  margin: 6px 0 0;
+  color: #6b7280;
+}
+
+.toolbar {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.search {
+  max-width: 360px;
+}
+
+.nameButton {
+  padding: 0;
+}
