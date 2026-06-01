@@ -200,6 +200,8 @@ model Agent {
   workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   creator           User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
   conversations     Conversation[]
+  workflows         AgentWorkflow[]
+  workflowRuns      WorkflowRun[]
   pluginBindings    AgentPluginBinding[]
   pluginInvocations PluginInvocation[]
 
@@ -220,6 +222,7 @@ model Conversation {
   agent    Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages Message[]
+  workflowRuns WorkflowRun[]
 
   @@index([agentId])
   @@index([userId])
@@ -237,7 +240,8 @@ model Message {
   errorMessage   String?     @db.Text
   createdAt      DateTime    @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  workflowRuns WorkflowRun[]
 
   @@index([conversationId])
   @@index([conversationId, createdAt])
@@ -259,6 +263,7 @@ model Workflow {
   creator        User              @relation("WorkflowCreator", fields: [creatorId], references: [id], onDelete: Restrict)
   versions       WorkflowVersion[] @relation("WorkflowVersions")
   runs           WorkflowRun[]
+  agentBindings  AgentWorkflow[]
   currentVersion WorkflowVersion?  @relation("WorkflowCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
@@ -282,6 +287,7 @@ model WorkflowVersion {
   workflow            Workflow      @relation("WorkflowVersions", fields: [workflowId], references: [id], onDelete: Cascade)
   creator             User          @relation("WorkflowVersionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   runs                WorkflowRun[]
+  agentBindings       AgentWorkflow[]
   currentForWorkflows Workflow[]    @relation("WorkflowCurrentVersion")
 
   @@unique([workflowId, version])
@@ -289,11 +295,33 @@ model WorkflowVersion {
   @@index([createdBy])
 }
 
+model AgentWorkflow {
+  id                String   @id @default(cuid())
+  agentId           String
+  workflowId        String
+  workflowVersionId String
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  agent           Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  workflow        Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowVersion WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([agentId, workflowId])
+  @@index([agentId])
+  @@index([workflowId])
+  @@index([workflowVersionId])
+}
+
 model WorkflowRun {
   id                String            @id @default(cuid())
   workflowId        String
   workflowVersionId String?
   workspaceId       String
+  agentId           String?
+  conversationId    String?
+  messageId         String?
   startedBy         String
   status            WorkflowRunStatus @default(QUEUED)
   input             Json?
@@ -307,12 +335,18 @@ model WorkflowRun {
   workflow        Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   workflowVersion WorkflowVersion?  @relation(fields: [workflowVersionId], references: [id], onDelete: SetNull)
   workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent           Agent?            @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  conversation    Conversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  message         Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
   starter         User              @relation("WorkflowRunStarter", fields: [startedBy], references: [id], onDelete: Restrict)
   nodes           WorkflowRunNode[]
 
   @@index([workflowId])
   @@index([workflowVersionId])
   @@index([workspaceId])
+  @@index([agentId])
+  @@index([conversationId])
+  @@index([messageId])
   @@index([startedBy])
   @@index([workflowId, status])
   @@index([workflowId, startedAt])
