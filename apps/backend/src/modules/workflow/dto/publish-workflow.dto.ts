@@ -1,10 +1,26 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsObject, IsOptional } from 'class-validator';
 
 export class PublishWorkflowDto {
-  @ApiPropertyOptional({ example: '首次发布' })
+  @ApiPropertyOptional({
+    example: {
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query'],
+    },
+  })
   @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  description?: string;
+  @IsObject()
+  inputSchema?: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    example: {
+      type: 'object',
+      properties: { answer: { type: 'string' } },
+      required: ['answer'],
+    },
+  })
+  @IsOptional()
+  @IsObject()
+  outputSchema?: Record<string, unknown>;
 }

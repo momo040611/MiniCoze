@@ -6,26 +6,27 @@ export class CreateWorkflowDto {
   @IsString()
   workspaceId!: string;
 
-  @ApiProperty({ example: '售后处理流程' })
+  @ApiProperty({ example: '客服分流工作流' })
   @IsString()
-  @MaxLength(50)
+  @MaxLength(100)
   name!: string;
 
-  @ApiPropertyOptional({ example: '根据用户问题判断售后类型并生成回复' })
+  @ApiPropertyOptional({ example: '用于售前售后问题自动分流' })
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(500)
   description?: string;
 
   @ApiPropertyOptional({
     example: {
-      version: 1,
-      nodes: [],
-      edges: [],
-      variables: [],
+      nodes: [
+        { id: 'start-1', type: 'start' },
+        { id: 'end-1', type: 'end' },
+      ],
+      edges: [{ source: 'start-1', target: 'end-1' }],
     },
   })
   @IsOptional()
   @IsObject()
-  graph?: Record<string, unknown>;
+  definition?: Record<string, unknown>;
 }

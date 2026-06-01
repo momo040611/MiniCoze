@@ -20,12 +20,12 @@ model User {
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
   workspaceMembers WorkspaceMember[]
 
-  createdAgents    Agent[]
-  conversations    Conversation[]
-  uploadedFiles    FileAsset[]       @relation("FileAssetOwner")
+  createdAgents Agent[]
+  conversations Conversation[]
+  uploadedFiles FileAsset[]       @relation("FileAssetOwner")
   createdWorkflows Workflow[]        @relation("WorkflowCreator")
-  workflowVersions WorkflowVersion[] @relation("WorkflowVersionCreator")
-  workflowRuns     WorkflowRun[]     @relation("WorkflowRunUser")
+  createdWorkflowVersions WorkflowVersion[] @relation("WorkflowVersionCreator")
+  workflowRuns WorkflowRun[]         @relation("WorkflowRunStarter")
 }
 
 enum WorkspaceRole {
@@ -42,11 +42,12 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner     User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members   WorkspaceMember[]
-  agents    Agent[]
-  workflows Workflow[]        @relation("WorkspaceWorkflows")
-  files     FileAsset[]       @relation("WorkspaceFiles")
+  owner        User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members      WorkspaceMember[]
+  agents       Agent[]
+  workflows    Workflow[]
+  workflowRuns WorkflowRun[]
+  files        FileAsset[]       @relation("WorkspaceFiles")
 
   @@index([ownerId])
 }
@@ -127,22 +128,20 @@ enum WorkflowStatus {
   ARCHIVED
 }
 
-enum WorkflowVersionStatus {
-  ACTIVE
-  DEPRECATED
-}
-
 enum WorkflowRunStatus {
+  QUEUED
   RUNNING
-  SUCCESS
+  SUCCEEDED
   FAILED
   CANCELED
 }
 
-enum WorkflowRunSource {
-  DEBUG
-  AGENT
-  API
+enum WorkflowRunNodeStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
 }
 
 model Agent {
@@ -210,121 +209,98 @@ model Message {
 }
 
 model Workflow {
-  id                 String         @id @default(cuid())
-  workspaceId        String
-  creatorId          String
-  name               String
-  description        String?
-  graph              Json
-  status             WorkflowStatus @default(DRAFT)
-  publishedVersionId String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  id               String         @id @default(cuid())
+  workspaceId      String
+  creatorId        String
+  name             String
+  description      String?
+  status           WorkflowStatus @default(DRAFT)
+  draftDefinition  Json?
+  currentVersionId String?       @unique
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  workspace        Workspace         @relation("WorkspaceWorkflows", fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator          User              @relation("WorkflowCreator", fields: [creatorId], references: [id], onDelete: Restrict)
-  publishedVersion WorkflowVersion?  @relation("PublishedWorkflowVersion", fields: [publishedVersionId], references: [id], onDelete: SetNull)
-  versions         WorkflowVersion[] @relation("WorkflowVersions")
-  agentBindings    AgentWorkflow[]
-  runs             WorkflowRun[]
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator        User              @relation("WorkflowCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  versions       WorkflowVersion[] @relation("WorkflowVersions")
+  runs           WorkflowRun[]
+  currentVersion WorkflowVersion?  @relation("WorkflowCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
   @@index([creatorId])
   @@index([workspaceId, status])
-  @@index([publishedVersionId])
 }
 
 model WorkflowVersion {
-  id          String                @id @default(cuid())
+  id          String   @id @default(cuid())
   workflowId  String
-  version     Int
-  snapshot    Json
-  description String?
-  status      WorkflowVersionStatus @default(ACTIVE)
   createdBy   String
-  createdAt   DateTime              @default(now())
+  version     Int
+  definition  Json
+  inputSchema Json?
+  outputSchema Json?
+  isPublished Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  workflow           Workflow        @relation("WorkflowVersions", fields: [workflowId], references: [id], onDelete: Cascade)
-  creator            User            @relation("WorkflowVersionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
-  publishedWorkflows Workflow[]      @relation("PublishedWorkflowVersion")
-  agentBindings      AgentWorkflow[]
-  runs               WorkflowRun[]
+  workflow            Workflow      @relation("WorkflowVersions", fields: [workflowId], references: [id], onDelete: Cascade)
+  creator             User          @relation("WorkflowVersionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  runs                WorkflowRun[]
+  currentForWorkflows Workflow[]    @relation("WorkflowCurrentVersion")
 
   @@unique([workflowId, version])
   @@index([workflowId])
   @@index([createdBy])
 }
 
-model AgentWorkflow {
-  id                String   @id @default(cuid())
-  agentId           String
-  workflowId        String
-  workflowVersionId String
-  enabled           Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  agent           Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  workflow        Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  workflowVersion WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Restrict)
-
-  @@unique([agentId, workflowId])
-  @@index([agentId])
-  @@index([workflowId])
-  @@index([workflowVersionId])
-}
-
 model WorkflowRun {
   id                String            @id @default(cuid())
   workflowId        String
   workflowVersionId String?
-  agentId           String?
-  userId            String
-  conversationId    String?
-  messageId         String?
-  source            WorkflowRunSource @default(DEBUG)
-  status            WorkflowRunStatus @default(RUNNING)
+  workspaceId       String
+  startedBy         String
+  status            WorkflowRunStatus @default(QUEUED)
   input             Json?
   output            Json?
   errorMessage      String?           @db.Text
   startedAt         DateTime          @default(now())
   endedAt           DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   workflow        Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   workflowVersion WorkflowVersion?  @relation(fields: [workflowVersionId], references: [id], onDelete: SetNull)
-  agent           Agent?            @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  user            User              @relation("WorkflowRunUser", fields: [userId], references: [id], onDelete: Cascade)
-  conversation    Conversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  message         Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  steps           WorkflowRunStep[]
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  starter         User              @relation("WorkflowRunStarter", fields: [startedBy], references: [id], onDelete: Restrict)
+  nodes           WorkflowRunNode[]
 
   @@index([workflowId])
   @@index([workflowVersionId])
-  @@index([agentId])
-  @@index([userId])
-  @@index([conversationId])
-  @@index([messageId])
-  @@index([status])
-  @@index([source])
-  @@index([startedAt])
+  @@index([workspaceId])
+  @@index([startedBy])
+  @@index([workflowId, status])
+  @@index([workflowId, startedAt])
 }
 
-model WorkflowRunStep {
-  id           String            @id @default(cuid())
-  runId        String
-  nodeId       String
-  nodeType     String
-  status       WorkflowRunStatus @default(RUNNING)
-  input        Json?
-  output       Json?
-  errorMessage String?           @db.Text
-  startedAt    DateTime          @default(now())
-  endedAt      DateTime?
+model WorkflowRunNode {
+  id          String                @id @default(cuid())
+  runId       String
+  nodeId      String
+  nodeType    String
+  status      WorkflowRunNodeStatus @default(PENDING)
+  input       Json?
+  output      Json?
+  errorMessage String?              @db.Text
+  durationMs  Int?
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
   run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([runId])
-  @@index([nodeId])
-  @@index([nodeType])
-  @@index([status])
+  @@index([runId, status])
+  @@index([runId, createdAt])
 }

@@ -3,11 +3,8 @@ import { LoginPage, RegisterPage } from '../modules/auth';
 import { ArchitecturePage } from '../modules/architecture';
 import { CreatAgent } from '../modules/agent-config';
 import { HomepageIndex } from '../modules/homepage';
-import { KnowledgeBasePage } from '../modules/knowledge-base';
-import { Document } from '../modules/knowledge-base/page/Document';
+import { KnowledgeBasePage, KnowledgeCreate, KnowledgeDetail, KnowledgeList } from '../modules/knowledge-base';
 import { Productionline } from '../modules/knowledge-base/page/Productionline';
-import { RetrieveTest } from '../modules/knowledge-base/page/RetrieveTest';
-import { Setting } from '../modules/knowledge-base/page/Setting';
 import { AppLayout } from '../modules/layout/AppLayout';
 import { PluginsPage } from '../modules/plugins';
 import { ProfilePage } from '../modules/profile';
@@ -61,20 +58,21 @@ export function AppRoutes() {
 
         <Route element={<ProtectedAppLayout />}>
           <Route path="/workspace" element={<HomepageIndex />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/agents" element={<CreatAgent />} />
           <Route path="/workflows" element={<WorkflowCanvasPage />} />
           <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/publish" element={<PublishPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/architecture" element={<ArchitecturePage />} />
-          <Route path="/knowledge-bases" element={<KnowledgeBasePage />}>
-            <Route index element={<Navigate to="document" replace />} />
-            <Route path="document" element={<Document />} />
-            <Route path="productionline" element={<Productionline />} />
-            <Route path="retrieveTest" element={<RetrieveTest />} />
-            <Route path="setting" element={<Setting />} />
+          <Route path="/knowledge/pipeline" element={<Productionline />} />
+          <Route path="/knowledge" element={<KnowledgeBasePage />}>
+            <Route index element={<KnowledgeList />} />
+            <Route path="create" element={<KnowledgeCreate />} />
+            <Route path=":id" element={<KnowledgeDetail />} />
           </Route>
+          <Route path="/knowledge-bases" element={<Navigate to="/knowledge/pipeline" replace />} />
+          <Route path="/knowledge-bases/productionline" element={<Navigate to="/knowledge/pipeline" replace />} />
         </Route>
 
         {LegacyRedirectRoutes()}

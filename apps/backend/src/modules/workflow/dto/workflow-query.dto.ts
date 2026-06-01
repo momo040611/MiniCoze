@@ -13,9 +13,9 @@ export class WorkflowQueryDto extends PaginationQueryDto {
   @IsEnum(WorkflowStatus)
   status?: WorkflowStatus;
 
-  @ApiPropertyOptional({ example: '售后' })
+  @ApiPropertyOptional({ example: '客服' })
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @MaxLength(100)
   keyword?: string;
 }
