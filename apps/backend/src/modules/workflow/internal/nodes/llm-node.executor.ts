@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { AiGatewayService } from '../../../ai-gateway/ai-gateway.service';
 import { ChatMessage } from '../../../../shared/types/agent';
 import {
@@ -13,6 +13,7 @@ import {
 export class LlmNodeExecutor implements WorkflowNodeExecutor {
   // 声明本执行器负责的节点类型，runner 通过它路由到这里。
   readonly type = 'llm';
+  private readonly logger = new Logger(LlmNodeExecutor.name);
 
   // 注入 AI 网关服务，由它统一对接底层模型（OpenAI / DeepSeek 等）。
   constructor(private readonly aiGatewayService: AiGatewayService) {}
@@ -26,9 +27,12 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
 
     // 依次读取模型调用参数；读不到时用默认值兜底，保证节点总能运行。
     // pick：优先取顶层字段，没有再取 inputs 里的字段。
-    const systemPrompt = this.readString(
-      this.pick(nodeData, inputConfig, 'systemPrompt'),
-      '你是一个有帮助的工作流节点助手。',
+    // systemPrompt 支持 {{...}} 变量引用，这里先解析模板。
+    const systemPrompt = context.resolveTemplate(
+      this.readString(
+        this.pick(nodeData, inputConfig, 'systemPrompt'),
+        '你是一个有帮助的工作流节点助手。',
+      ),
     );
     const model = this.readString(
       this.pick(nodeData, inputConfig, 'model'),
@@ -51,6 +55,11 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMessage },
     ];
+    this.logger.debug(
+      `[llm] 调模型 model=${model} temperature=${temperature} maxTokens=${maxTokens}`,
+    );
+    this.logger.debug(`[llm] systemPrompt="${systemPrompt}"`);
+    this.logger.debug(`[llm] userMessage="${userMessage}"`);
 
     // 调用大模型，拿到回复内容与 token 使用量。
     const response = await this.aiGatewayService.generate({
@@ -59,6 +68,10 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
       maxTokens,
       messages,
     });
+
+    this.logger.debug(
+      `[llm] 模型返回 content="${response.content}" usage=${JSON.stringify(response.usage ?? null)}`,
+    );
 
     // 把模型回复写进共享状态，作为“接力棒”传给下游节点（如 end）。
     context.state.currentText = response.content;
@@ -93,7 +106,8 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
       '',
     );
     if (prompt) {
-      return prompt;
+      // prompt 里可能含 {{loop.item}} / {{nodeId.output.x}} 等引用，解析后再用。
+      return context.resolveTemplate(prompt);
     }
     if (context.state.currentText.trim().length > 0) {
       return context.state.currentText;
