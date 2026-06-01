@@ -1,6 +1,7 @@
 import { BuiltinPluginExecutor } from './builtin-plugin.executor';
 import { BingWebSearchClient } from '../builtin/bing-web-search.client';
 import { ImageUnderstandingClient } from '../builtin/image-understanding.client';
+import { LinkReaderClient } from '../builtin/link-reader.client';
 
 describe('BuiltinPluginExecutor', () => {
   const searchWebpages = jest.fn();
@@ -21,6 +22,14 @@ describe('BuiltinPluginExecutor', () => {
     analyzeChartData,
     describeScene,
   } as unknown as jest.Mocked<ImageUnderstandingClient>;
+  const fetchFullContent = jest.fn();
+  const cleanWebContent = jest.fn();
+  const parseArticle = jest.fn();
+  const linkReaderClient = {
+    fetchFullContent,
+    cleanWebContent,
+    parseArticle,
+  } as unknown as jest.Mocked<LinkReaderClient>;
 
   let executor: BuiltinPluginExecutor;
 
@@ -29,6 +38,7 @@ describe('BuiltinPluginExecutor', () => {
     executor = new BuiltinPluginExecutor(
       bingWebSearchClient,
       imageUnderstandingClient,
+      linkReaderClient,
     );
   });
 
@@ -177,6 +187,53 @@ describe('BuiltinPluginExecutor', () => {
     );
     expect(result).toEqual({
       chartType: 'bar',
+    });
+  });
+
+  it('delegates url full fetch to link reader client', async () => {
+    fetchFullContent.mockResolvedValue({
+      title: 'Docs',
+    });
+
+    const result = await executor.execute({
+      functionName: 'link_reader__url_full_fetch',
+      toolCode: 'url_full_fetch',
+      handlerKey: 'url_full_fetch',
+      args: {
+        url: 'https://example.com/docs',
+        maxChars: 5000,
+      },
+    });
+
+    expect(fetchFullContent).toHaveBeenCalledWith({
+      url: 'https://example.com/docs',
+      maxChars: 5000,
+    });
+    expect(result).toEqual({
+      title: 'Docs',
+    });
+  });
+
+  it('delegates article parse to link reader client', async () => {
+    parseArticle.mockResolvedValue({
+      author: '作者',
+    });
+
+    const result = await executor.execute({
+      functionName: 'link_reader__article_parse',
+      toolCode: 'article_parse',
+      handlerKey: 'article_parse',
+      args: {
+        url: 'https://mp.weixin.qq.com/s/example',
+      },
+    });
+
+    expect(parseArticle).toHaveBeenCalledWith({
+      url: 'https://mp.weixin.qq.com/s/example',
+      maxChars: undefined,
+    });
+    expect(result).toEqual({
+      author: '作者',
     });
   });
 });

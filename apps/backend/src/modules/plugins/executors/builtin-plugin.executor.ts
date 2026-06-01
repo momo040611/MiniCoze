@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { BingWebSearchClient } from '../builtin/bing-web-search.client';
 import { ImageUnderstandingClient } from '../builtin/image-understanding.client';
+import { LinkReaderClient } from '../builtin/link-reader.client';
 import type { RuntimeContext } from '../../../shared/types/runtime';
 
 type BuiltinToolHandler = (
@@ -15,6 +16,7 @@ export class BuiltinPluginExecutor {
   constructor(
     private readonly bingWebSearchClient: BingWebSearchClient,
     private readonly imageUnderstandingClient: ImageUnderstandingClient,
+    private readonly linkReaderClient: LinkReaderClient,
   ) {
     this.register('echo_text', (args) => ({
       text:
@@ -143,6 +145,24 @@ export class BuiltinPluginExecutor {
         },
         context,
       ),
+    );
+    this.register('url_full_fetch', (args) =>
+      this.linkReaderClient.fetchFullContent({
+        url: typeof args.url === 'string' ? args.url : '',
+        maxChars: typeof args.maxChars === 'number' ? args.maxChars : undefined,
+      }),
+    );
+    this.register('web_content_clean', (args) =>
+      this.linkReaderClient.cleanWebContent({
+        url: typeof args.url === 'string' ? args.url : '',
+        maxChars: typeof args.maxChars === 'number' ? args.maxChars : undefined,
+      }),
+    );
+    this.register('article_parse', (args) =>
+      this.linkReaderClient.parseArticle({
+        url: typeof args.url === 'string' ? args.url : '',
+        maxChars: typeof args.maxChars === 'number' ? args.maxChars : undefined,
+      }),
     );
   }
 

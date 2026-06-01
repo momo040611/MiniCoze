@@ -97,6 +97,16 @@ class EnvironmentVariables {
   @IsInt()
   @Min(1000)
   IMAGE_UNDERSTANDING_TIMEOUT_MS = 20000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  LINK_READER_TIMEOUT_MS = 15000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  LINK_READER_MAX_CHARS = 20000;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

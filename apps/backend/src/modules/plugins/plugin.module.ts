@@ -4,6 +4,7 @@ import { WorkspaceModule } from '../workspace/workspace.module';
 import { AgentPluginBindingController } from './agent-plugin-binding.controller';
 import { BingWebSearchClient } from './builtin/bing-web-search.client';
 import { ImageUnderstandingClient } from './builtin/image-understanding.client';
+import { LinkReaderClient } from './builtin/link-reader.client';
 import { AgentPluginBindingService } from './agent-plugin-binding.service';
 import { BuiltinPluginExecutor } from './executors/builtin-plugin.executor';
 import { HttpPluginExecutor } from './executors/http-plugin.executor';
@@ -34,6 +35,7 @@ import { PluginSchemaValidator } from './validators/plugin-schema.validator';
     PluginMaskerService,
     BingWebSearchClient,
     ImageUnderstandingClient,
+    LinkReaderClient,
     BuiltinPluginExecutor,
     HttpPluginExecutor,
   ],
@@ -50,6 +52,7 @@ import { PluginSchemaValidator } from './validators/plugin-schema.validator';
     PluginMaskerService,
     BingWebSearchClient,
     ImageUnderstandingClient,
+    LinkReaderClient,
     BuiltinPluginExecutor,
     HttpPluginExecutor,
   ],

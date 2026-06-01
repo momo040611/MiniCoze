@@ -61,4 +61,8 @@ export default () => ({
     model: process.env.IMAGE_UNDERSTANDING_MODEL ?? 'gpt-4o-mini',
     timeoutMs: Number(process.env.IMAGE_UNDERSTANDING_TIMEOUT_MS ?? 20000),
   },
+  linkReader: {
+    timeoutMs: Number(process.env.LINK_READER_TIMEOUT_MS ?? 15000),
+    maxChars: Number(process.env.LINK_READER_MAX_CHARS ?? 20000),
+  },
 });

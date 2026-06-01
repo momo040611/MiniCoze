@@ -288,4 +288,102 @@ export const BUILTIN_PLUGIN_DEFINITIONS: BuiltinPluginDefinition[] = [
       },
     ],
   },
+  {
+    code: 'link_reader',
+    name: '链接读取',
+    description:
+      '提供 URL 全文抓取、网页内容清洗与公众号/博客解析能力，适合对网页资料做深度阅读。',
+    version: 'v1.0.0',
+    tools: [
+      {
+        code: 'url_full_fetch',
+        name: 'URL 全文抓取',
+        description: '抓取网页主要文本内容，尽量保留原始正文信息。',
+        handler: 'url_full_fetch',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            maxChars: { type: 'integer' },
+          },
+          required: ['url'],
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            finalUrl: { type: 'string' },
+            title: { type: 'string' },
+            description: { type: 'string' },
+            siteName: { type: 'string' },
+            sourceType: { type: 'string' },
+            contentType: { type: 'string' },
+            headings: { type: 'array' },
+            content: { type: 'string' },
+            wordCount: { type: 'integer' },
+          },
+        },
+      },
+      {
+        code: 'web_content_clean',
+        name: '网页内容清洗',
+        description:
+          '对网页正文去噪、去导航、去版权提示，输出更适合模型阅读的内容。',
+        handler: 'web_content_clean',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            maxChars: { type: 'integer' },
+          },
+          required: ['url'],
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            finalUrl: { type: 'string' },
+            title: { type: 'string' },
+            cleanedContent: { type: 'string' },
+            paragraphs: { type: 'array' },
+            headings: { type: 'array' },
+            wordCount: { type: 'integer' },
+          },
+        },
+      },
+      {
+        code: 'article_parse',
+        name: '公众号 / 博客解析',
+        description:
+          '提取文章标题、作者、发布时间、段落结构与正文，适合公众号和博客链接。',
+        handler: 'article_parse',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            maxChars: { type: 'integer' },
+          },
+          required: ['url'],
+        },
+        outputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            finalUrl: { type: 'string' },
+            sourceType: { type: 'string' },
+            title: { type: 'string' },
+            description: { type: 'string' },
+            siteName: { type: 'string' },
+            author: { type: 'string' },
+            publishDate: { type: 'string' },
+            headings: { type: 'array' },
+            content: { type: 'string' },
+            excerpt: { type: 'string' },
+            isWechatArticle: { type: 'boolean' },
+            isBlogLike: { type: 'boolean' },
+          },
+        },
+      },
+    ],
+  },
 ];
