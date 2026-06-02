@@ -1,14 +1,20 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ErrorCode } from '../../../../common/constants/error-code';
 import { BusinessException } from '../../../../common/exceptions/business.exception';
 import {
   WorkflowDefinition,
+  WorkflowEdge,
   WorkflowNode,
 } from '../../workflow-definition.validator';
-import { WorkflowRunEvent } from '../execute/workflow-run-event';
 import { WorkflowRunEventBus } from '../execute/workflow-run-event-bus';
+import {
+  resolveTemplate,
+  resolveValueRef,
+  VariableScope,
+} from '../variable/variable-resolver';
 import { EndNodeExecutor } from '../nodes/end-node.executor';
 import { LlmNodeExecutor } from '../nodes/llm-node.executor';
+import { SelectorNodeExecutor } from '../nodes/selector-node.executor';
 import { StartNodeExecutor } from '../nodes/start-node.executor';
 import {
   WorkflowNodeExecutionResult,
@@ -22,133 +28,57 @@ export interface WorkflowAsyncRunInput {
   input: Record<string, unknown>;
   eventBus: WorkflowRunEventBus;
 }
+
 export interface WorkflowAsyncRunOutput {
   output: Record<string, unknown>;
 }
-// WorkflowAsyncRunner 是“基础执行编排器”：
-// - 输入：已通过校验并解析后的 WorkflowDefinition
-// - 过程：构建单路径执行序列，按顺序执行节点，并发布节点生命周期事件
-// - 输出：最后一个节点输出（或当前文本兜底）
+
+// WorkflowAsyncRunner：基于图遍历的工作流执行引擎。
+// 能力：
+// - 普通节点：执行后沿唯一出口走到下一个节点
+// - selector：按命中分支的端口路由（if / switch）
+// - loop：遍历数组，对每一项执行内部子图（blocks + edges）
+// - 变量：节点配置里的 {{...}} 会按当前作用域解析
 //
-// 当前能力边界（foundation 模式）：
-// 1) 仅支持单路径（每个节点最多一个下游）
-// 2) 暂不支持分支（selector）与循环（loop）
-// 3) 仅支持已注册节点执行器（start/llm/end）
+// 约束：
+// - 顶层必须有 start 节点
+// - 顶层图本身不允许出现回环（循环必须用 loop 节点表达）
+const LOOP_NODE_TYPE = 'loop';
+const MAX_LOOP_ITEMS = 200;
+
 @Injectable()
 export class WorkflowAsyncRunner {
+  private readonly logger = new Logger(WorkflowAsyncRunner.name);
   private readonly executors: Map<string, WorkflowNodeExecutor>;
 
   constructor(
     startNodeExecutor: StartNodeExecutor,
     llmNodeExecutor: LlmNodeExecutor,
     endNodeExecutor: EndNodeExecutor,
+    selectorNodeExecutor: SelectorNodeExecutor,
   ) {
     this.executors = new Map<string, WorkflowNodeExecutor>([
       [startNodeExecutor.type, startNodeExecutor],
       [llmNodeExecutor.type, llmNodeExecutor],
       [endNodeExecutor.type, endNodeExecutor],
+      [selectorNodeExecutor.type, selectorNodeExecutor],
     ]);
   }
 
+  // 执行入口：初始化运行时状态，从 start 节点开始遍历整张图。
   async run(input: WorkflowAsyncRunInput): Promise<WorkflowAsyncRunOutput> {
-    // Step A) 先把图定义转换成可顺序执行的路径。
-    // 这里会做基础图约束检查：必须有 start、不能分支、不能循环。
-    const path = this.buildExecutionPath(input.definition);
-
-    // Step B) 初始化运行时状态。
-    // state 在节点间共享：例如 start 提取的文本会被 llm/end 继续消费。
+    // 运行时状态在所有节点间共享：originalInput 是本次输入，
+    // nodeOutputs 记录每个节点输出（供变量引用），currentText 是兼容用的文本接力。
     const state: WorkflowRuntimeState = {
       originalInput: input.input,
       currentText: '',
       nodeOutputs: {},
     };
 
-    // Step C) 按路径逐个节点执行，并在节点生命周期发布事件。
-    for (const node of path) {
-      const startedAt = new Date();
-      // 节点开始事件：给外层持久化/观测模块记录节点起点。
-      await input.eventBus.publish({
-        type: 'node.started',
-        runId: input.runId,
-        nodeId: node.id,
-        nodeType: node.type,
-        at: startedAt,
-        input: input.input,
-      });
-
-      try {
-        // 1) 根据 node.type 选择执行器
-        // 2) 执行节点逻辑
-        // 3) 记录节点输出到共享状态
-        const executor = this.resolveExecutor(node);
-        const result = await executor.execute({
-          node,
-          input: input.input,
-          state,
-        });
-        state.nodeOutputs[node.id] = result.output;
-        // 节点成功事件：带上输出与耗时，供外层落库。
-        await input.eventBus.publish(
-          this.createCompletedEvent(input.runId, node, result, startedAt),
-        );
-      } catch (error) {
-        // 节点失败事件：记录错误与耗时，然后把异常向外抛出，
-        // 由上层（WorkflowRunService）统一更新 run 状态为 FAILED。
-        const message = error instanceof Error ? error.message : String(error);
-        await input.eventBus.publish({
-          type: 'node.failed',
-          runId: input.runId,
-          nodeId: node.id,
-          nodeType: node.type,
-          at: new Date(),
-          input: input.input,
-          errorMessage: message,
-          durationMs: this.diffMs(startedAt, new Date()),
-        });
-        throw error;
-      }
-    }
-
-    // Step D) 执行完成后返回最终输出。
-    // 默认取最后一个节点输出；若缺失则兜底返回当前文本结果。
-    const lastNode = path[path.length - 1];
-    return {
-      output: state.nodeOutputs[lastNode.id] ?? { result: state.currentText },
-    };
-  }
-
-  private createCompletedEvent(
-    runId: string,
-    node: WorkflowNode,
-    result: WorkflowNodeExecutionResult,
-    startedAt: Date,
-  ): WorkflowRunEvent {
-    // 统一封装节点成功事件，避免各处重复计算耗时字段。
-    const endedAt = new Date();
-    return {
-      type: 'node.completed',
-      runId,
-      nodeId: node.id,
-      nodeType: node.type,
-      at: endedAt,
-      output: result.output,
-      durationMs: this.diffMs(startedAt, endedAt),
-    };
-  }
-
-  private buildExecutionPath(definition: WorkflowDefinition): WorkflowNode[] {
-    // 构建邻接关系：
-    // - nodeMap: 节点 ID -> 节点定义
-    // - outgoing: source -> target[]（某节点的所有下游）
-    const nodeMap = new Map(definition.nodes.map((node) => [node.id, node]));
-    const outgoing = new Map<string, string[]>();
-    for (const edge of definition.edges) {
-      const list = outgoing.get(edge.source) ?? [];
-      list.push(edge.target);
-      outgoing.set(edge.source, list);
-    }
-
-    const startNode = definition.nodes.find((node) => node.type === 'start');
+    // 顶层图必须有 start 作为唯一入口。
+    const startNode = input.definition.nodes.find(
+      (node) => node.type === 'start',
+    );
     if (!startNode) {
       throw new BusinessException(
         '工作流缺少 start 节点，无法运行',
@@ -157,66 +87,353 @@ export class WorkflowAsyncRunner {
       );
     }
 
-    const path: WorkflowNode[] = [];
+    this.logger.log(`▶️  run 开始 runId=${input.runId}`);
+    this.logger.log(`   input.input(原始)=${this.dump(input.input)}`);
+    this.logger.log(`   input.definition(原始)=${this.dump(input.definition)}`);
+
+    const finalOutput = await this.executeGraph(
+      input.definition.nodes,
+      input.definition.edges,
+      startNode,
+      state,
+      input.eventBus,
+      input.runId,
+      undefined,
+    );
+
+    const output = finalOutput ?? { result: state.currentText };
+    this.logger.log(
+      `✅ run 结束 runId=${input.runId} 最终输出=${this.preview(output)}`,
+    );
+    return { output };
+  }
+
+  // 执行一张图（顶层图或 loop 内部子图）：
+  // 从 entry 节点出发，按出口边一路走，直到 end 节点或走到尽头。
+  // 子图执行和顶层执行用的是同一套图遍历逻辑
+  private async executeGraph(
+    nodes: WorkflowNode[],
+    edges: WorkflowEdge[],
+    entry: WorkflowNode,
+    state: WorkflowRuntimeState,
+    eventBus: WorkflowRunEventBus,
+    runId: string,
+    loopScope: Record<string, unknown> | undefined,
+  ): Promise<Record<string, unknown>> {
+    // nodeMap: 按 id 快速取节点；outgoing: 某节点的所有出口边。
+    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+    // outgoing 的结构示例（source -> 出口边数组）：
+    // Map {
+    //   "start_1" => [ { target: "sel_1" } ],
+    //   "sel_1"   => [ { target: "llm_a", sourcePort: "yes" },
+    //                  { target: "llm_b", sourcePort: "no"  } ],
+    //   "llm_a"   => [ { target: "end_1" } ],
+    //   "llm_b"   => [ { target: "end_1" } ],
+    // }
+    const outgoing = this.buildOutgoing(edges);
+
+    const scopeLabel = loopScope ? '子图(loop)' : '顶层图';
+    this.logger.debug(`🧭 进入${scopeLabel} entry(原始)=${this.dump(entry)}`);
+    this.logger.debug(`nodeMap(原始)=${this.dump(nodeMap)}`);
+    this.logger.debug(`edges(原始)=${this.dump(edges)}`);
+
+    let current: WorkflowNode | undefined = entry;
+    let lastOutput: Record<string, unknown> = {};
+    // visited 防止非法回环；guard 是步数兜底，双保险防死循环。
     const visited = new Set<string>();
-    let current: WorkflowNode | undefined = startNode;
-    // guard 用于双保险防御异常图（例如脏数据导致死循环）。
     let guard = 0;
+    // this.logger.debug(`current(原始)=${this.dump(current)}`);
+
     while (current) {
-      // 已访问过说明出现环路，foundation 模式直接拒绝运行。
       if (visited.has(current.id)) {
         throw new BusinessException(
-          '检测到循环依赖，foundation runner 暂不支持循环执行',
+          '检测到非法回环，循环请使用 loop 节点表达',
           ErrorCode.BadRequest,
           HttpStatus.BAD_REQUEST,
         );
       }
-
-      path.push(current);
       visited.add(current.id);
+
+      // 执行当前节点（普通/loop/selector），拿到输出和可能的分支端口。
+      this.logger.debug(`执行当前节点 current(原始)=${this.dump(current)}`);
+      this.logger.debug(`state(原始)=${this.dump(state)}`);
+      this.logger.debug(`eventBus(原始)=${this.dump(eventBus)}`);
+      this.logger.debug(`runId(原始)=${this.dump(runId)}`);
+      this.logger.debug(`loopScope(原始)=${this.dump(loopScope)}`);
+      const result = await this.executeNode(
+        current,
+        state,
+        eventBus,
+        runId,
+        loopScope,
+      );
+      lastOutput = result.output;
+
+      // 到达 end 节点 -> 整张图结束，返回其输出。
       if (current.type === 'end') {
-        break;
+        return result.output;
       }
 
-      const nextIds = outgoing.get(current.id) ?? [];
-      // foundation 模式：暂不支持一个节点通向多个下游（分支）。
-      if (nextIds.length > 1) {
-        throw new BusinessException(
-          'foundation runner 暂不支持分支执行，请先保持单路径',
-          ErrorCode.BadRequest,
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (nextIds.length === 0) {
-        throw new BusinessException(
-          `节点 ${current.id} 没有可执行的下游节点`,
-          ErrorCode.BadRequest,
-          HttpStatus.BAD_REQUEST,
-        );
+      // 没有出口边 -> 走到尽头（子图常见情况），返回当前输出。
+      const edgesFrom = outgoing.get(current.id) ?? [];
+      if (edgesFrom.length === 0) {
+        return result.output;
       }
 
-      current = nodeMap.get(nextIds[0]);
+      // 根据节点给出的端口（selector 会给）挑选下一条边。
+      const nextEdge = this.pickEdge(edgesFrom, result.nextPort);
+      if (!nextEdge) {
+        return result.output;
+      }
+
+      if (result.nextPort !== undefined) {
+        this.logger.debug(
+          `🔀 分支路由 ${current.id} 选择端口=${result.nextPort} -> ${nextEdge.target}`,
+        );
+      } else {
+        this.logger.debug(`➡️  ${current.id} -> ${nextEdge.target}`);
+      }
+
+      // 沿选中的边走到下一个节点，继续循环。
+      current = nodeMap.get(nextEdge.target);
       guard += 1;
-      // 图规模之外的异常步数，直接保护性中断。
-      if (guard > definition.nodes.length + 5) {
+      if (guard > nodes.length + 50) {
         throw new BusinessException(
-          '工作流路径异常，超过预期执行步数',
+          '工作流执行步数异常，超过预期上限',
           ErrorCode.BadRequest,
           HttpStatus.BAD_REQUEST,
         );
       }
     }
 
-    return path;
+    return lastOutput;
+  }
+
+  // 执行单个节点：发开始事件 -> 执行(普通/loop) -> 发完成/失败事件。
+  private async executeNode(
+    node: WorkflowNode,
+    state: WorkflowRuntimeState,
+    eventBus: WorkflowRunEventBus,
+    runId: string,
+    loopScope: Record<string, unknown> | undefined,
+  ): Promise<WorkflowNodeExecutionResult> {
+    const startedAt = new Date();
+    this.logger.log(`  ⏳ 节点开始 [${node.type}] ${node.id}`);
+    await eventBus.publish({
+      type: 'node.started',
+      runId,
+      nodeId: node.id,
+      nodeType: node.type,
+      at: startedAt,
+      input: state.originalInput,
+    });
+
+    try {
+      // 执行节点。节点是loop就执行子图，否则通过node.type找到对应的执行器执行
+      const result =
+        node.type === LOOP_NODE_TYPE
+          ? await this.executeLoop(node, state, eventBus, runId, loopScope)
+          : await this.resolveExecutor(node).execute(
+              this.buildContext(node, state, loopScope),
+            );
+
+      state.nodeOutputs[node.id] = result.output;
+      const durationMs = this.diffMs(startedAt, new Date());
+      this.logger.log(
+        `  ✔️  节点完成 [${node.type}] ${node.id} 耗时=${durationMs}ms 输出=${this.preview(result.output)}`,
+      );
+      await eventBus.publish({
+        type: 'node.completed',
+        runId,
+        nodeId: node.id,
+        nodeType: node.type,
+        at: new Date(),
+        output: result.output,
+        durationMs,
+      });
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`  ❌ 节点失败 [${node.type}] ${node.id}: ${message}`);
+      await eventBus.publish({
+        type: 'node.failed',
+        runId,
+        nodeId: node.id,
+        nodeType: node.type,
+        at: new Date(),
+        input: state.originalInput,
+        errorMessage: message,
+        durationMs: this.diffMs(startedAt, new Date()),
+      });
+      throw error;
+    }
+  }
+
+  // 执行 loop 节点：解析待遍历数组，对每一项执行内部子图。
+  private async executeLoop(
+    node: WorkflowNode,
+    state: WorkflowRuntimeState,
+    eventBus: WorkflowRunEventBus,
+    runId: string,
+    parentLoopScope: Record<string, unknown> | undefined,
+  ): Promise<WorkflowNodeExecutionResult> {
+    // 解析 items：用 resolveValueRef 是为了保留数组原始类型（不能被转成字符串）。
+    const scope = this.buildScope(state, parentLoopScope);
+    const inputs = this.asRecord(this.asRecord(node.data).inputs);
+    const resolvedItems = resolveValueRef(inputs.items, scope);
+    this.logger.debug(
+      `[executeLoop] inputs.items(原始)=${this.dump(inputs.items)}`,
+    );
+    this.logger.debug(`[executeLoop] scope(原始)=${this.dump(scope)}`);
+    this.logger.debug(
+      `[executeLoop] resolvedItems(解析后)=${this.dump(resolvedItems)}`,
+    );
+
+    if (!Array.isArray(resolvedItems)) {
+      throw new BusinessException(
+        `loop 节点 ${node.id} 的 items 必须解析为数组`,
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const items: unknown[] = resolvedItems;
+    //循环次数超过上限
+    if (items.length > MAX_LOOP_ITEMS) {
+      throw new BusinessException(
+        `loop 节点 ${node.id} 迭代次数超过上限 ${MAX_LOOP_ITEMS}`,
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // loop 的内部子图：blocks 是子节点，blockEdges 是子图连线。
+    const blocks: WorkflowNode[] = node.blocks ?? [];
+    const blockEdges: WorkflowEdge[] = node.edges ?? [];
+    const entry = this.findSubGraphEntry(blocks, blockEdges);
+    this.logger.debug(`[executeLoop] entry(原始)=${this.dump(entry)}`);
+    this.logger.debug(`[executeLoop] blocks(原始)=${this.dump(blocks)}`);
+    this.logger.debug(
+      `[executeLoop] blockEdges(原始)=${this.dump(blockEdges)}`,
+    );
+
+    this.logger.log(
+      `  🔁 loop ${node.id} 开始迭代 共 ${items.length} 项 子节点数=${blocks.length}`,
+    );
+
+    const results: Array<{
+      index: number;
+      item: unknown;
+      output: Record<string, unknown>;
+    }> = [];
+
+    // 逐项迭代：每轮把当前项注入 loopScope（item/index），再跑一遍子图。
+    for (let index = 0; index < items.length; index += 1) {
+      const loopScope: Record<string, unknown> = {
+        ...(parentLoopScope ?? {}),
+        item: items[index],
+        index,
+      };
+
+      this.logger.debug(
+        `  🔂 loop ${node.id} 第 ${index + 1}/${items.length} 轮 item=${this.preview(items[index])}`,
+      );
+
+      let iterationOutput: Record<string, unknown> = {};
+      if (entry) {
+        iterationOutput = await this.executeGraph(
+          blocks,
+          blockEdges,
+          entry,
+          state,
+          eventBus,
+          runId,
+          loopScope,
+        );
+      }
+      results.push({ index, item: items[index], output: iterationOutput });
+    }
+
+    // loop 节点的输出 = 迭代次数 + 每轮结果数组，供后续节点引用。
+    return { output: { count: items.length, results } };
+  }
+
+  // 构建当前节点的执行上下文，注入变量解析能力。
+  private buildContext(
+    node: WorkflowNode,
+    state: WorkflowRuntimeState,
+    loopScope: Record<string, unknown> | undefined,
+  ) {
+    this.logger.debug(`[buildContext] node(原始)=${this.dump(node)}`);
+    this.logger.debug(`[buildContext] state(原始)=${this.dump(state)}`);
+    this.logger.debug(`[buildContext] loopScope(原始)=${this.dump(loopScope)}`);
+    const scope = this.buildScope(state, loopScope);
+    return {
+      node,
+      input: state.originalInput,
+      state,
+      resolveTemplate: (template: string): string =>
+        resolveTemplate(template, scope),
+      resolveValue: (ref: unknown): unknown => resolveValueRef(ref, scope),
+    };
+  }
+
+  // 构建当前节点的执行上下文，注入变量解析能力。
+  private buildScope(
+    state: WorkflowRuntimeState,
+    loopScope: Record<string, unknown> | undefined,
+  ): VariableScope {
+    return {
+      input: state.originalInput,
+      nodeOutputs: state.nodeOutputs,
+      loop: loopScope,
+    };
+  }
+
+  // 把边按 source 分组，便于查某节点的所有出口。
+  private buildOutgoing(edges: WorkflowEdge[]): Map<string, WorkflowEdge[]> {
+    const outgoing = new Map<string, WorkflowEdge[]>();
+    for (const edge of edges) {
+      const list = outgoing.get(edge.source) ?? [];
+      list.push(edge);
+      outgoing.set(edge.source, list);
+    }
+    return outgoing;
+  }
+
+  // 选择下一条边：
+  // - 分支节点给了 nextPort -> 优先匹配同端口的边，否则回退到无端口边
+  // - 普通节点 -> 取无端口边，没有则取第一条
+  private pickEdge(
+    edges: WorkflowEdge[],
+    nextPort: string | undefined,
+  ): WorkflowEdge | undefined {
+    if (nextPort !== undefined) {
+      const matched = edges.find((edge) => edge.sourcePort === nextPort);
+      if (matched) {
+        return matched;
+      }
+      return edges.find((edge) => !edge.sourcePort);
+    }
+    return edges.find((edge) => !edge.sourcePort) ?? edges[0];
+  }
+
+  // 子图入口：取没有任何入边的节点；找不到则退化为第一个节点。
+  private findSubGraphEntry(
+    blocks: WorkflowNode[],
+    edges: WorkflowEdge[],
+  ): WorkflowNode | undefined {
+    if (blocks.length === 0) {
+      return undefined;
+    }
+    const hasIncoming = new Set(edges.map((edge) => edge.target));
+    return blocks.find((block) => !hasIncoming.has(block.id)) ?? blocks[0];
   }
 
   private resolveExecutor(node: WorkflowNode): WorkflowNodeExecutor {
-    // 根据节点类型路由到具体执行器。
-    // 例如 start -> StartNodeExecutor, llm -> LlmNodeExecutor。
     const executor = this.executors.get(node.type);
     if (!executor) {
       throw new BusinessException(
-        `foundation runner 暂不支持节点类型: ${node.type}`,
+        `暂不支持的节点类型: ${node.type}`,
         ErrorCode.BadRequest,
         HttpStatus.BAD_REQUEST,
       );
@@ -224,7 +441,38 @@ export class WorkflowAsyncRunner {
     return executor;
   }
 
+  private asRecord(value: unknown): Record<string, unknown> {
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    return {};
+  }
+
   private diffMs(start: Date, end: Date): number {
     return Math.max(0, end.getTime() - start.getTime());
+  }
+
+  // 打印原始数据：完整 JSON，不截断、不加工，方便排查真实结构。
+  private dump(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+
+  // 把任意值转成简短字符串用于日志，超长会截断，避免刷屏。
+  private preview(value: unknown): string {
+    let text: string;
+    try {
+      text = typeof value === 'string' ? value : JSON.stringify(value);
+    } catch {
+      text = String(value);
+    }
+    if (text === undefined) {
+      return 'undefined';
+    }
+    const MAX = 200;
+    return text.length > MAX ? `${text.slice(0, MAX)}…(${text.length})` : text;
   }
 }
