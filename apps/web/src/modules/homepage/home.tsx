@@ -12,7 +12,7 @@ import { getConversations, getConversation, deleteConversation } from '../../api
 import type { Conversation } from '../../api/homepage'
 import { runAgentStream } from '../../api/agent-runtime'
 import type {
-  RuntimeEvent, TokenUsage, KnowledgeStatusEvent,
+  RuntimeEvent, TokenUsage,
   ToolCallCreatedEvent, ToolCallCompletedEvent,
 } from '../../api/agent-runtime'
 import { getAgentList } from '../../api/agent-config'
@@ -89,7 +89,7 @@ export const HomepageIndex = () => {
   const [currentLatency, setCurrentLatency] = useState(0)
   const [currentUsage, setCurrentUsage] = useState<TokenUsage | null>(null)
   const [currentToolCalls, setCurrentToolCalls] = useState<ToolCallData[]>([])
-  const [knowledgeEvent, setKnowledgeEvent] = useState<KnowledgeStatusEvent | null>(null)
+  const [knowledgeEvent, setKnowledgeEvent] = useState<{ type: string; runId: string; knowledge: { bound: boolean; knowledgeName?: string; retrievedCount?: number } } | null>(null)
   const [knowledgeDismissed, setKnowledgeDismissed] = useState(false)
   const runStartRef = useRef(0)
   const lastUserMessageRef = useRef('')  // 记录最后一条用户消息，供"重新生成"使用
@@ -403,10 +403,6 @@ export const HomepageIndex = () => {
               }
               break
 
-            case 'knowledge.status':
-              setKnowledgeEvent(event)
-              break
-
             case 'message.delta': {
               lastContentRef.current += event.content
               setMessages((prev) =>
@@ -448,21 +444,22 @@ export const HomepageIndex = () => {
             }
 
             case 'tool.call.completed': {
-              const tcCompleteEvent = event as ToolCallCompletedEvent
+              const tcCompleteEvent = event as ToolCallCompletedEvent & { error?: string }
               const startTime = toolCallStartRef.current.get(tcCompleteEvent.toolCallId)
               const duration = startTime ? Math.round(performance.now() - startTime) : undefined
               toolCallStartRef.current.delete(tcCompleteEvent.toolCallId)
+              const isFailed = !!tcCompleteEvent.error
               setCurrentToolCalls((prev) =>
                 prev.map((tc) =>
                   tc.toolCallId === tcCompleteEvent.toolCallId
-                    ? { ...tc, status: tcCompleteEvent.error ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration }
+                    ? { ...tc, status: isFailed ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration }
                     : tc
                 )
               )
               setMessages((prev) =>
                 prev.map((m) =>
                   m.kind === 'tool-call' && m.id === `tool-${tcCompleteEvent.toolCallId}`
-                    ? { ...m, toolData: { ...m.toolData, status: tcCompleteEvent.error ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration } }
+                    ? { ...m, toolData: { ...m.toolData, status: isFailed ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration } }
                     : m
                 )
               )

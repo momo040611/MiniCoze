@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Avatar, Button, Form, Input, message, UserOutlined } from 'antd';
+import { UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Form, Input, message } from 'antd';
 import { getCurrentUser } from '../../api/auth/auth-store';
 import styles from './index.module.css';
 
