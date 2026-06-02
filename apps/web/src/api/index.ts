@@ -46,4 +46,3 @@ export * from './homepage';
 export * from './workspace';
 // 统一导出"Agent 运行时"模块 API（SSE 流式对话）。
 export * from './agent-runtime';
-export * from './plugins';
