@@ -7,7 +7,7 @@ import { HomepageIndex } from '../modules/homepage';
 import { KnowledgeBasePage, KnowledgeCreate, KnowledgeDetail, KnowledgeList } from '../modules/knowledge-base';
 import { Productionline } from '../modules/knowledge-base/page/Productionline';
 import { AppLayout } from '../modules/layout/AppLayout';
-import { PluginsPage } from '../modules/plugins';
+import { PluginDetail, PluginsPage } from '../modules/plugins';
 import { ProfilePage } from '../modules/profile';
 import { PublishPage } from '../modules/publish';
 import { SettingsPage } from '../modules/settings';
@@ -67,6 +67,7 @@ export function AppRoutes() {
           <Route path="/agents/:agentId" element={<AgentDetailPage />} />
           <Route path="/workflows" element={<WorkflowsPage />} />
           <Route path="/plugins" element={<PluginsPage />} />
+          <Route path="/plugins/:pluginId" element={<PluginDetail />} />
           <Route path="/publish" element={<PublishPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/architecture" element={<ArchitecturePage />} />
