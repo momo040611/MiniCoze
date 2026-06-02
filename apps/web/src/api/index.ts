@@ -12,11 +12,28 @@ export * from './workflow-canvas';
 export {
   DEFAULT_WORKFLOW_CANVAS_DATA,
   createWorkflow,
+  createWorkflowRemote,
   deleteWorkflow,
+  fromWorkflowResponse,
+  getWorkflowById,
+  getWorkflowByIdRemote,
   getWorkflowDetail,
   getWorkflowList,
+  getWorkflowListRemote,
+  saveWorkflowDraft,
+  saveWorkflowDraftRemote,
+  toCreateWorkflowRequest,
+  toWorkflowDefinition,
   updateWorkflow,
+  updateWorkflowRemote,
+  type CreateWorkflowParams,
+  type CreateWorkflowRequest,
+  type PaginatedWorkflowResponse,
+  type UpdateWorkflowRequest,
   type Workflow,
+  type WorkflowCanvasData,
+  type WorkflowDefinition,
+  type WorkflowResponseLike,
 } from './workflows';
 
 // 统一导出"创建知识库界面"模块 API，后续文件上传、解析、知识库管理等接口放在该模块下。

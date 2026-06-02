@@ -39,15 +39,18 @@ export async function changePassword(payload: ChangePasswordPayload) {
 export async function updateAvatar(file: File) {
   const formData = new FormData();
   formData.append('avatar', file);
-  const res = await http.post<ApiEnvelope<{ avatarUrl: string }>>('auth/avatar', formData, {
-    headers: {},
-    auth: true,
+
+  const res = await http.post<ApiEnvelope<{ avatarUrl: string | null }>>('auth/avatar', formData, {
+    timeout: 30000,
   });
-  const { avatarUrl } = res.data;
-  const currentUser = await getProfile();
-  if (currentUser.avatarUrl !== avatarUrl) {
-    updateUserData({ ...currentUser, avatarUrl });
+
+  const avatarUrl = res.data.avatarUrl;
+  if (!avatarUrl) {
+    throw new Error('头像地址生成失败');
   }
+
+  const currentUser = await getProfile();
+  updateUserData({ ...currentUser, avatarUrl });
   return avatarUrl;
 }
 

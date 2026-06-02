@@ -1,24 +1,8 @@
 import { http, type ApiEnvelope } from './http';
 
-export interface IPlugin {
-  id: string;
-  name: string;
-  icon?: string;
-  description: string;
-  enabled: boolean;
-  version: string;
-  toolCount: number;
-  createdAt: string;
-}
-
-export interface IPluginTool {
-  id: string;
-  pluginId: string;
-  name: string;
-  description: string;
-  inputSchema: IToolParamSchema;
-  enabled: boolean;
-}
+export type PluginType = 'BUILTIN' | 'HTTP';
+export type PluginStatus = 'DRAFT' | 'ACTIVE' | 'DISABLED' | 'ARCHIVED';
+export type PluginToolStatus = 'ACTIVE' | 'DISABLED';
 
 export interface IToolParamSchema {
   type: 'object';
@@ -27,17 +11,77 @@ export interface IToolParamSchema {
 }
 
 export interface IToolParam {
-  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
   description?: string;
   enum?: string[];
   default?: unknown;
 }
 
+export interface IPluginTool {
+  id: string;
+  pluginId: string;
+  code: string;
+  name: string;
+  description: string;
+  inputSchema: IToolParamSchema;
+  outputSchema: Record<string, unknown> | null;
+  meta: Record<string, unknown> | null;
+  status: PluginToolStatus;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IPlugin {
+  id: string;
+  workspaceId: string;
+  creatorId: string;
+  code: string;
+  name: string;
+  icon?: string;
+  iconUrl: string | null;
+  description: string;
+  type: PluginType;
+  status: PluginStatus;
+  enabled: boolean;
+  invocationEnabled: boolean;
+  isBuiltin: boolean;
+  version: string;
+  toolCount: number;
+  activeToolCount: number;
+  credentialSummary?: {
+    count: number;
+    activeCount: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type IPluginDetail = IPlugin & { tools: IPluginTool[] };
+
+export interface IPaginatedPlugins {
+  list: IPlugin[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface IGetPluginsParams {
+  workspaceId: string;
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  type?: PluginType;
+  status?: PluginStatus;
+}
+
 export interface IToolTestResult {
   success: boolean;
   data?: unknown;
-  error?: string;
+  output?: unknown;
+  error?: string | null;
   duration?: number;
+  durationMs?: number;
 }
 
 export interface IAgentToolBinding {
@@ -57,123 +101,57 @@ export interface IToolCallRecord {
   finishedAt?: string;
 }
 
-export type IPluginDetail = IPlugin & { tools: IPluginTool[] };
+interface BackendPaginated<T> {
+  list: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
-const PLUGIN_STATE_KEY = 'miniCoze_plugin_enabled_state';
-const AGENT_BINDING_KEY = 'miniCoze_agent_tool_bindings';
+interface BackendPluginTool {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  status: PluginToolStatus;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown> | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
-const fixturePlugins: IPluginDetail[] = [
-  {
-    id: 'web-search',
-    name: '网页搜索',
-    icon: 'SearchOutlined',
-    description: '为智能体提供实时网页检索、摘要提取和来源追踪能力。',
-    enabled: true,
-    version: '1.0.0',
-    toolCount: 2,
-    createdAt: '2026-01-10T08:00:00.000Z',
-    tools: [
-      {
-        id: 'web-search.query',
-        pluginId: 'web-search',
-        name: '搜索网页',
-        description: '根据关键词搜索网页并返回结构化摘要。',
-        enabled: true,
-        inputSchema: {
-          type: 'object',
-          required: ['query'],
-          properties: {
-            query: { type: 'string', description: '搜索关键词' },
-            limit: { type: 'number', description: '返回结果数量', default: 5 },
-          },
-        },
-      },
-      {
-        id: 'web-search.extract',
-        pluginId: 'web-search',
-        name: '提取网页内容',
-        description: '读取指定 URL 的正文内容。',
-        enabled: true,
-        inputSchema: {
-          type: 'object',
-          required: ['url'],
-          properties: {
-            url: { type: 'string', description: '网页 URL' },
-            includeLinks: { type: 'boolean', description: '是否包含链接', default: false },
-          },
-        },
-      },
-    ],
-  },
-  {
-    id: 'knowledge-tools',
-    name: '知识库工具',
-    icon: 'DatabaseOutlined',
-    description: '查询工作空间知识库，支持按关键词召回文档片段。',
-    enabled: true,
-    version: '1.1.0',
-    toolCount: 1,
-    createdAt: '2026-02-04T08:00:00.000Z',
-    tools: [
-      {
-        id: 'knowledge-tools.retrieve',
-        pluginId: 'knowledge-tools',
-        name: '知识库召回',
-        description: '从已启用知识库中检索相关内容。',
-        enabled: true,
-        inputSchema: {
-          type: 'object',
-          required: ['question'],
-          properties: {
-            question: { type: 'string', description: '用户问题' },
-            topK: { type: 'number', description: '召回数量', default: 3 },
-          },
-        },
-      },
-    ],
-  },
-  {
-    id: 'data-utils',
-    name: '数据处理',
-    icon: 'FunctionOutlined',
-    description: '提供 JSON 格式化、字段映射和轻量计算能力。',
-    enabled: false,
-    version: '0.9.2',
-    toolCount: 2,
-    createdAt: '2026-03-18T08:00:00.000Z',
-    tools: [
-      {
-        id: 'data-utils.json-format',
-        pluginId: 'data-utils',
-        name: 'JSON 格式化',
-        description: '格式化或压缩 JSON 数据。',
-        enabled: false,
-        inputSchema: {
-          type: 'object',
-          required: ['payload'],
-          properties: {
-            payload: { type: 'object', description: '待处理 JSON' },
-            mode: { type: 'string', enum: ['pretty', 'compact'], description: '输出模式', default: 'pretty' },
-          },
-        },
-      },
-      {
-        id: 'data-utils.sum',
-        pluginId: 'data-utils',
-        name: '数字求和',
-        description: '对数字数组求和。',
-        enabled: false,
-        inputSchema: {
-          type: 'object',
-          required: ['values'],
-          properties: {
-            values: { type: 'array', description: '数字数组', default: [1, 2, 3] },
-          },
-        },
-      },
-    ],
-  },
-];
+interface BackendPluginDetail {
+  id: string;
+  workspaceId: string;
+  creatorId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  iconUrl: string | null;
+  type: PluginType;
+  status: PluginStatus;
+  version: string;
+  isBuiltin: boolean;
+  invocationEnabled: boolean;
+  maskStrategy: Record<string, unknown> | null;
+  tools: BackendPluginTool[];
+  credentialSummary?: {
+    count: number;
+    activeCount: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface BackendAgentPluginBinding {
+  agentId: string;
+  pluginId: string;
+  status: 'ACTIVE' | 'DISABLED';
+  config: {
+    disabledTools?: string[];
+  } | null;
+}
 
 function isEnvelope<T>(payload: unknown): payload is ApiEnvelope<T> {
   return Boolean(payload && typeof payload === 'object' && 'data' in payload);
@@ -183,96 +161,114 @@ function unwrap<T>(payload: T | ApiEnvelope<T>): T {
   return isEnvelope<T>(payload) ? payload.data : payload;
 }
 
-function readRecord<T>(key: string): Record<string, T> {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as Record<string, T>) : {};
-  } catch {
-    return {};
-  }
-}
+function normalizeInputSchema(value: Record<string, unknown>): IToolParamSchema {
+  const properties = value.properties;
+  const required = value.required;
 
-function writeRecord<T>(key: string, value: Record<string, T>) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function applyLocalState(plugin: IPluginDetail): IPluginDetail {
-  const state = readRecord<boolean>(PLUGIN_STATE_KEY);
-  const enabled = state[plugin.id] ?? plugin.enabled;
   return {
-    ...plugin,
-    enabled,
-    tools: plugin.tools.map((tool) => ({ ...tool, enabled: enabled && tool.enabled })),
+    type: 'object',
+    properties:
+      properties && typeof properties === 'object' && !Array.isArray(properties)
+        ? (properties as Record<string, IToolParam>)
+        : {},
+    required: Array.isArray(required) ? required.filter((item): item is string => typeof item === 'string') : undefined,
   };
 }
 
-function getFixtureDetail(pluginId: string): IPluginDetail {
-  const detail = fixturePlugins.find((plugin) => plugin.id === pluginId);
-  if (!detail) {
-    throw new Error('插件不存在');
-  }
-  return applyLocalState(detail);
+function mapTool(pluginId: string, tool: BackendPluginTool): IPluginTool {
+  return {
+    ...tool,
+    pluginId,
+    inputSchema: normalizeInputSchema(tool.inputSchema),
+    enabled: tool.status === 'ACTIVE',
+  };
 }
 
-export async function getPlugins(): Promise<IPlugin[]> {
-  try {
-    const payload = await http.get<IPlugin[] | ApiEnvelope<IPlugin[]>>('plugins');
-    return unwrap(payload);
-  } catch {
-    return fixturePlugins.map(applyLocalState).map(({ tools: _tools, ...plugin }) => plugin);
-  }
+function mapPlugin(plugin: BackendPluginDetail): IPluginDetail {
+  const tools = plugin.tools.map((tool) => mapTool(plugin.id, tool));
+  const enabled = plugin.status === 'ACTIVE' && plugin.invocationEnabled;
+
+  return {
+    id: plugin.id,
+    workspaceId: plugin.workspaceId,
+    creatorId: plugin.creatorId,
+    code: plugin.code,
+    name: plugin.name,
+    icon: plugin.iconUrl ?? undefined,
+    iconUrl: plugin.iconUrl,
+    description: plugin.description ?? '暂无描述',
+    type: plugin.type,
+    status: plugin.status,
+    enabled,
+    invocationEnabled: plugin.invocationEnabled,
+    isBuiltin: plugin.isBuiltin,
+    version: plugin.version,
+    toolCount: tools.length,
+    activeToolCount: tools.filter((tool) => tool.enabled).length,
+    credentialSummary: plugin.credentialSummary,
+    createdAt: plugin.createdAt,
+    updatedAt: plugin.updatedAt,
+    tools,
+  };
+}
+
+export async function getPlugins(params: IGetPluginsParams): Promise<IPaginatedPlugins> {
+  const payload = await http.get<ApiEnvelope<BackendPaginated<BackendPluginDetail>>>('plugins', {
+    query: {
+      workspaceId: params.workspaceId,
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 20,
+      keyword: params.keyword,
+      type: params.type,
+      status: params.status,
+    },
+  });
+  const data = payload.data;
+
+  return {
+    ...data,
+    list: data.list.map((plugin) => {
+      const { tools: _tools, ...summary } = mapPlugin(plugin);
+      return summary;
+    }),
+  };
 }
 
 export async function getPluginDetail(pluginId: string): Promise<IPluginDetail> {
-  try {
-    const payload = await http.get<IPluginDetail | ApiEnvelope<IPluginDetail>>(`plugins/${pluginId}`);
-    return unwrap(payload);
-  } catch {
-    return getFixtureDetail(pluginId);
-  }
+  const payload = await http.get<ApiEnvelope<BackendPluginDetail>>(`plugins/${pluginId}`);
+  return mapPlugin(payload.data);
 }
 
 export async function togglePlugin(pluginId: string, enabled: boolean): Promise<IPluginDetail> {
-  try {
-    const payload = await http.patch<IPluginDetail | ApiEnvelope<IPluginDetail>>(`plugins/${pluginId}/toggle`, { enabled });
-    return unwrap(payload);
-  } catch {
-    const state = readRecord<boolean>(PLUGIN_STATE_KEY);
-    state[pluginId] = enabled;
-    writeRecord(PLUGIN_STATE_KEY, state);
-    return getFixtureDetail(pluginId);
-  }
+  const payload = await http.post<ApiEnvelope<BackendPluginDetail>>(
+    `plugins/${pluginId}/${enabled ? 'activate' : 'disable'}`,
+  );
+  return mapPlugin(payload.data);
 }
 
-export async function testTool(toolId: string, params: Record<string, unknown>): Promise<IToolTestResult> {
-  const startedAt = performance.now();
-  try {
-    const payload = await http.post<IToolTestResult | ApiEnvelope<IToolTestResult>, { params: Record<string, unknown> }>(
-      `tools/${toolId}/test`,
-      { params },
-    );
-    return unwrap(payload);
-  } catch (error) {
-    const tool = fixturePlugins.flatMap((plugin) => plugin.tools).find((item) => item.id === toolId);
-    if (!tool) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '工具测试失败',
-        duration: Math.round(performance.now() - startedAt),
-      };
-    }
-
-    return {
-      success: true,
-      data: {
-        toolId,
-        toolName: tool.name,
-        params,
-        output: '这是本地模拟的工具测试结果，后端接入后会返回真实数据。',
-      },
-      duration: Math.round(performance.now() - startedAt),
-    };
+export async function testTool(
+  toolId: string,
+  params: Record<string, unknown>,
+  pluginId?: string,
+): Promise<IToolTestResult> {
+  if (!pluginId) {
+    throw new Error('缺少插件 ID，无法测试工具');
   }
+
+  const payload = await http.post<
+    ApiEnvelope<{ success: boolean; output: unknown; error: string | null; durationMs: number }>,
+    { arguments: Record<string, unknown> }
+  >(`plugins/${pluginId}/tools/${toolId}/test`, { arguments: params });
+  const result = payload.data;
+
+  return {
+    success: result.success,
+    data: result.output,
+    output: result.output,
+    error: result.error,
+    duration: result.durationMs,
+    durationMs: result.durationMs,
+  };
 }
 
 export async function getAgentTools(agentId: string): Promise<IToolCallRecord[]> {
@@ -285,21 +281,49 @@ export async function getAgentTools(agentId: string): Promise<IToolCallRecord[]>
 }
 
 export async function getAgentToolBinding(agentId: string): Promise<IAgentToolBinding> {
-  try {
-    const payload = await http.get<IAgentToolBinding | ApiEnvelope<IAgentToolBinding>>(`agents/${agentId}/tools`);
-    return unwrap(payload);
-  } catch {
-    const bindings = readRecord<string[]>(AGENT_BINDING_KEY);
-    return { agentId, toolIds: bindings[agentId] ?? [] };
-  }
+  const bindingsPayload = await http.get<ApiEnvelope<BackendAgentPluginBinding[]>>(`agents/${agentId}/plugins`);
+  const bindings = bindingsPayload.data.filter((binding) => binding.status === 'ACTIVE');
+  const details = await Promise.all(bindings.map((binding) => getPluginDetail(binding.pluginId)));
+  const disabledByPlugin = new Map(bindings.map((binding) => [binding.pluginId, new Set(binding.config?.disabledTools ?? [])]));
+
+  return {
+    agentId,
+    toolIds: details.flatMap((plugin) => {
+      const disabledTools = disabledByPlugin.get(plugin.id) ?? new Set<string>();
+      return plugin.tools
+        .filter((tool) => tool.enabled && !disabledTools.has(tool.code))
+        .map((tool) => tool.id);
+    }),
+  };
 }
 
-export async function bindAgentTools(agentId: string, toolIds: string[]): Promise<void> {
-  try {
-    await http.put(`agents/${agentId}/tools`, { toolIds });
-  } catch {
-    const bindings = readRecord<string[]>(AGENT_BINDING_KEY);
-    bindings[agentId] = toolIds;
-    writeRecord(AGENT_BINDING_KEY, bindings);
-  }
+export async function bindAgentTools(agentId: string, tools: IPluginTool[]): Promise<void> {
+  const pluginMap = new Map<string, IPluginDetail>();
+  const selectedToolIds = new Set(tools.map((tool) => tool.id));
+
+  await Promise.all(
+    tools.map(async (tool) => {
+      const pluginId = tool.pluginId;
+      if (pluginMap.has(pluginId)) return;
+      try {
+        pluginMap.set(pluginId, await getPluginDetail(pluginId));
+      } catch {
+        // Ignore stale local selections; backend validation remains authoritative.
+      }
+    }),
+  );
+
+  await http.put(`agents/${agentId}/plugins`, {
+    bindings: Array.from(pluginMap.values()).map((plugin, index) => ({
+      pluginId: plugin.id,
+      status: 'ACTIVE',
+      autoInvoke: true,
+      sortOrder: index,
+      config: {
+        disabledTools: plugin.tools
+          .filter((tool) => tool.enabled && !selectedToolIds.has(tool.id))
+          .map((tool) => tool.code),
+      },
+    })),
+  });
 }

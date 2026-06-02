@@ -104,7 +104,10 @@ export class WorkflowService {
     workflowId: string,
   ): Promise<WorkflowResponse> {
     const workflow = await this.findWorkflowOrThrow(workflowId);
-    await this.workspaceAccessService.ensureMember(userId, workflow.workspaceId);
+    await this.workspaceAccessService.ensureMember(
+      userId,
+      workflow.workspaceId,
+    );
 
     return this.workflowMapper.toWorkflowResponse(workflow);
   }
@@ -173,7 +176,10 @@ export class WorkflowService {
   // 返回：valid/errors/warnings 等校验结果
   async validateDraft(userId: string, workflowId: string) {
     const workflow = await this.findWorkflowOrThrow(workflowId);
-    await this.workspaceAccessService.ensureMember(userId, workflow.workspaceId);
+    await this.workspaceAccessService.ensureMember(
+      userId,
+      workflow.workspaceId,
+    );
 
     return validateWorkflowDefinition(workflow.draftDefinition);
   }
@@ -250,7 +256,10 @@ export class WorkflowService {
     workflowId: string,
   ): Promise<WorkflowVersionResponse[]> {
     const workflow = await this.findWorkflowOrThrow(workflowId);
-    await this.workspaceAccessService.ensureMember(userId, workflow.workspaceId);
+    await this.workspaceAccessService.ensureMember(
+      userId,
+      workflow.workspaceId,
+    );
 
     const versions = await this.prisma.workflowVersion.findMany({
       where: { workflowId },
@@ -289,7 +298,9 @@ export class WorkflowService {
     };
   }
 
-  private toInputJsonValue(value: Record<string, unknown>): Prisma.InputJsonValue {
+  private toInputJsonValue(
+    value: Record<string, unknown>,
+  ): Prisma.InputJsonValue {
     return value as Prisma.InputJsonValue;
   }
 

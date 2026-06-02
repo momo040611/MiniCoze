@@ -1,13 +1,13 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .header {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .titleRow {
@@ -19,78 +19,175 @@
 
 .titleRow h1 {
   margin: 0;
-  font-size: 26px;
   color: #111827;
+  font-size: 26px;
 }
 
 .titleRow p {
   margin: 8px 0 0;
   color: #64748b;
+  line-height: 1.6;
+}
+
+.summaryBar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.6fr) repeat(4, minmax(100px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #e5e7eb;
+}
+
+.summaryBar > div {
+  min-width: 0;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.summaryBar span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.summaryBar strong {
+  display: block;
+  margin-top: 6px;
+  overflow: hidden;
+  color: #111827;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 180px 160px;
+  gap: 12px;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  gap: 14px;
 }
 
 .card {
+  display: flex;
+  min-height: 248px;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.cardContent {
-  display: flex;
-  gap: 14px;
-  min-height: 150px;
+.card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 28px rgb(15 23 42 / 8%);
+}
+
+.cardTop {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon,
+.iconImage {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
 }
 
 .icon {
-  flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  color: #1d4ed8;
-  background: #eef4ff;
+  color: #0f766e;
+  background: #e6f4f1;
   font-size: 22px;
 }
 
-.cardMain {
-  min-width: 0;
-  flex: 1;
+.iconImage {
+  object-fit: cover;
+  background: #f8fafc;
 }
 
 .cardTitle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  min-width: 0;
 }
 
 .cardTitle h2 {
   margin: 0;
+  overflow: hidden;
   color: #111827;
   font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cardMain p {
-  margin: 10px 0 0;
+.cardTitle span {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card p {
+  display: -webkit-box;
+  min-height: 48px;
+  margin: 0;
+  overflow: hidden;
   color: #64748b;
-  line-height: 1.7;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-top: 16px;
-  color: #94a3b8;
+  gap: 6px;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  color: #64748b;
   font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.pagination {
+  align-self: flex-end;
 }
 
 .center {
   min-height: 260px;
   display: grid;
   place-items: center;
+}
+
+@media (max-width: 860px) {
+  .summaryBar,
+  .filters {
+    grid-template-columns: 1fr;
+  }
 }
