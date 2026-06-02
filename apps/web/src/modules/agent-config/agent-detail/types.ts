@@ -12,6 +12,8 @@ export interface AgentDetailData {
   temperature: number;
   openingMessage: string;
   contextLimit: number;
+  status: string;
+  publishedAt?: string;
 }
 
 export interface PlannerConfig {

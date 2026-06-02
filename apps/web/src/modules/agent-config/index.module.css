@@ -453,6 +453,13 @@
   flex-shrink: 0;
 }
 
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
 .topBarRight {
   display: flex;
   align-items: center;
@@ -522,12 +529,130 @@
 }
 
 /* ============================================
+   M* — 筛选栏 (Coze 风格)
+   ============================================ */
+.filterBar {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* 触发按钮 */
+.filterTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid #e7ebf3;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  line-height: 1.4;
+  user-select: none;
+}
+
+.filterTrigger:hover {
+  border-color: #c4cdd8;
+}
+
+.filterTrigger:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+.filterTriggerLabel {
+  white-space: nowrap;
+}
+
+.filterTriggerArrow {
+  flex-shrink: 0;
+  color: #8896a6;
+  transition: transform 0.2s;
+}
+
+.filterTriggerArrowOpen {
+  transform: rotate(180deg);
+  color: #374151;
+}
+
+/* 下拉面板 */
+.filterDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  margin-top: 6px;
+  width: 200px;
+  background: #fff;
+  border: 1px solid #e7ebf3;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
+  padding: 6px;
+  animation: dropdownFadeIn 0.15s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 分组 */
+.filterDropdownGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.filterDropdownGroupTitle {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a0aec0;
+  text-transform: none;
+  letter-spacing: 0;
+  user-select: none;
+}
+
+.filterDropdownDivider {
+  height: 1px;
+  margin: 4px 6px;
+  background: #f0f2f5;
+}
+
+/* 选项 */
+.filterDropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.12s;
+  user-select: none;
+}
+
+.filterDropdownItem:hover {
+  background: #f5f3ff;
+}
+
+.filterDropdownItemActive {
+  color: #7c3aed;
+  font-weight: 600;
+  background: #f5f3ff;
+}
+
+/* ============================================
    M — 智能体列表（网格布局）
    ============================================ */
 .agentList {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
   overflow-y: auto;
   min-height: 0;
@@ -557,21 +682,18 @@
   font-size: 14px;
 }
 
-/* 智能体卡片 — 方块 4:3 */
+/* 智能体卡片 */
 .agentCard {
   position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 24px 16px 20px;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px;
   border: 1px solid #e7ebf3;
   border-radius: 12px;
   background: #fff;
   cursor: pointer;
   transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
-  aspect-ratio: 4 / 3;
 }
 
 .agentCard:hover {
@@ -585,43 +707,73 @@
 }
 
 .agentCardAvatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
   object-fit: cover;
   flex-shrink: 0;
+  margin-top: 1px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.agentCardInfo {
+.agentCardBody {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.agentCardHeader {
+  display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
   min-width: 0;
-  width: 100%;
 }
 
 .agentCardName {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #18202f;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
-  text-align: center;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.agentCardStatus {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.agentCardStatusPublished {
+  color: #16a34a;
+  background: #dcfce7;
+}
+
+.agentCardStatusDraft {
+  color: #8896a6;
+  background: #f3f4f6;
 }
 
 .agentCardDesc {
-  font-size: 12px;
+  font-size: 13px;
   color: #8896a6;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
-  text-align: center;
-  line-height: 1.4;
+  line-height: 1.5;
+}
+
+.agentCardTime {
+  font-size: 12px;
+  color: #c0c8d4;
+  margin-top: 2px;
 }
 
 .agentCardDelete {
