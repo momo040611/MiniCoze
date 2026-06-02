@@ -41,6 +41,19 @@
   padding-bottom: 24px;
 }
 
+.errorAlert {
+  margin-bottom: 16px;
+}
+
+.errorList {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.errorList li + li {
+  margin-top: 4px;
+}
+
 .section {
   margin-bottom: 18px;
 }
