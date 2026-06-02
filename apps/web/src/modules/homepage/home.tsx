@@ -1,33 +1,75 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Select, Input, Button, Tag, Skeleton, Empty, message } from 'antd'
-import { PaperClipOutlined, SendOutlined, CloseOutlined, PlusOutlined, MessageOutlined, DeleteOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
+import { useSearchParams } from 'react-router-dom'
+import { Select, Input, Button, Tag, Skeleton, Empty, message, Modal, Avatar } from 'antd'
+import {
+  PaperClipOutlined, SendOutlined, CloseOutlined, PlusOutlined,
+  MessageOutlined, DeleteOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
+  ExclamationCircleOutlined, CopyOutlined, ReloadOutlined, EditOutlined,
+  DownOutlined,
+} from '@ant-design/icons'
 import styles from './home.module.css'
 import { getConversations, getConversation, deleteConversation } from '../../api/homepage'
 import type { Conversation } from '../../api/homepage'
 import { runAgentStream } from '../../api/agent-runtime'
-import type { RuntimeEvent } from '../../api/agent-runtime'
+import type {
+  RuntimeEvent, TokenUsage, KnowledgeStatusEvent,
+  ToolCallCreatedEvent, ToolCallCompletedEvent,
+} from '../../api/agent-runtime'
 import { getAgentList } from '../../api/agent-config'
 import { formatFileSize } from './utils/format'
+import { ToolCallCard, type ToolCallData } from '../agent-config/components/ToolCallCard'
+import { DebugInfoPanel } from '../agent-config/components/DebugInfoPanel'
+import { KnowledgeStatus } from '../agent-config/components/KnowledgeStatus'
+import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer'
 
-interface Message {
-  id: string
-  text: string
-  timestamp: string
-  sender: 'user' | 'agent'
-  fileName?: string
-  filePreview?: string
-  fileIsImage?: boolean
-  agentName?: string
-  agentIcon?: string
+// ---- 升级后的消息模型 ----
+
+interface ToolCallMessage {
+  kind: 'tool-call';
+  id: string;
+  toolData: ToolCallData;
+}
+
+interface ChatMessage {
+  kind: 'message';
+  id: string;
+  text: string;
+  sender: 'user' | 'agent';
+  time: string;
+  status: 'sending' | 'streaming' | 'success' | 'failed';
+  agentName?: string;
+  agentIcon?: string;
+  messageId?: string;
+  fileName?: string;
+  filePreview?: string;
+  fileIsImage?: boolean;
+}
+
+interface ErrorMessage {
+  kind: 'error';
+  id: string;
+  errorText: string;
+  retryText: string;
+}
+
+type ChatItem = ChatMessage | ToolCallMessage | ErrorMessage;
+
+// 智能体会话缓存
+interface AgentSessionState {
+  conversationId: string | null;
+  messages: ChatItem[];
 }
 
 const NavPlaceholderText = '请输入指令...'
 
 export const HomepageIndex = () => {
+  const [searchParams] = useSearchParams();
 
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<ChatItem[]>([])
   const [inputValue, setInputValue] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatListRef = useRef<HTMLDivElement>(null)
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [selectedFile, setSelectedFile] = useState<{ file: File; preview: string; isImage: boolean; size: string } | null>(null)
   const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string }[]>([])
   const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string } | null>(null)
@@ -38,9 +80,30 @@ export const HomepageIndex = () => {
   const [historyOpen, setHistoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const sendingRef = useRef(false)
+  const lastContentRef = useRef('')
+  const conversationIdRef = useRef<string | null>(null)
+
+  // Phase B 新增状态：调试 & 知识库 & 错误
+  const [currentRunId, setCurrentRunId] = useState('')
+  const [currentLatency, setCurrentLatency] = useState(0)
+  const [currentUsage, setCurrentUsage] = useState<TokenUsage | null>(null)
+  const [currentToolCalls, setCurrentToolCalls] = useState<ToolCallData[]>([])
+  const [knowledgeEvent, setKnowledgeEvent] = useState<KnowledgeStatusEvent | null>(null)
+  const [knowledgeDismissed, setKnowledgeDismissed] = useState(false)
+  const runStartRef = useRef(0)
+  const lastUserMessageRef = useRef('')  // 记录最后一条用户消息，供"重新生成"使用
+
+  // Phase C 新增：跨智能体会话缓存（使用 ref 避免不必要的重渲染）
+  const agentSessionsRef = useRef<Map<string, AgentSessionState>>(new Map())
+
+  // 编辑已发消息
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
 
   const loadConversationMessages = useCallback(async (convId: string) => {
     setConversationId(convId)
+    conversationIdRef.current = convId
     setMessages([])
 
     const detail = await getConversation(convId)
@@ -49,13 +112,15 @@ export const HomepageIndex = () => {
       return
     }
 
-    const msgs: Message[] = detail.messages
+    const msgs: ChatItem[] = detail.messages
       .filter((m) => m.role === 'USER' || m.role === 'ASSISTANT')
-      .map((m) => ({
+      .map((m): ChatItem => ({
+        kind: 'message',
         id: m.id,
         text: m.content,
-        timestamp: new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        time: new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
         sender: (m.role === 'USER' ? 'user' : 'agent') as 'user' | 'agent',
+        status: 'success',
         agentName: m.role === 'ASSISTANT' && detail.agent ? detail.agent.name : undefined,
       }))
     setMessages(msgs)
@@ -97,61 +162,134 @@ export const HomepageIndex = () => {
       const agents = list.map((a) => ({ id: a.id, name: a.name, icon: a.avatar || '' }))
       setAllAgents(agents)
       if (agents.length > 0) {
-        setSelectedAgent(agents[0])
+        // A3: 支持 URL 参数自动选中智能体
+        const agentIdFromUrl = searchParams.get('agentId')
+        const foundAgent = agentIdFromUrl
+          ? agents.find((a) => a.id === agentIdFromUrl)
+          : null
+        setSelectedAgent(foundAgent ?? agents[0])
       }
     }).catch((err) => {
       console.error('加载智能体列表失败', err)
       message.error('加载智能体列表失败')
     })
-  }, [])
+  }, [searchParams])
 
   useEffect(() => {
-    if (selectedAgent) {
+    if (!selectedAgent) return
+
+    // C2: 尝试从缓存恢复会话状态
+    const cached = agentSessionsRef.current.get(selectedAgent.id)
+    if (cached) {
+      setConversationId(cached.conversationId)
+      setMessages(cached.messages)
+      loadConversations()
+      return
+    }
+
+    // 无缓存 -> 加载最新或根据 URL 参数加载指定对话
+    const conversationIdFromUrl = searchParams.get('conversationId')
+    if (conversationIdFromUrl) {
+      setConversationId(null)
+      setMessages([])
+      loadConversations().then(() => {
+        loadConversationMessages(conversationIdFromUrl).catch(() => {
+          // 如果加载失败（比如对话不存在），则加载最新的
+          loadConversations({ autoOpenLatest: true })
+        })
+      })
+    } else {
       setConversationId(null)
       setMessages([])
       loadConversations({ autoOpenLatest: true })
     }
-  }, [loadConversations, selectedAgent])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadConversations, loadConversationMessages, selectedAgent, searchParams])
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     if (abortRef.current) {
       abortRef.current.abort()
       abortRef.current = null
     }
     setConversationId(null)
+    conversationIdRef.current = null
     setMessages([])
     setSending(false)
-  }
+    sendingRef.current = false
+    // 重置调试状态
+    setCurrentRunId('')
+    setCurrentLatency(0)
+    setCurrentUsage(null)
+    setCurrentToolCalls([])
+    setKnowledgeEvent(null)
+    setKnowledgeDismissed(false)
+  }, [])
 
-  const handleSelectConversation = async (convId: string) => {
+  const handleSelectConversation = useCallback(async (convId: string) => {
     if (convId === conversationId) return
     if (abortRef.current) {
       abortRef.current.abort()
       abortRef.current = null
     }
     setSending(false)
+    sendingRef.current = false
     try {
       await loadConversationMessages(convId)
     } catch (e) {
       console.error(e)
       message.error('加载对话详情失败')
     }
-  }
+  }, [conversationId, loadConversationMessages])
 
-  const handleDeleteConversation = async (e: React.MouseEvent, convId: string) => {
+  const handleDeleteConversation = useCallback((e: React.MouseEvent, convId: string) => {
     e.stopPropagation()
-    try {
-      await deleteConversation(convId)
-      if (convId === conversationId) {
-        setConversationId(null)
-        setMessages([])
-      }
-      loadConversations()
-    } catch (err) {
-      console.error(err)
-      message.error('删除对话失败')
+    Modal.confirm({
+      title: '确认删除',
+      content: '删除后对话记录将无法恢复',
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await deleteConversation(convId)
+          message.success('已删除')
+          if (convId === conversationId) {
+            setConversationId(null)
+            setMessages([])
+          }
+          loadConversations()
+        } catch (err) {
+          console.error(err)
+          message.error('删除对话失败')
+        }
+      },
+    })
+  }, [conversationId, loadConversations, setMessages])
+
+  // C2: 智能体切换时保存/恢复会话状态
+  const handleAgentSwitch = useCallback((agentId: string) => {
+    const agent = allAgents.find((a) => a.id === agentId)
+    if (!agent) return
+
+    // 保存当前会话状态
+    if (selectedAgent) {
+      agentSessionsRef.current.set(selectedAgent.id, {
+        conversationId,
+        messages,
+      })
     }
-  }
+
+    // 中止当前流
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setSending(false)
+    sendingRef.current = false
+
+    // 切换智能体
+    setSelectedAgent(agent)
+  }, [allAgents, selectedAgent, conversationId, messages])
 
   useEffect(() => {
     return () => {
@@ -161,90 +299,213 @@ export const HomepageIndex = () => {
     }
   }, [selectedFile])
 
+  const scrollToBottom = (smooth = true) => {
+    chatEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' })
+  }
+
+  const handleChatScroll = useCallback(() => {
+    const el = chatListRef.current
+    if (!el) return
+    // 距离底部超过 100px 时显示"回到底部"按钮
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    setShowScrollBottom(distFromBottom > 120)
+  }, [])
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const sendMessage = async () => {
-    const text = inputValue.trim()
-    if (!text || sending || !selectedAgent) return
+  const toolCallStartRef = useRef(new Map<string, number>())
+
+  const sendMessage = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? inputValue).trim()
+    if (!text || sendingRef.current || !selectedAgent) return
+
+    // 文件内容提取：.txt 文件读取内容拼接
+    let messageText = text
+    if (selectedFile) {
+      const fileName = selectedFile.file.name
+      const isTextFile = selectedFile.file.type === 'text/plain' || fileName.endsWith('.txt')
+      if (isTextFile) {
+        try {
+          const fileContent = await selectedFile.file.text()
+          messageText = `[文件: ${fileName}]\n${fileContent}\n\n---\n用户问题: ${text}`
+        } catch {
+          messageText = text + `\n\n[已上传文件: ${fileName} (${selectedFile.size})]`
+        }
+      } else {
+        messageText = text + `\n\n[已上传文件: ${fileName} (${selectedFile.size})]`
+      }
+    }
+
+    lastUserMessageRef.current = text
 
     const now = new Date()
     const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: text || '附带文件',
-      timestamp,
+    const userMsg: ChatMessage = {
+      kind: 'message',
+      id: `user-${Date.now()}`,
+      text: text,
+      time: timestamp,
       sender: 'user',
-      agentName: selectedAgent.id !== '' ? selectedAgent.name : undefined,
-    }
-
-    if (selectedFile) {
-      newMessage.fileName = selectedFile.file.name
-      newMessage.filePreview = selectedFile.preview
-      newMessage.fileIsImage = selectedFile.isImage
-    }
-
-    const agentMsgId = `agent-${Date.now()}`
-    const agentMsg: Message = {
-      id: agentMsgId,
-      text: '',
-      timestamp: `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`,
-      sender: 'agent',
+      status: 'success',
       agentName: selectedAgent.name,
     }
 
-    setMessages((prev) => [...prev, newMessage, agentMsg])
-    setInputValue('')
+    if (selectedFile) {
+      userMsg.fileName = selectedFile.file.name
+      userMsg.filePreview = selectedFile.preview
+      userMsg.fileIsImage = selectedFile.isImage
+    }
+
+    const agentMsgId = `agent-${Date.now()}`
+    const agentMsg: ChatMessage = {
+      kind: 'message',
+      id: agentMsgId,
+      text: '',
+      time: timestamp,
+      sender: 'agent',
+      status: 'sending',
+      agentName: selectedAgent.name,
+    }
+
+    setMessages((prev) => [...prev, userMsg, agentMsg])
+    if (!overrideText) setInputValue('')
     handleFileRemove()
     setSending(true)
+    sendingRef.current = true
+    lastContentRef.current = ''
+
+    // B4: 重置调试状态
+    setCurrentRunId('')
+    setCurrentLatency(0)
+    setCurrentUsage(null)
+    setCurrentToolCalls([])
+    setKnowledgeEvent(null)
+    setKnowledgeDismissed(false)
+    runStartRef.current = performance.now()
 
     const abortController = await runAgentStream(
       {
         agentId: selectedAgent.id,
-        message: text,
+        message: messageText,
         conversationId: conversationId ?? undefined,
       },
       {
         onEvent: (event: RuntimeEvent) => {
           switch (event.type) {
             case 'run.created':
-              if (!conversationId) {
+              setCurrentRunId(event.runId)
+              if (!conversationIdRef.current) {
+                conversationIdRef.current = event.conversationId
                 setConversationId(event.conversationId)
               }
               break
 
-            case 'message.delta':
+            case 'knowledge.status':
+              setKnowledgeEvent(event)
+              break
+
+            case 'message.delta': {
+              lastContentRef.current += event.content
               setMessages((prev) =>
-                prev.map((m) => (m.id === agentMsgId ? { ...m, text: m.text + event.content } : m))
+                prev.map((m) =>
+                  m.kind === 'message' && m.id === agentMsgId
+                    ? { ...m, text: lastContentRef.current, status: 'streaming' as const, messageId: event.messageId }
+                    : m
+                )
               )
               break
+            }
 
             case 'message.completed':
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === agentMsgId ? { ...m, text: event.content, id: event.messageId } : m
+                  m.kind === 'message' && m.id === agentMsgId
+                    ? { ...m, text: event.content, status: 'success' as const, id: event.messageId, messageId: event.messageId }
+                    : m
                 )
               )
               break
 
+            case 'tool.call.created': {
+              const tcEvent = event as ToolCallCreatedEvent
+              toolCallStartRef.current.set(tcEvent.toolCallId, performance.now())
+              const newToolCall: ToolCallData = {
+                toolCallId: tcEvent.toolCallId,
+                name: tcEvent.name,
+                args: tcEvent.args,
+                status: 'executing',
+              }
+              setCurrentToolCalls((prev) => [...prev, newToolCall])
+              setMessages((prev) => [...prev, {
+                kind: 'tool-call',
+                id: `tool-${tcEvent.toolCallId}`,
+                toolData: newToolCall,
+              }])
+              break
+            }
+
+            case 'tool.call.completed': {
+              const tcCompleteEvent = event as ToolCallCompletedEvent
+              const startTime = toolCallStartRef.current.get(tcCompleteEvent.toolCallId)
+              const duration = startTime ? Math.round(performance.now() - startTime) : undefined
+              toolCallStartRef.current.delete(tcCompleteEvent.toolCallId)
+              setCurrentToolCalls((prev) =>
+                prev.map((tc) =>
+                  tc.toolCallId === tcCompleteEvent.toolCallId
+                    ? { ...tc, status: tcCompleteEvent.error ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration }
+                    : tc
+                )
+              )
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.kind === 'tool-call' && m.id === `tool-${tcCompleteEvent.toolCallId}`
+                    ? { ...m, toolData: { ...m.toolData, status: tcCompleteEvent.error ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration } }
+                    : m
+                )
+              )
+              break
+            }
+
             case 'run.completed':
-            case 'stream.done':
+              setCurrentUsage(event.usage ?? null)
+              setCurrentLatency(Math.round(performance.now() - runStartRef.current))
               setSending(false)
+              sendingRef.current = false
               abortRef.current = null
               loadConversations()
               break
 
-            case 'run.failed':
-              message.error(`运行失败: ${event.error}`)
+            case 'stream.done':
               setSending(false)
+              sendingRef.current = false
               abortRef.current = null
+              loadConversations()
               break
 
+            case 'run.failed': {
+              const errMsg: ErrorMessage = {
+                kind: 'error',
+                id: `err-${Date.now()}`,
+                errorText: `运行失败: ${event.error}`,
+                retryText: lastUserMessageRef.current || text,
+              }
+              setMessages((prev) => prev.map((m) =>
+                m.kind === 'message' && m.id === agentMsgId
+                  ? { ...m, status: 'failed' as const }
+                  : m
+              ))
+              setMessages((prev) => [...prev, errMsg])
+              message.error(`运行失败: ${event.error}`)
+              setSending(false)
+              sendingRef.current = false
+              abortRef.current = null
+              break
+            }
+
             case 'run.in_progress':
-            case 'tool.call.created':
-            case 'tool.call.completed':
               break
 
             default:
@@ -253,15 +514,28 @@ export const HomepageIndex = () => {
         },
         onError: (err) => {
           console.error(err)
+          const errMsg: ErrorMessage = {
+            kind: 'error',
+            id: `err-${Date.now()}`,
+            errorText: `发送消息失败: ${err.message}`,
+            retryText: lastUserMessageRef.current || text,
+          }
+          setMessages((prev) => prev.map((m) =>
+            m.kind === 'message' && m.id === agentMsgId
+              ? { ...m, status: 'failed' as const }
+              : m
+          ))
+          setMessages((prev) => [...prev, errMsg])
           message.error('发送消息失败，请重试')
           setSending(false)
+          sendingRef.current = false
           abortRef.current = null
         },
       },
     )
 
     abortRef.current = abortController
-  }
+  }, [inputValue, selectedAgent, conversationId, selectedFile, loadConversations])
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -290,6 +564,177 @@ export const HomepageIndex = () => {
       URL.revokeObjectURL(selectedFile.preview)
     }
     setSelectedFile(null)
+  }
+
+  const copyToClipboard = (text: string) => {
+    // 优先使用现代 Clipboard API
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        message.success('已复制')
+      }).catch(() => {
+        fallbackCopy(text)
+      })
+    } else {
+      fallbackCopy(text)
+    }
+  }
+
+  const fallbackCopy = (text: string) => {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      message.success('已复制')
+    } catch {
+      message.error('复制失败')
+    } finally {
+      document.body.removeChild(textarea)
+    }
+  }
+
+  const handleRegenerate = () => {
+    if (lastUserMessageRef.current) {
+      sendMessage(lastUserMessageRef.current)
+    }
+  }
+
+  const handleStartEdit = (msgId: string, text: string) => {
+    setEditingMsgId(msgId)
+    setEditText(text)
+  }
+
+  const handleSaveEdit = () => {
+    const trimmed = editText.trim()
+    if (!trimmed) return
+    setEditingMsgId(null)
+    setEditText('')
+    sendMessage(trimmed)
+  }
+
+  // ---- 渲染 ----
+
+  const renderMessageItem = (item: ChatItem) => {
+    // B7: 错误卡片
+    if (item.kind === 'error') {
+      return (
+        <div key={item.id} className={styles.errorCard}>
+          <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: 14 }} />
+          <span className={styles.errorText}>{item.errorText}</span>
+          <Button
+            size="small"
+            type="primary"
+            danger
+            onClick={() => sendMessage(item.retryText)}
+            style={{ flexShrink: 0 }}
+          >
+            重新发送
+          </Button>
+        </div>
+      )
+    }
+
+    // B2: 工具调用卡片
+    if (item.kind === 'tool-call') {
+      return <ToolCallCard key={item.id} data={item.toolData} />
+    }
+
+    // 聊天消息
+    const isUser = item.sender === 'user'
+    const isStreaming = item.status === 'streaming'
+    const isSending = item.status === 'sending'
+    const isFailed = item.status === 'failed'
+    const isEditing = editingMsgId === item.id
+
+    return (
+      <div key={item.id} className={`${styles.chatMessage} ${isUser ? styles.userRow : styles.agentRow}`}>
+        {!isUser && (
+          <Avatar
+            size={32}
+            src={item.agentIcon}
+            className={styles.agentAvatar}
+          >
+            {(item.agentName || 'A')[0].toUpperCase()}
+          </Avatar>
+        )}
+        <div className={`${styles.messageContent} ${isUser ? styles.userBubble : styles.agentBubble}`}>
+          {/* 编辑模式（仅用户消息） */}
+          {isUser && isEditing ? (
+            <div className={styles.editArea}>
+              <Input.TextArea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                autoSize={{ minRows: 2, maxRows: 6 }}
+                className={styles.editTextarea}
+              />
+              <div className={styles.editActions}>
+                <Button size="small" type="primary" onClick={handleSaveEdit}>
+                  保存并重新发送
+                </Button>
+                <Button size="small" onClick={() => setEditingMsgId(null)}>
+                  取消
+                </Button>
+              </div>
+            </div>
+          ) : isSending ? (
+            <span className={styles.thinkingText}>思考中...</span>
+          ) : isFailed ? (
+            <span className={styles.failedText}>⚠ {item.text || '回复生成失败'}</span>
+          ) : isUser ? (
+            <div
+              className={styles.userTextWrap}
+              onDoubleClick={() => handleStartEdit(item.id, item.text)}
+              title="双击编辑消息"
+            >
+              <span className={styles.messageText}>{item.text}</span>
+              {item.fileName && item.filePreview && item.fileIsImage && (
+                <img src={item.filePreview} alt={item.fileName} className={styles.messageFile} />
+              )}
+              {item.fileName && !item.fileIsImage && (
+                <Tag className={styles.messageFileTag}>{item.fileName}</Tag>
+              )}
+              <EditOutlined className={styles.editHint} />
+            </div>
+          ) : (
+            <>
+              <MarkdownRenderer content={item.text} isStreaming={isStreaming} />
+              {item.fileName && item.filePreview && item.fileIsImage && (
+                <img src={item.filePreview} alt={item.fileName} className={styles.messageFile} />
+              )}
+              {item.fileName && !item.fileIsImage && (
+                <Tag className={styles.messageFileTag}>{item.fileName}</Tag>
+              )}
+            </>
+          )}
+
+          {/* 操作按钮栏（仅 AI 回复，成功状态） */}
+          {!isUser && item.status === 'success' && !isStreaming && (
+            <div className={styles.messageActions}>
+              <Button
+                icon={<CopyOutlined />}
+                size="small"
+                type="text"
+                onClick={() => copyToClipboard(item.text)}
+              >
+                复制
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                size="small"
+                type="text"
+                onClick={handleRegenerate}
+              >
+                重新生成
+              </Button>
+            </div>
+          )}
+        </div>
+        <span className={styles.messageTime}>{item.time}</span>
+      </div>
+    )
   }
 
   return (
@@ -347,104 +792,129 @@ export const HomepageIndex = () => {
             className={styles.toggleBtn}
             aria-label="切换历史面板"
           />
+          {selectedAgent && (
+            <span className={styles.activeAgentLabel}>
+              🤖 {selectedAgent.name}
+            </span>
+          )}
         </div>
-        <div className={styles.centerChat}>
+
+        {/* 可滚动的消息区域 */}
+        <div className={styles.chatMessagesWrapper} ref={chatListRef} onScroll={handleChatScroll}>
+          {!knowledgeDismissed && knowledgeEvent && (
+            <KnowledgeStatus
+              knowledgeEvent={knowledgeEvent}
+              onClose={() => setKnowledgeDismissed(true)}
+            />
+          )}
           {messages.length === 0 ? (
             <Empty className={styles.chatPlaceholder} description="准备大干一场吧" />
           ) : (
             <div className={styles.chatMessageList}>
-              {messages.map((item) => {
-                const isUser = item.sender === 'user'
-                return (
-                  <div key={item.id} className={`${styles.chatMessage} ${isUser ? styles.userRow : styles.agentRow}`}>
-                    <div className={`${styles.messageContent} ${isUser ? styles.userBubble : styles.agentBubble}`}>
-
-                      <span className={styles.messageText}>{item.text}</span>
-                      {
-                        item.fileName && item.filePreview && item.fileIsImage && (
-                          <img src={item.filePreview} alt={item.fileName} className={styles.messageFile} />
-                        )
-                      }
-                      {
-                        item.fileName && !item.fileIsImage && (
-                          <Tag className={styles.messageFileTag}>{item.fileName}</Tag>
-                        )
-                      }
-                    </div>
-                    <span className={styles.messageTime}>{item.timestamp}</span>
-                  </div>
-                )
-              })}
+              {messages.map((item) => renderMessageItem(item))}
               <div ref={chatEndRef} />
             </div>
           )}
-        </div>
-        <div className={styles.leftSelect}>
-          <Select
-            className={styles.agentSelect}
-            value={selectedAgent?.id}
-            placeholder="选择智能体"
-            notFoundContent={<Empty description="暂无智能体" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
-            onChange={(value) => {
-              const agent = allAgents.find((a: { id: string; name: string; icon: string }) => a.id === String(value))
-              if (agent) setSelectedAgent(agent)
-            }}
-            options={allAgents.map((agt: { id: string; name: string; icon: string }) => ({ value: agt.id, label: agt.name }))}
-          />
-        </div>
-        <div className={styles.centerInput}>
-          {selectedFile && (
-            <div className={styles.filePreviewBar}>
-              {selectedFile.isImage ? (
-                <img src={selectedFile.preview} alt={selectedFile.file.name} className={styles.filePreviewThumb} />
-              ) : (
-                <span className={styles.docIcon}>📄</span>
-              )}
-              <div className={styles.filePreviewInfo}>
-                <span className={styles.filePreviewName}>{selectedFile.file.name}</span>
-                <span className={styles.filePreviewSize}>{selectedFile.size}</span>
-              </div>
-              <Button
-                icon={<CloseOutlined />}
-                size="small"
-                type="text"
-                danger
-                onClick={handleFileRemove}
-                aria-label="删除文件"
-              />
-            </div>
-          )}
-          <input
-            type="file"
-            ref={fileInputRef}
-            accept="image/png,image/jpg,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.txt,.xlsx,.pptx"
-            style={{ display: 'none' }}
-            onChange={handleFileChange} />
-          <div className={styles.inputRow}>
+
+          {/* 回到底部浮动按钮 */}
+          {showScrollBottom && (
             <Button
-              icon={<PaperClipOutlined />}
-              type="text"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="文件上传"
-            />
-            <Input.TextArea
-              placeholder={NavPlaceholderText}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoSize={{ minRows: 1, maxRows: 6 }}
-              variant="borderless"
-            />
-            <Button
-              icon={<SendOutlined />}
-              type="primary"
+              className={styles.scrollBottomBtn}
               shape="circle"
-              onClick={sendMessage}
-              loading={sending}
-              disabled={sending}
-              aria-label="发送信息"
+              icon={<DownOutlined />}
+              onClick={() => scrollToBottom()}
+              aria-label="回到底部"
+            />
+          )}
+        </div>
+
+        {/* 固定在底部的输入区域 */}
+        <div className={styles.chatInputArea}>
+          <div className={styles.leftSelect}>
+            <Select
+              className={styles.agentSelect}
+              value={selectedAgent?.id}
+              placeholder="选择智能体"
+              notFoundContent={<Empty description="暂无智能体" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+              onChange={(value) => handleAgentSwitch(String(value))}
+              options={allAgents.map((agt) => ({
+                value: agt.id,
+                label: (
+                  <span>
+                    <Avatar size={18} src={agt.icon} style={{ marginRight: 6 }}>
+                      {agt.name[0]}
+                    </Avatar>
+                    {agt.name}
+                  </span>
+                ),
+              }))}
             />
           </div>
+          <div className={styles.centerInput}>
+            {selectedFile && (
+              <div className={styles.filePreviewBar}>
+                {selectedFile.isImage ? (
+                  <img src={selectedFile.preview} alt={selectedFile.file.name} className={styles.filePreviewThumb} />
+                ) : (
+                  <span className={styles.docIcon}>📄</span>
+                )}
+                <div className={styles.filePreviewInfo}>
+                  <span className={styles.filePreviewName}>{selectedFile.file.name}</span>
+                  <span className={styles.filePreviewSize}>{selectedFile.size}</span>
+                </div>
+                <Button
+                  icon={<CloseOutlined />}
+                  size="small"
+                  type="text"
+                  danger
+                  onClick={handleFileRemove}
+                  aria-label="删除文件"
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/png,image/jpg,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.txt,.xlsx,.pptx"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+            <div className={styles.inputRow}>
+              <Button
+                icon={<PaperClipOutlined />}
+                type="text"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="文件上传"
+              />
+              <Input.TextArea
+                placeholder={NavPlaceholderText}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoSize={{ minRows: 1, maxRows: 3 }}
+                variant="borderless"
+              />
+              <Button
+                icon={<SendOutlined />}
+                type="primary"
+                shape="circle"
+                onClick={() => sendMessage()}
+                loading={sending}
+                disabled={sending}
+                aria-label="发送信息"
+              />
+            </div>
+          </div>
+          {/* B4: 调试信息面板 */}
+          {(currentRunId || currentToolCalls.length > 0) && (
+            <DebugInfoPanel
+              runId={currentRunId}
+              model={selectedAgent?.name ?? ''}
+              latency={currentLatency}
+              usage={currentUsage}
+              toolCalls={currentToolCalls}
+            />
+          )}
         </div>
       </div>
     </div>
