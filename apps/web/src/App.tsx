@@ -1,6 +1,7 @@
 import { setupAgentMocks } from './api/agent-config';
 import { setupAuthMocks } from './api/auth';
 import { restoreAuthData } from './api/auth/auth-store';
+import { setupProfileMocks } from './api/profile';
 import { setupWorkspaceMocks } from './api/workspace';
 import { AppRoutes } from './routes/app-routes';
 
@@ -10,6 +11,7 @@ if (useAuthMock) {
   setupAuthMocks();
   setupWorkspaceMocks();
   setupAgentMocks();
+  setupProfileMocks();
 }
 
 restoreAuthData();

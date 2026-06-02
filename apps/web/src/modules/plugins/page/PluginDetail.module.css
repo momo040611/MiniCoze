@@ -1,0 +1,83 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #edf1f7;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #eef4ff;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.header h1 {
+  margin: 14px 0 8px;
+  color: #111827;
+  font-size: 24px;
+}
+
+.header p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.toolsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.blockTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.blockTitle h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+}
+
+.toolId {
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.schema {
+  max-width: 360px;
+  max-height: 180px;
+  margin: 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  overflow: auto;
+  font-size: 12px;
+}
+
+.center {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+}
