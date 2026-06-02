@@ -20,13 +20,15 @@ model User {
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
   workspaceMembers WorkspaceMember[]
 
-  createdAgents  Agent[]
-  createdPlugins PluginDefinition[]
-  conversations  Conversation[]
-  uploadedFiles FileAsset[]       @relation("FileAssetOwner")
-  createdWorkflows Workflow[]        @relation("WorkflowCreator")
-  createdWorkflowVersions WorkflowVersion[] @relation("WorkflowVersionCreator")
-  workflowRuns WorkflowRun[]         @relation("WorkflowRunStarter")
+  createdAgents           Agent[]
+  createdAgentVersions    AgentVersion[]     @relation("AgentVersionCreator")
+  createdPlugins          PluginDefinition[]
+  conversations           Conversation[]
+  uploadedFiles           FileAsset[]        @relation("FileAssetOwner")
+  createdWorkflows        Workflow[]         @relation("WorkflowCreator")
+  createdWorkflowVersions WorkflowVersion[]  @relation("WorkflowVersionCreator")
+  workflowRuns            WorkflowRun[]      @relation("WorkflowRunStarter")
+  publishRecords          PublishRecord[]    @relation("PublishRecordOperator")
 }
 
 enum WorkspaceRole {
@@ -43,14 +45,16 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner                  User               @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members                WorkspaceMember[]
-  agents                 Agent[]
-  workflows    Workflow[]
-  workflowRuns WorkflowRun[]
-  files        FileAsset[]       @relation("WorkspaceFiles")
+  owner             User               @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members           WorkspaceMember[]
+  agents            Agent[]
+  workflows         Workflow[]
+  workflowRuns      WorkflowRun[]
+  files             FileAsset[]        @relation("WorkspaceFiles")
   plugins           PluginDefinition[]
   pluginCredentials PluginCredential[]
+  publishRecords    PublishRecord[]
+  publishChannels   PublishChannel[]
 
   @@index([ownerId])
 }
@@ -119,6 +123,28 @@ enum AgentStatus {
   ARCHIVED
 }
 
+enum PublishTargetType {
+  AGENT
+}
+
+enum PublishAction {
+  PUBLISH
+  ROLLBACK
+  OFFLINE
+  ENABLE_CHANNEL
+  DISABLE_CHANNEL
+}
+
+enum PublishActionStatus {
+  SUCCESS
+  FAILED
+}
+
+enum PublishChannelType {
+  WEB
+  API
+}
+
 enum MessageRole {
   USER
   ASSISTANT
@@ -183,22 +209,25 @@ enum PluginCredentialStatus {
 }
 
 model Agent {
-  id             String      @id @default(cuid())
-  workspaceId    String
-  creatorId      String
-  name           String
-  description    String?
-  avatarUrl      String?
-  systemPrompt   String      @db.Text
-  model          String      @default("deepseek-v4-flash")
-  temperature    Float       @default(0.7)
-  openingMessage String?     @db.Text
-  contextLimit   Int         @default(20)
-  status         AgentStatus @default(DRAFT)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id                String               @id @default(cuid())
+  workspaceId       String
+  creatorId         String
+  name              String
+  description       String?
+  avatarUrl         String?
+  systemPrompt      String               @db.Text
+  model             String               @default("deepseek-v4-flash")
+  temperature       Float                @default(0.7)
+  openingMessage    String?              @db.Text
+  contextLimit      Int                  @default(20)
+  status            AgentStatus          @default(DRAFT)
+  currentVersionId  String?              @unique
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
   workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   creator           User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  versions          AgentVersion[]       @relation("AgentVersions")
+  currentVersion    AgentVersion?        @relation("AgentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
   conversations     Conversation[]
   workflows         AgentWorkflow[]
   workflowRuns      WorkflowRun[]
@@ -208,6 +237,28 @@ model Agent {
   @@index([workspaceId])
   @@index([creatorId])
   @@index([workspaceId, status])
+}
+
+model AgentVersion {
+  id          String    @id @default(cuid())
+  agentId     String
+  createdBy   String
+  version     Int
+  snapshot    Json
+  changelog   String?   @db.Text
+  isPublished Boolean   @default(true)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  agent            Agent   @relation("AgentVersions", fields: [agentId], references: [id], onDelete: Cascade)
+  creator          User    @relation("AgentVersionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  currentForAgents Agent[] @relation("AgentCurrentVersion")
+
+  @@unique([agentId, version])
+  @@index([agentId])
+  @@index([createdBy])
+  @@index([agentId, publishedAt])
 }
 
 model Conversation {
@@ -480,4 +531,46 @@ model PluginInvocation {
   @@index([pluginId, startedAt])
   @@index([agentId, startedAt])
   @@index([runId])
+}
+
+model PublishRecord {
+  id           String              @id @default(cuid())
+  workspaceId  String
+  targetType   PublishTargetType
+  targetId     String
+  versionId    String?
+  action       PublishAction
+  status       PublishActionStatus
+  changelog    String?             @db.Text
+  errorMessage String?             @db.Text
+  operatorId   String
+  createdAt    DateTime            @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  operator  User      @relation("PublishRecordOperator", fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId])
+  @@index([targetType, targetId])
+  @@index([versionId])
+  @@index([operatorId])
+  @@index([createdAt])
+}
+
+model PublishChannel {
+  id          String             @id @default(cuid())
+  workspaceId String
+  targetType  PublishTargetType
+  targetId    String
+  channel     PublishChannelType
+  enabled     Boolean            @default(false)
+  config      Json?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([targetType, targetId, channel])
+  @@index([workspaceId])
+  @@index([targetType, targetId])
+  @@index([channel, enabled])
 }
