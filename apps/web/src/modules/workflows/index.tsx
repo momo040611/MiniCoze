@@ -3,15 +3,17 @@ import { Button, Empty, Form, Input, Modal, Space, Table, Tag, message } from 'a
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import {
-  createWorkflow,
+  createWorkflowRemote,
   deleteWorkflow,
-  getWorkflowList,
+  getWorkflowListRemote,
   type Workflow,
 } from '../../api/workflows';
+import { useWorkspace } from '../workspace/use-workspace';
 import styles from './index.module.css';
 
 export function WorkflowsPage() {
   const navigate = useNavigate();
+  const { currentWorkspace } = useWorkspace();
   const [workflowList, setWorkflowList] = useState<Workflow[]>([]);
   const [keyword, setKeyword] = useState('');
   const [open, setOpen] = useState(false);
@@ -19,12 +21,17 @@ export function WorkflowsPage() {
   const [form] = Form.useForm<{ name: string; description?: string }>();
 
   async function loadWorkflows() {
-    setWorkflowList(await getWorkflowList());
+    if (!currentWorkspace?.id) {
+      setWorkflowList([]);
+      return;
+    }
+
+    setWorkflowList(await getWorkflowListRemote(currentWorkspace.id));
   }
 
   useEffect(() => {
     loadWorkflows();
-  }, []);
+  }, [currentWorkspace?.id]);
 
   const filteredList = useMemo(() => {
     const value = keyword.trim();
@@ -41,10 +48,18 @@ export function WorkflowsPage() {
   async function handleCreate() {
     const values = await form.validateFields();
 
+    if (!currentWorkspace?.id) {
+      message.error('请先选择工作区');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const workflow = await createWorkflow(values);
+      const workflow = await createWorkflowRemote({
+        ...values,
+        workspaceId: currentWorkspace.id,
+      });
       message.success('工作流创建成功');
       setOpen(false);
       form.resetFields();

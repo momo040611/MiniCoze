@@ -1,3 +1,6 @@
+
+import { http, type ApiEnvelope } from '../http';
+
 export interface WorkflowCanvasData {
   nodes: unknown[];
   edges: unknown[];
@@ -7,15 +10,38 @@ export interface WorkflowCanvasData {
     zoom: number;
   };
 }
+export type WorkflowDefinition = WorkflowCanvasData;
 export interface Workflow {
   id: string;
   workspaceId?: string;
   name: string;
-  description?: string;
+  description?: string | null;
   status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
   canvasData?: WorkflowCanvasData;
   createdAt: string;
   updatedAt: string;
+}
+export interface WorkflowResponseLike extends Workflow {
+  draftDefinition?: WorkflowDefinition | null;
+}
+
+export interface CreateWorkflowParams {
+  workspaceId?: string;
+  name: string;
+  description?: string | null;
+  canvasData?: WorkflowCanvasData;
+}
+
+export interface UpdateWorkflowRequest {
+  name?: string;
+  description?: string | null;
+}
+
+export interface PaginatedWorkflowResponse {
+  list: WorkflowResponseLike[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 const STORAGE_KEY = 'miniCoze_workflows';
@@ -73,7 +99,53 @@ export const DEFAULT_WORKFLOW_CANVAS_DATA: WorkflowCanvasData = {
     zoom: 1,
   },
 };
+/**
+ * 字段映射关系：
+ *
+ * 前端 CreateWorkflowParams -> 后端 POST /api/workflows body
+ * - workspaceId -> workspaceId
+ * - name -> name
+ * - description -> description
+ * - canvasData -> definition
+ *
+ * 后端 WorkflowResponse -> 前端 Workflow
+ * - draftDefinition -> canvasData
+ * - description -> description
+ * - status -> status
+ * - createdAt -> createdAt
+ * - updatedAt -> updatedAt
+ */
+export function toWorkflowDefinition(
+  canvasData?: WorkflowCanvasData,
+): WorkflowDefinition {
+  return canvasData ?? structuredClone(DEFAULT_WORKFLOW_CANVAS_DATA);
+}
 
+export function fromWorkflowResponse(response: WorkflowResponseLike): Workflow {
+  return {
+    ...response,
+    canvasData:
+      response.canvasData ??
+      response.draftDefinition ??
+      structuredClone(DEFAULT_WORKFLOW_CANVAS_DATA),
+  };
+}
+export interface CreateWorkflowRequest {
+  workspaceId: string;
+  name: string;
+  description?: string | null;
+  definition?: WorkflowDefinition;
+}
+export function toCreateWorkflowRequest(
+  params: CreateWorkflowParams & { workspaceId: string },
+): CreateWorkflowRequest {
+  return {
+    workspaceId: params.workspaceId,
+    name: params.name,
+    description: params.description,
+    definition: toWorkflowDefinition(params.canvasData),
+  };
+}
 function readWorkflows(): Workflow[] {
   const raw = localStorage.getItem(STORAGE_KEY);
 
@@ -101,20 +173,35 @@ function createId() {
 }
 
 export async function getWorkflowList(): Promise<Workflow[]> {
-  return readWorkflows();
+  return readWorkflows().map(fromWorkflowResponse);
 }
 
-export async function createWorkflow(params: {
-  name: string;
-  description?: string;
-}): Promise<Workflow> {
+export async function getWorkflowListRemote(
+  workspaceId: string,
+): Promise<Workflow[]> {
+  const res = await http.get<ApiEnvelope<PaginatedWorkflowResponse>>(
+    'workflows',
+    {
+      query: {
+        workspaceId,
+        page: 1,
+        pageSize: 100,
+      },
+    },
+  );
+
+  return res.data.list.map(fromWorkflowResponse);
+}
+
+export async function createWorkflow(params: CreateWorkflowParams): Promise<Workflow> {
   const now = new Date().toISOString();
   const workflow: Workflow = {
     id: createId(),
+    workspaceId: params.workspaceId,
     name: params.name,
-    description: params.description,
+    description: params.description ?? null,
     status: 'DRAFT',
-    canvasData: DEFAULT_WORKFLOW_CANVAS_DATA,
+    canvasData: toWorkflowDefinition(params.canvasData),
     createdAt: now,
     updatedAt: now,
   };
@@ -124,8 +211,37 @@ export async function createWorkflow(params: {
   return workflow;
 }
 
-export async function getWorkflowDetail(id: string): Promise<Workflow | null> {
-  return readWorkflows().find((item) => item.id === id) ?? null;
+export async function createWorkflowRemote(
+  params: CreateWorkflowParams,
+): Promise<Workflow> {
+  if (!params.workspaceId) {
+    throw new Error('workspaceId is required to create workflow remotely');
+  }
+
+  const res = await http.post<
+    ApiEnvelope<WorkflowResponseLike>,
+    CreateWorkflowRequest
+  >('workflows', toCreateWorkflowRequest({
+    ...params,
+    workspaceId: params.workspaceId,
+  }));
+
+  return fromWorkflowResponse(res.data);
+}
+
+export async function getWorkflowById(id: string): Promise<Workflow | null> {
+  const workflow = readWorkflows().find((item) => item.id === id);
+  return workflow ? fromWorkflowResponse(workflow) : null;
+}
+
+export const getWorkflowDetail = getWorkflowById;
+
+export async function getWorkflowByIdRemote(id: string): Promise<Workflow> {
+  const res = await http.get<ApiEnvelope<WorkflowResponseLike>>(
+    `workflows/${id}`,
+  );
+
+  return fromWorkflowResponse(res.data);
 }
 
 export async function updateWorkflow(
@@ -150,6 +266,41 @@ export async function updateWorkflow(
   writeWorkflows(nextWorkflows);
 
   return updatedWorkflow;
+}
+
+export async function updateWorkflowRemote(
+  id: string,
+  patch: UpdateWorkflowRequest,
+): Promise<Workflow> {
+  const res = await http.patch<
+    ApiEnvelope<WorkflowResponseLike>,
+    UpdateWorkflowRequest
+  >(`workflows/${id}`, patch);
+
+  return fromWorkflowResponse(res.data);
+}
+
+export async function saveWorkflowDraft(
+  id: string,
+  canvasData: WorkflowCanvasData,
+): Promise<Workflow | null> {
+  return updateWorkflow(id, {
+    canvasData: toWorkflowDefinition(canvasData),
+  });
+}
+
+export async function saveWorkflowDraftRemote(
+  id: string,
+  canvasData: WorkflowCanvasData,
+): Promise<Workflow> {
+  const res = await http.put<
+    ApiEnvelope<WorkflowResponseLike>,
+    { definition: WorkflowDefinition }
+  >(`workflows/${id}/draft`, {
+    definition: toWorkflowDefinition(canvasData),
+  });
+
+  return fromWorkflowResponse(res.data);
 }
 
 export async function deleteWorkflow(id: string): Promise<void> {
