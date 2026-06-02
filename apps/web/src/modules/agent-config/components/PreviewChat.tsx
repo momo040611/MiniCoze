@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import styles from '../agent-detail.module.css'
+import { Button } from 'antd'
+import { PaperClipOutlined, CloseOutlined } from '@ant-design/icons'
+import styles from './PreviewChat.module.css'
 import { runAgentStream } from '../../../api/agent-runtime'
 import type { RuntimeEvent, MessageDeltaEvent } from '../../../api/agent-runtime'
 import type { OpeningConfig } from '../agent-detail'
 import { deleteConversation, getConversation, getConversations } from '../../../api/homepage'
+import { formatFileSize } from '../../homepage/utils/format'
 
 interface ChatMessage {
   id: string
@@ -30,6 +33,8 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
   const sendingRef = useRef(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const [selectedFile, setSelectedFile] = useState<{ file: File; preview: string; isImage: boolean; size: string } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -40,6 +45,14 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
       abortRef.current?.abort()
     }
   }, [])
+
+  useEffect(() => {
+    return () => {
+      if (selectedFile?.preview) {
+        URL.revokeObjectURL(selectedFile.preview)
+      }
+    }
+  }, [selectedFile])
 
   useEffect(() => {
     let active = true
@@ -203,12 +216,38 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
     const text = inputValue.trim()
     if (!text) return
     doSend(text)
-  }, [inputValue, doSend])
+    if (selectedFile?.preview) {
+      URL.revokeObjectURL(selectedFile.preview)
+    }
+    setSelectedFile(null)
+  }, [inputValue, doSend, selectedFile])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSend()
     }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const isImage = file.type.startsWith('image/')
+    const preview = isImage ? URL.createObjectURL(file) : ''
+    const size = formatFileSize(file.size)
+
+    setSelectedFile({ file, preview, isImage, size })
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleFileRemove = () => {
+    if (selectedFile?.preview) {
+      URL.revokeObjectURL(selectedFile.preview)
+    }
+    setSelectedFile(null)
   }
 
   return (
@@ -261,7 +300,7 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
         {messages.map((msg) =>
           msg.sender === 'user' ? (
             <div key={msg.id} className={`${styles.previewBubble} ${styles.previewBubbleUser}`}>
-              <div>
+              <div style={{ maxWidth: '75%', minWidth: 0 }}>
                 <div className={styles.previewMsg}>{msg.text}</div>
                 <div className={styles.previewMeta}><span>{msg.time}</span></div>
               </div>
@@ -269,7 +308,7 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
           ) : (
             <div key={msg.id} className={styles.previewBubble}>
               <img src={avatar} alt="" className={styles.previewAvatarSmall} />
-              <div>
+              <div style={{ maxWidth: '75%', minWidth: 0 }}>
                 <div className={styles.previewMsg}>
                   {msg.text || (sending ? '思考中...' : '无法获取回复')}
                 </div>
@@ -281,7 +320,42 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
         <div ref={chatEndRef} />
       </div>
 
+      {selectedFile && (
+        <div className={styles.filePreviewBar}>
+          {selectedFile.isImage ? (
+            <img src={selectedFile.preview} alt={selectedFile.file.name} className={styles.filePreviewThumb} />
+          ) : (
+            <span className={styles.previewDocIcon}>📄</span>
+          )}
+          <div className={styles.filePreviewInfo}>
+            <span className={styles.filePreviewName}>{selectedFile.file.name}</span>
+            <span className={styles.filePreviewSize}>{selectedFile.size}</span>
+          </div>
+          <Button
+            icon={<CloseOutlined />}
+            size="small"
+            type="text"
+            danger
+            onClick={handleFileRemove}
+            aria-label="删除文件"
+          />
+        </div>
+      )}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/png,image/jpg,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.txt,.xlsx,.pptx"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
       <div className={styles.previewInputRow}>
+        <Button
+          icon={<PaperClipOutlined />}
+          type="text"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="文件上传"
+          className={styles.previewAttachBtn}
+        />
         <input
           className={styles.previewInput}
           placeholder="输入消息..."

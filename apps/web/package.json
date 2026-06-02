@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.3",
+    "@flowgram.ai/free-layout-editor": "^1.0.11",
+    "@flowgram.ai/free-snap-plugin": "^1.0.11",
+    "@flowgram.ai/minimap-plugin": "^1.0.11",
     "antd": "^6.4.3",
     "katex": "^0.17.0",
     "react": "^19.0.0",

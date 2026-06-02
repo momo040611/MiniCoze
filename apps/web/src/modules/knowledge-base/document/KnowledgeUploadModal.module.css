@@ -1,0 +1,71 @@
+.dropZone {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  margin: 16px 0;
+  border: 1px dashed #b8c4d8;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #475467;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.dropZone:hover,
+.dropZoneActive {
+  border-color: #1677ff;
+  background: #eef6ff;
+}
+
+.dropZone strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #101828;
+  font-size: 16px;
+}
+
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.queue {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.queueItem {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.queueHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.queueName {
+  min-width: 0;
+  overflow: hidden;
+  color: #101828;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .configGrid {
+    grid-template-columns: 1fr;
+  }
+}

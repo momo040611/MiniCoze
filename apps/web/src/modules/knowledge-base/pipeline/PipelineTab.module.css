@@ -1,0 +1,39 @@
+.page {
+  display: grid;
+  gap: 16px;
+}
+
+.summary,
+.card,
+.emptyCard {
+  border-radius: 8px;
+}
+
+.summaryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.summaryHeader h3 {
+  margin: 4px 0;
+  color: #101828;
+  font-size: 20px;
+}
+
+.statusLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: #667085;
+}
+
+@media (max-width: 800px) {
+  .summaryHeader {
+    display: grid;
+  }
+}

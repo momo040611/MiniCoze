@@ -54,7 +54,7 @@ export function clearAuthToken() {
 }
 
 // Mock 拦截器类型：传入请求体和请求头，返回模拟的响应数据
-type MockHandler = (body: unknown, headers: Headers) => Promise<unknown>;
+type MockHandler = (body: unknown, headers: Headers, path: string) => Promise<unknown>;
 
 const mockHandlers = new Map<string, MockHandler>();
 
@@ -223,7 +223,7 @@ export async function request<TResponse, TBody = unknown>(
   if (mockHandler) {
     const simulateDelay = new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 200));
     try {
-      const data = await mockHandler(body, createHeaders(body, headers, auth));
+      const data = await mockHandler(body, createHeaders(body, headers, auth), path);
       await simulateDelay;
       return data as TResponse;
     } catch (error) {

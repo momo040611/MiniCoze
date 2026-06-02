@@ -11,7 +11,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { logout } from '../../api/auth';
-import { getCurrentUser } from '../../api/auth/auth-store';
+import { getCurrentUser, subscribeToAuth } from '../../api/auth/auth-store';
 import { useWorkspace } from '../workspace/use-workspace';
 import { appMenuItems, flattenMenuItems, getMenuParentKeys } from './menu';
 import styles from './AppLayout.module.css';
@@ -29,10 +29,17 @@ function getSelectedMenuKey(pathname: string) {
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = getCurrentUser();
+  const [user, setUser] = useState(getCurrentUser());
   const { workspaces, currentWorkspace, loading, switchWorkspace } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
   const [openKeys, setOpenKeys] = useState<string[]>([]);
+
+  // 订阅 auth 数据变化（头像/昵称修改后自动刷新）
+  useEffect(() => {
+    return subscribeToAuth(() => {
+      setUser(getCurrentUser());
+    });
+  }, []);
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') ?? 'light';
   });
@@ -59,22 +66,12 @@ export function AppLayout() {
   // 应用 CSS 变量主题到 document
   useEffect(() => {
     localStorage.setItem('theme', themeMode);
-
-    const applyTheme = (isDark: boolean) => {
-      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : '');
-    };
-
-    const clearTheme = () => {
-      document.documentElement.removeAttribute('data-theme');
-    };
-
     if (themeMode === 'dark') {
-      applyTheme(true);
-    } else if (themeMode === 'light') {
-      clearTheme();
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else if (themeMode === 'system') {
+      document.documentElement.setAttribute('data-theme', systemPrefersDark ? 'dark' : '');
     } else {
-      // system
-      applyTheme(systemPrefersDark);
+      document.documentElement.removeAttribute('data-theme');
     }
   }, [themeMode, systemPrefersDark]);
 
@@ -98,11 +95,16 @@ export function AppLayout() {
   const userDropdownItems: MenuProps['items'] = useMemo(
     () => [
       {
-        key: 'profile',
+        key: 'username-display',
         label: user?.username ?? '用户',
         disabled: true,
       },
       { type: 'divider' },
+      {
+        key: 'profile',
+        label: '个人中心',
+        icon: <UserOutlined />,
+      },
       {
         key: 'theme',
         label: '主题',
@@ -140,6 +142,8 @@ export function AppLayout() {
     if (key === 'logout') {
       logout();
       navigate('/login');
+    } else if (key === 'profile') {
+      navigate('/profile');
     } else if (key === 'theme-light') {
       setThemeMode('light');
     } else if (key === 'theme-dark') {
@@ -234,15 +238,6 @@ export function AppLayout() {
             onChange={switchWorkspace}
             suffixIcon={<DownOutlined />}
           />
-          <div className={styles.headerRight}>
-            <button
-              className={styles.headerAvatarBtn}
-              type="button"
-              onClick={() => navigate('/profile')}
-            >
-              <Avatar size={34} src={user?.avatarUrl ?? undefined} icon={!user?.avatarUrl && <UserOutlined />} />
-            </button>
-          </div>
         </header>
 
         <main className={styles.content}>

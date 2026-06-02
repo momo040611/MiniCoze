@@ -1,0 +1,739 @@
+/* ============================================
+   I — 可视化画布（MultiAgents 专属）
+   ============================================ */
+.canvasWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+/* 画布视口 */
+.canvasViewport {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #f5f6f8;
+  cursor: default;
+}
+
+.canvasViewport.panning {
+  cursor: grabbing;
+}
+
+.canvasViewport.connecting {
+  cursor: crosshair;
+}
+
+/* 画布内容层（transform 变换层） */
+.canvasContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* 网格背景 */
+.canvasGrid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8000px;
+  height: 8000px;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+/* SVG 连线层 */
+.canvasSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8000px;
+  height: 8000px;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.canvasSvg path {
+  pointer-events: stroke;
+}
+
+/* ============================================
+   节点通用样式
+   ============================================ */
+.canvasNode {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  cursor: grab;
+  z-index: 10;
+  transition: box-shadow 0.15s, transform 0.08s;
+}
+
+.canvasNode:active {
+  cursor: grabbing;
+}
+
+.canvasNodeSelected {
+  z-index: 20;
+}
+
+.canvasNodeDragging {
+  z-index: 30;
+  opacity: 0.95;
+  cursor: grabbing;
+}
+
+/* ============================================
+   开始节点（绿色圆角胶囊）
+   ============================================ */
+.startNode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: #fff;
+  border: 1.5px solid #22c55e;
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.startNode:hover {
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.18);
+}
+
+.startNodeSelected {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.startIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #22c55e;
+}
+
+/* ============================================
+   通用 Agent 卡片 — Coze 风格
+   ============================================ */
+.agentCard {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.06);
+  overflow-y: auto;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+
+.agentCard:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.agentCardSelected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 4px 16px rgba(0,0,0,0.08);
+}
+
+/* ---- 卡片头部 ---- */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.headerGradientIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.headerInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.headerName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerSub {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.headerActionBtn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.headerActionBtn:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.playBtn {
+  color: #3b82f6;
+}
+
+.playBtn:hover {
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+/* ---- 折叠面板列表 ---- */
+.panelList {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+}
+
+.panel {
+  background: #f9fafb;
+  border: 1px solid rgba(104, 119, 144, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.panelHeader:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.panelArrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.panelArrowOpen {
+  transform: rotate(90deg);
+}
+
+.panelTitle {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.panelTitleRequired {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.panelTitleHelp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 4px;
+  cursor: help;
+}
+
+.panelTitleAction {
+  font-size: 11px;
+  font-weight: 500;
+  color: #3b82f6;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.panelTitleAction:hover {
+  background: #eff6ff;
+}
+
+.panelTitleDropdown {
+  font-size: 11px;
+  color: #64748b;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.panelContent {
+  padding: 0 10px 10px;
+}
+
+/* ---- 模型选择下拉 ---- */
+.modelSelectWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid rgba(104, 119, 144, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.modelSelectWrap:hover {
+  border-color: #3b82f6;
+}
+
+.modelSelectIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #3b82f6;
+  font-size: 10px;
+}
+
+.modelSelectName {
+  flex: 1;
+  font-size: 11px;
+  color: #334155;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelSelectChevron {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+/* ---- 技能标签列表 ---- */
+.skillTagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.skillTag {
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* ---- 场景文本 ---- */
+.sceneText {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* ---- 提示词文本 ---- */
+.promptText {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- 用户问题建议 ---- */
+.suggestionHint {
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.suggestionList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suggestionItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #475569;
+  padding: 2px 0;
+}
+
+.suggestionCheck {
+  width: 14px;
+  height: 14px;
+  border: 1px solid #cbd5e0;
+  border-radius: 3px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+}
+
+.suggestionCheckChecked {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.suggestionCheckChecked svg {
+  display: block;
+}
+
+.suggestionCheck svg {
+  display: none;
+}
+
+/* ============================================
+   连接点（Port）— 隐藏圆点风格
+   ============================================ */
+.portWrap {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+}
+
+.portDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #3b82f6;
+  background: #fff;
+  transition: width 0.15s, height 0.15s, background 0.15s, border-color 0.15s;
+  cursor: crosshair;
+  opacity: 0;
+}
+
+.canvasNode:hover .portDot,
+.portDotActive {
+  opacity: 1;
+}
+
+.portDot:hover {
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.portDotActive {
+  width: 12px;
+  height: 12px;
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.outputPort {
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.inputPort {
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ============================================
+   连线样式 — Coze 风格
+   ============================================ */
+.connectionLine {
+  fill: none;
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.05));
+}
+
+.connectionHit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+/* 正在拖拽的临时连线 */
+.tempConnection {
+  fill: none;
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: 8 5;
+  stroke-linecap: round;
+  opacity: 0.55;
+  animation: dashFlow 0.6s linear infinite;
+}
+
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
+
+/* ============================================
+   底部工具栏
+   ============================================ */
+.canvasToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(104, 119, 144, 0.1);
+  background: #fafbfc;
+  flex-shrink: 0;
+}
+
+.canvasToolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.canvasToolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.canvasToolBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid rgba(104, 119, 144, 0.15);
+  border-radius: 5px;
+  background: #fff;
+  color: #506070;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.canvasToolBtn:hover {
+  background: #f3f4f6;
+  border-color: rgba(104, 119, 144, 0.25);
+  color: #374151;
+}
+
+.canvasToolBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.canvasToolBtn:disabled:hover {
+  background: #fff;
+  border-color: rgba(104, 119, 144, 0.15);
+  color: #506070;
+}
+
+.canvasToolBtnActive {
+  background: #eff6ff;
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.zoomLabel {
+  font-size: 12px;
+  color: #8896a6;
+  font-weight: 500;
+  min-width: 36px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.zoomLabel:hover {
+  color: #3b82f6;
+}
+
+/* ============================================
+   节点添加菜单
+   ============================================ */
+.nodeMenu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: #fff;
+  border: 1px solid rgba(104, 119, 144, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  padding: 4px;
+  z-index: 50;
+  min-width: 180px;
+}
+
+.nodeMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-family: inherit;
+}
+
+.nodeMenuItem:hover {
+  background: #f3f4f6;
+}
+
+.nodeMenuIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.nodeMenuIconStart {
+  background: #ecfdf5;
+  color: #22c55e;
+}
+
+.nodeMenuIconAgent {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.nodeMenuIconSub {
+  background: #f3f4f6;
+  color: #506070;
+}
+
+.nodeMenuInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.nodeMenuName {
+  font-weight: 500;
+}
+
+.nodeMenuDesc {
+  font-size: 11px;
+  color: #8896a6;
+}
+
+/* 画布空状态提示 */
+.canvasPlaceholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  color: #a0aec0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvasPlaceholderIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px dashed #d0d5dd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #a0aec0;
+}

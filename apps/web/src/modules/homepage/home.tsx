@@ -72,8 +72,8 @@ export const HomepageIndex = () => {
   const chatListRef = useRef<HTMLDivElement>(null)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [selectedFile, setSelectedFile] = useState<{ file: File; preview: string; isImage: boolean; size: string } | null>(null)
-  const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string }[]>([])
-  const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string } | null>(null)
+  const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number }[]>([])
+  const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number } | null>(null)
   const [agentLoadError, setAgentLoadError] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
@@ -161,7 +161,7 @@ export const HomepageIndex = () => {
   const loadAgents = useCallback(() => {
     setAgentLoadError(false)
     getAgentList().then((list) => {
-      const agents = list.map((a) => ({ id: a.id, name: a.name, icon: a.avatar || '' }))
+      const agents = list.map((a) => ({ id: a.id, name: a.name, icon: a.avatar || '', persona: a.persona, model: a.model || '', temperature: a.temperature ?? 0.7 }))
       setAllAgents(agents)
       if (agents.length > 0) {
         
@@ -397,6 +397,9 @@ export const HomepageIndex = () => {
         agentId: selectedAgent.id,
         message: messageText,
         conversationId: conversationId ?? undefined,
+        systemPrompt: selectedAgent.persona || undefined,
+        model: selectedAgent.model || undefined,
+        temperature: selectedAgent.temperature,
       },
       {
         onEvent: (event: RuntimeEvent) => {

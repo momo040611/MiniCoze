@@ -7,9 +7,9 @@ export function LegacyRedirectRoutes() {
       <Route path="/homepage/agent-config" element={<Navigate to="/agents" replace />} />
       <Route path="/homepage/architecture" element={<Navigate to="/architecture" replace />} />
       <Route path="/homepage/workflow-canvas" element={<Navigate to="/workflows" replace />} />
-      <Route path="/homepage/knowledge-base" element={<Navigate to="/knowledge-bases" replace />} />
+      <Route path="/homepage/knowledge-base" element={<Navigate to="/knowledge" replace />} />
       <Route path="/workflow-canvas" element={<Navigate to="/workflows" replace />} />
-      <Route path="/knowledge-base/*" element={<Navigate to="/knowledge-bases" replace />} />
+      <Route path="/knowledge-base/*" element={<Navigate to="/knowledge" replace />} />
     </>
   );
 }

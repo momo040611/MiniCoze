@@ -5,8 +5,6 @@ import {
   BookOutlined,
   CodeSandboxOutlined,
   DeploymentUnitOutlined,
-  FileSearchOutlined,
-  FileTextOutlined,
   HomeOutlined,
   MessageOutlined,
   NodeIndexOutlined,
@@ -46,6 +44,14 @@ export const appMenuItems: AppMenuItem[] = [
     label: '工作流',
     path: '/workflows',
     icon: <DeploymentUnitOutlined />,
+    children: [
+      {
+        key: 'workflows.list',
+        label: '工作流管理',
+        path: '/workflows',
+        icon: <NodeIndexOutlined />,
+      },
+    ],
   },
   {
     key: 'knowledge-bases',
@@ -53,28 +59,16 @@ export const appMenuItems: AppMenuItem[] = [
     icon: <BookOutlined />,
     children: [
       {
-        key: 'knowledge-bases.documents',
-        label: '文档管理',
-        path: '/knowledge-bases/document',
-        icon: <FileTextOutlined />,
+        key: 'knowledge-bases.detail',
+        label: '知识库详情',
+        path: '/knowledge',
+        icon: <BookOutlined />,
       },
       {
         key: 'knowledge-bases.pipeline',
         label: '生产流水线',
-        path: '/knowledge-bases/productionline',
+        path: '/knowledge/pipeline',
         icon: <CodeSandboxOutlined />,
-      },
-      {
-        key: 'knowledge-bases.retrieve',
-        label: '检索测试',
-        path: '/knowledge-bases/retrieveTest',
-        icon: <FileSearchOutlined />,
-      },
-      {
-        key: 'knowledge-bases.settings',
-        label: '知识库设置',
-        path: '/knowledge-bases/setting',
-        icon: <SettingOutlined />,
       },
     ],
   },
