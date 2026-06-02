@@ -30,6 +30,7 @@ export function AgentDetailPage() {
         temperature: detail.temperature ?? 0.7,
         openingMessage: detail.openingMessage ?? '',
         contextLimit: detail.contextLimit ?? 20,
+        status: detail.status ?? 'DRAFT',
       };
       setAgent(detailData);
     } catch {
@@ -56,6 +57,7 @@ export function AgentDetailPage() {
         temperature: detail.temperature ?? 0.7,
         openingMessage: detail.openingMessage ?? '',
         contextLimit: detail.contextLimit ?? 20,
+        status: detail.status ?? 'DRAFT',
       };
       setAgent(detailData);
     } catch {

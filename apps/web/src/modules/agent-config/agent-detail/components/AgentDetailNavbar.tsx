@@ -11,6 +11,8 @@ interface AgentDetailNavbarProps {
   saving: boolean;
   saved: boolean;
   dirty: boolean;
+  status: string;
+  publishing: boolean;
   onBack: () => void;
   onEdit: () => void;
   onModeChange: (mode: AgentMode) => void;
@@ -25,12 +27,16 @@ export function AgentDetailNavbar({
   saving,
   saved,
   dirty,
+  status,
+  publishing,
   onBack,
   onEdit,
   onModeChange,
   onSave,
   onPublish,
 }: AgentDetailNavbarProps) {
+  const isPublished = status === 'ACTIVE';
+
   return (
     <div className={styles.navbar}>
       <div className={styles.navLeft}>
@@ -41,7 +47,12 @@ export function AgentDetailNavbar({
         </button>
         <img src={agentAvatar} alt={agentName} className={styles.navAvatar} />
         <span className={styles.navName}>{agentName}</span>
-        <button onClick={onEdit} className={styles.editBtn} title="编辑">✎</button>
+        {!isPublished && (
+          <button onClick={onEdit} className={styles.editBtn} title="编辑">✎</button>
+        )}
+        {isPublished && (
+          <span className={styles.publishedBadge}>已发布</span>
+        )}
       </div>
       <div className={styles.navCenter}>
         <ModeSelector
@@ -59,16 +70,33 @@ export function AgentDetailNavbar({
             草稿
           </span>
         )}
-        <button
-          className={styles.saveBtn}
-          onClick={onSave}
-          disabled={saving}
-        >
-          {saving ? '保存中...' : '保存'}
-        </button>
-        <button className={styles.publishBtn} onClick={onPublish}>
-          发布
-        </button>
+        {!isPublished && (
+          <>
+            <button
+              className={styles.saveBtn}
+              onClick={onSave}
+              disabled={saving}
+            >
+              {saving ? '保存中...' : '保存'}
+            </button>
+            <button
+              className={styles.publishBtn}
+              onClick={onPublish}
+              disabled={publishing}
+            >
+              {publishing ? '发布中...' : '发布'}
+            </button>
+          </>
+        )}
+        {isPublished && (
+          <button
+            className={styles.publishBtn}
+            onClick={onPublish}
+            disabled={publishing}
+          >
+            {publishing ? '取消发布中...' : '取消发布'}
+          </button>
+        )}
       </div>
     </div>
   );

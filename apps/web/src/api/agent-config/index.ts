@@ -151,7 +151,6 @@ export async function createAgent(params: {
     model: params.model ?? DEFAULT_AGENT_MODEL,
     temperature: 0.7,
     contextLimit: 20,
-    status: 'ACTIVE',
   });
 
   const backend = res.data;
@@ -211,7 +210,7 @@ export async function deleteAgent(id: string): Promise<void> {
 /** 更新智能体配置 */
 export async function updateAgent(
   id: string,
-  patch: Partial<Pick<AgentConfig, 'name' | 'avatar' | 'description' | 'mode' | 'persona' | 'orchestration' | 'model' | 'temperature' | 'openingMessage' | 'contextLimit'>>,
+  patch: Partial<Pick<AgentConfig, 'name' | 'avatar' | 'description' | 'mode' | 'persona' | 'orchestration' | 'model' | 'temperature' | 'openingMessage' | 'contextLimit' | 'status'>>,
 ): Promise<AgentConfig | null> {
   // 分离后端字段和本地扩展字段
   const backendPatch: Record<string, unknown> = {};
@@ -223,6 +222,7 @@ export async function updateAgent(
   if (patch.temperature !== undefined) backendPatch.temperature = patch.temperature;
   if (patch.openingMessage !== undefined) backendPatch.openingMessage = patch.openingMessage;
   if (patch.contextLimit !== undefined) backendPatch.contextLimit = patch.contextLimit;
+  if (patch.status !== undefined) backendPatch.status = patch.status;
 
   // 更新后端
   const res = await http.patch<ApiEnvelope<BackendAgent>>(`agents/${id}`, backendPatch);

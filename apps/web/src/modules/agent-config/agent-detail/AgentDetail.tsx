@@ -7,6 +7,7 @@ import { nextContentKey } from './constants';
 import { AgentDetailNavbar } from './components/AgentDetailNavbar';
 import { AgentDetailContent } from './components/AgentDetailContent';
 import { EditAgentModal } from '../components/EditAgentModal';
+import { updateAgent } from '../../../api/agent-config/index';
 
 interface Props {
   agent: AgentDetailData;
@@ -23,6 +24,10 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   const [contentKey, setContentKey] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
+  const [status, setStatus] = useState(agent.status);
+  const [publishing, setPublishing] = useState(false);
+
+  const isPublished = status === 'ACTIVE';
 
   const {
     orchestration,
@@ -73,9 +78,10 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
       setModel(agent.model);
       setTemperature(agent.temperature);
       setContextLimit(agent.contextLimit);
+      setStatus(agent.status);
       setDirty(false);
     }
-  }, [agent.id, agent.mode, agent.persona, agent.model, agent.temperature, agent.contextLimit]);
+  }, [agent.id, agent.mode, agent.persona, agent.model, agent.temperature, agent.contextLimit, agent.status]);
 
   const handleModeChange = useCallback(
     (newMode: AgentMode) => {
@@ -88,7 +94,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   );
 
   useEffect(() => {
-    if (!dirty || saving) return;
+    if (!dirty || saving || isPublished) return;
 
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -103,11 +109,22 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [dirty, saving, performAutoSave, autoSaveTimerRef]);
+  }, [dirty, saving, performAutoSave, autoSaveTimerRef, isPublished]);
 
-  const handlePublish = () => {
-    alert(`智能体 "${agent.name}" 发布成功！`);
-  };
+  const handlePublish = useCallback(async () => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      const newStatus = isPublished ? 'DRAFT' : 'ACTIVE';
+      await updateAgent(agent.id, { status: newStatus });
+      setStatus(newStatus);
+      onAgentUpdated();
+    } catch {
+      alert(isPublished ? '取消发布失败，请稍后重试' : '发布失败，请稍后重试');
+    } finally {
+      setPublishing(false);
+    }
+  }, [agent.id, isPublished, publishing, onAgentUpdated]);
 
   const handleModelChange = useCallback(
     (newModel: string) => {
@@ -153,6 +170,8 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
         saving={saving}
         saved={saved}
         dirty={dirty}
+        status={status}
+        publishing={publishing}
         onBack={onBack}
         onEdit={handleEdit}
         onModeChange={handleModeChange}
