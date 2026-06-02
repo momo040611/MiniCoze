@@ -12,7 +12,11 @@ export class ToolRunner implements ToolExecutor {
     this.handlers.set(name, handler);
   }
 
-  async execute(toolCall: ToolCall): Promise<ToolResult> {
+  async execute(input: {
+    toolCall: ToolCall;
+    context: unknown;
+  }): Promise<ToolResult> {
+    const { toolCall } = input;
     const handler = this.handlers.get(toolCall.function.name);
     if (!handler) {
       return {

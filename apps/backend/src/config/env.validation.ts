@@ -67,6 +67,46 @@ class EnvironmentVariables {
   @IsInt()
   @Min(1)
   FILE_MAX_DOCUMENT_SIZE = 52428800;
+
+  @IsString()
+  @IsOptional()
+  BING_SEARCH_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  BING_SEARCH_ENDPOINT = 'https://api.bing.microsoft.com/v7.0/search';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  BING_SEARCH_TIMEOUT_MS = 10000;
+
+  @IsString()
+  @IsOptional()
+  IMAGE_UNDERSTANDING_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  IMAGE_UNDERSTANDING_BASE_URL = 'https://api.openai.com/v1';
+
+  @IsString()
+  @IsOptional()
+  IMAGE_UNDERSTANDING_MODEL = 'gpt-4o-mini';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  IMAGE_UNDERSTANDING_TIMEOUT_MS = 20000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  LINK_READER_TIMEOUT_MS = 15000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  LINK_READER_MAX_CHARS = 20000;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

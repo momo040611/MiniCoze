@@ -14,4 +14,3 @@ export interface WorkflowRunEvent {
   errorMessage?: string;
   durationMs?: number;
 }
-
