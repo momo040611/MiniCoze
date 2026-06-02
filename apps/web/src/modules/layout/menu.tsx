@@ -8,6 +8,7 @@ import {
   FileSearchOutlined,
   FileTextOutlined,
   HomeOutlined,
+  MessageOutlined,
   NodeIndexOutlined,
   RocketOutlined,
   SettingOutlined,
@@ -29,29 +30,22 @@ export const appMenuItems: AppMenuItem[] = [
     icon: <HomeOutlined />,
   },
   {
+    key: 'workspace.chat',
+    label: 'AI对话',
+    path: '/workspace/chat',
+    icon: <MessageOutlined />,
+  },
+  {
     key: 'agents',
     label: '智能体',
+    path: '/agents',
     icon: <AppstoreOutlined />,
-    children: [
-      {
-        key: 'agents.list',
-        label: '智能体列表',
-        path: '/agents',
-      },
-    ],
   },
   {
     key: 'workflows',
     label: '工作流',
+    path: '/workflows',
     icon: <DeploymentUnitOutlined />,
-    children: [
-      {
-        key: 'workflows.canvas',
-        label: '画布编辑',
-        path: '/workflows',
-        icon: <NodeIndexOutlined />,
-      },
-    ],
   },
   {
     key: 'knowledge-bases',
@@ -87,38 +81,20 @@ export const appMenuItems: AppMenuItem[] = [
   {
     key: 'plugins',
     label: '插件',
+    path: '/plugins',
     icon: <ApiOutlined />,
-    children: [
-      {
-        key: 'plugins.market',
-        label: '插件市场',
-        path: '/plugins',
-      },
-    ],
   },
   {
     key: 'publish',
     label: '发布',
+    path: '/publish',
     icon: <RocketOutlined />,
-    children: [
-      {
-        key: 'publish.channels',
-        label: '发布渠道',
-        path: '/publish',
-      },
-    ],
   },
   {
     key: 'settings',
     label: '设置',
+    path: '/settings',
     icon: <SettingOutlined />,
-    children: [
-      {
-        key: 'settings.workspace',
-        label: '工作区设置',
-        path: '/settings',
-      },
-    ],
   },
 ];
 

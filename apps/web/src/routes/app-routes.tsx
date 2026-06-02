@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage, RegisterPage } from '../modules/auth';
 import { ArchitecturePage } from '../modules/architecture';
 import { CreatAgent } from '../modules/agent-config';
-import { HomepageIndex } from '../modules/homepage';
+import { HomepageIndex, DashboardPage } from '../modules/homepage';
 import { KnowledgeBasePage } from '../modules/knowledge-base';
 import { Document } from '../modules/knowledge-base/page/Document';
 import { Productionline } from '../modules/knowledge-base/page/Productionline';
@@ -60,7 +60,8 @@ export function AppRoutes() {
         />
 
         <Route element={<ProtectedAppLayout />}>
-          <Route path="/workspace" element={<HomepageIndex />} />
+          <Route path="/workspace" element={<DashboardPage />} />
+          <Route path="/workspace/chat" element={<HomepageIndex />} />
           <Route path="/agents" element={<CreatAgent />} />
           <Route path="/workflows" element={<WorkflowCanvasPage />} />
           <Route path="/plugins" element={<PluginsPage />} />

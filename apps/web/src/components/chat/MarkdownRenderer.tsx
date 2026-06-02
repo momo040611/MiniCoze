@@ -13,7 +13,6 @@ interface Props {
   isStreaming?: boolean;
 }
 
-/** 从 React children 中递归提取纯文本（处理 rehypeHighlight 的 span 嵌套） */
 function extractText(children: ReactNode): string {
   if (typeof children === 'string') return children;
   if (typeof children === 'number') return String(children);
@@ -22,7 +21,6 @@ function extractText(children: ReactNode): string {
   return '';
 }
 
-/** 带降级方案的剪贴板写入 */
 function writeClipboard(text: string, onSuccess: () => void) {
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
@@ -45,7 +43,6 @@ function fallbackCopy(text: string, onSuccess: () => void) {
     document.execCommand('copy');
     onSuccess();
   } catch {
-    // 降级方案也失败，静默忽略
   } finally {
     document.body.removeChild(textarea);
   }

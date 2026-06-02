@@ -15,7 +15,7 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(values);
-      navigate('/homepage');
+      navigate('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : '请求失败，请稍后重试');
     } finally {

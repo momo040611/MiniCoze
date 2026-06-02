@@ -60,6 +60,25 @@ export class AgentRuntime {
     await this.repository.saveRun(context);
     yield { type: 'run.created', runId, conversationId };
 
+    // 知识库状态检查
+    if (command.knowledgeBaseId) {
+      yield {
+        type: 'knowledge.status',
+        runId,
+        knowledge: {
+          bound: true,
+          knowledgeName: '知识库',
+          retrievedCount: undefined,
+        },
+      };
+    } else {
+      yield {
+        type: 'knowledge.status',
+        runId,
+        knowledge: { bound: false },
+      };
+    }
+
     try {
       context.status = 'in_progress';
       await this.repository.updateRunStatus(runId, 'in_progress');

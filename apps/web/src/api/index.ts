@@ -18,5 +18,7 @@ export * from './auth';
 export * from './homepage';
 // 统一导出"工作空间"模块 API。
 export * from './workspace';
+// 统一导出"工作台 Dashboard"模块 API。
+export * from './dashboard';
 // 统一导出"Agent 运行时"模块 API（SSE 流式对话）。
 export * from './agent-runtime';

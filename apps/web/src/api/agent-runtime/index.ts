@@ -17,6 +17,7 @@ export type RuntimeEventType =
   | 'message.completed'
   | 'tool.call.created'
   | 'tool.call.completed'
+  | 'knowledge.status'
   | 'run.completed'
   | 'run.failed'
   | 'stream.done';
@@ -30,6 +31,16 @@ export interface RunCreatedEvent {
 export interface RunInProgressEvent {
   type: 'run.in_progress';
   runId: string;
+}
+
+export type KnowledgeBoundStatus =
+  | { bound: false }
+  | { bound: true; knowledgeName: string; retrievedCount?: number };
+
+export interface KnowledgeStatusEvent {
+  type: 'knowledge.status';
+  runId: string;
+  knowledge: KnowledgeBoundStatus;
 }
 
 export interface MessageDeltaEvent {
@@ -60,6 +71,7 @@ export interface ToolCallCompletedEvent {
   toolCallId: string;
   name: string;
   result: unknown;
+  error?: string;
 }
 
 export interface RunCompletedEvent {
@@ -82,6 +94,7 @@ export interface StreamDoneEvent {
 export type RuntimeEvent =
   | RunCreatedEvent
   | RunInProgressEvent
+  | KnowledgeStatusEvent
   | MessageDeltaEvent
   | MessageCompletedEvent
   | ToolCallCreatedEvent

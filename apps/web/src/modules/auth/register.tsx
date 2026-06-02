@@ -15,7 +15,7 @@ export function RegisterPage() {
     setLoading(true);
     try {
       await register(values);
-      navigate('/homepage');
+      navigate('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : '请求失败，请稍后重试');
     } finally {

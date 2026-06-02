@@ -14,6 +14,7 @@ import { runAgentStream } from '../../api/agent-runtime'
 import type {
   RuntimeEvent, TokenUsage,
   ToolCallCreatedEvent, ToolCallCompletedEvent,
+  KnowledgeStatusEvent,
 } from '../../api/agent-runtime'
 import { getAgentList } from '../../api/agent-config'
 import { formatFileSize } from './utils/format'
@@ -73,6 +74,7 @@ export const HomepageIndex = () => {
   const [selectedFile, setSelectedFile] = useState<{ file: File; preview: string; isImage: boolean; size: string } | null>(null)
   const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string }[]>([])
   const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string } | null>(null)
+  const [agentLoadError, setAgentLoadError] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -84,7 +86,6 @@ export const HomepageIndex = () => {
   const lastContentRef = useRef('')
   const conversationIdRef = useRef<string | null>(null)
 
-  // Phase B 新增状态：调试 & 知识库 & 错误
   const [currentRunId, setCurrentRunId] = useState('')
   const [currentLatency, setCurrentLatency] = useState(0)
   const [currentUsage, setCurrentUsage] = useState<TokenUsage | null>(null)
@@ -92,12 +93,12 @@ export const HomepageIndex = () => {
   const [knowledgeEvent, setKnowledgeEvent] = useState<{ type: string; runId: string; knowledge: { bound: boolean; knowledgeName?: string; retrievedCount?: number } } | null>(null)
   const [knowledgeDismissed, setKnowledgeDismissed] = useState(false)
   const runStartRef = useRef(0)
-  const lastUserMessageRef = useRef('')  // 记录最后一条用户消息，供"重新生成"使用
+  const lastUserMessageRef = useRef('')  
 
-  // Phase C 新增：跨智能体会话缓存（使用 ref 避免不必要的重渲染）
+
   const agentSessionsRef = useRef<Map<string, AgentSessionState>>(new Map())
 
-  // 编辑已发消息
+
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
 
@@ -157,12 +158,13 @@ export const HomepageIndex = () => {
       })
   }, [loadConversationMessages, selectedAgent])
 
-  useEffect(() => {
+  const loadAgents = useCallback(() => {
+    setAgentLoadError(false)
     getAgentList().then((list) => {
       const agents = list.map((a) => ({ id: a.id, name: a.name, icon: a.avatar || '' }))
       setAllAgents(agents)
       if (agents.length > 0) {
-        // A3: 支持 URL 参数自动选中智能体
+        
         const agentIdFromUrl = searchParams.get('agentId')
         const foundAgent = agentIdFromUrl
           ? agents.find((a) => a.id === agentIdFromUrl)
@@ -171,14 +173,19 @@ export const HomepageIndex = () => {
       }
     }).catch((err) => {
       console.error('加载智能体列表失败', err)
+      setAgentLoadError(true)
       message.error('加载智能体列表失败')
     })
   }, [searchParams])
 
   useEffect(() => {
+    loadAgents()
+  }, [loadAgents])
+
+  useEffect(() => {
     if (!selectedAgent) return
 
-    // C2: 尝试从缓存恢复会话状态
+
     const cached = agentSessionsRef.current.get(selectedAgent.id)
     if (cached) {
       setConversationId(cached.conversationId)
@@ -187,7 +194,6 @@ export const HomepageIndex = () => {
       return
     }
 
-    // 无缓存 -> 加载最新或根据 URL 参数加载指定对话
     const conversationIdFromUrl = searchParams.get('conversationId')
     if (conversationIdFromUrl) {
       setConversationId(null)
@@ -203,7 +209,7 @@ export const HomepageIndex = () => {
       setMessages([])
       loadConversations({ autoOpenLatest: true })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [loadConversations, loadConversationMessages, selectedAgent, searchParams])
 
   const handleNewChat = useCallback(() => {
@@ -402,6 +408,17 @@ export const HomepageIndex = () => {
                 setConversationId(event.conversationId)
               }
               break
+
+            case 'knowledge.status': {
+              const ksEvent = event as KnowledgeStatusEvent
+              setKnowledgeEvent({
+                type: ksEvent.type,
+                runId: ksEvent.runId,
+                knowledge: ksEvent.knowledge,
+              })
+              setKnowledgeDismissed(false)
+              break
+            }
 
             case 'message.delta': {
               lastContentRef.current += event.content
@@ -832,7 +849,20 @@ export const HomepageIndex = () => {
               className={styles.agentSelect}
               value={selectedAgent?.id}
               placeholder="选择智能体"
-              notFoundContent={<Empty description="暂无智能体" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+              notFoundContent={
+                agentLoadError ? (
+                  <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                    <span style={{ color: '#ff4d4f', fontSize: 13 }}>加载失败</span>
+                    <div style={{ marginTop: 6 }}>
+                      <Button size="small" type="link" onClick={() => loadAgents()}>
+                        重新加载
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Empty description="暂无智能体" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                )
+              }
               onChange={(value) => handleAgentSwitch(String(value))}
               options={allAgents.map((agt) => ({
                 value: agt.id,

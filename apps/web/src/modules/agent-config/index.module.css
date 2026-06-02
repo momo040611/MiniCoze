@@ -49,31 +49,6 @@
   gap: 12px;
 }
 
-/* 新建按钮 */
-.newAgentBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  background: #22c55e;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.newAgentBtn:hover {
-  background: #16a34a;
-}
-
-.newAgentBtn:active {
-  transform: scale(0.98);
-}
-
 /* 可滚动列表 */
 .agentListScroll {
   flex: 1;

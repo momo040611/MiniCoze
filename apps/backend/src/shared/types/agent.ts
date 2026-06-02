@@ -80,6 +80,10 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export type KnowledgeBoundStatus =
+  | { bound: false }
+  | { bound: true; knowledgeName: string; retrievedCount?: number };
+
 export type RuntimeEvent =
   | { type: 'run.created'; runId: string; conversationId: string }
   | { type: 'run.in_progress'; runId: string }
@@ -103,6 +107,12 @@ export type RuntimeEvent =
       toolCallId: string;
       name: string;
       result: unknown;
+      error?: string;
+    }
+  | {
+      type: 'knowledge.status';
+      runId: string;
+      knowledge: KnowledgeBoundStatus;
     }
   | { type: 'run.completed'; runId: string; usage?: TokenUsage }
   | { type: 'run.failed'; runId: string; error: string }
@@ -119,4 +129,5 @@ export interface RunAgentCommand {
   temperature?: number;
   maxTokens?: number;
   tools?: ToolDefinition[];
+  knowledgeBaseId?: string;
 }
