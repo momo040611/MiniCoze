@@ -12,6 +12,8 @@ model User {
   username     String
   email        String   @unique
   passwordHash String
+  phone        String?
+  bio          String?  @db.Text
   avatarUrl    String?
   status       String   @default("active")
   createdAt    DateTime @default(now())

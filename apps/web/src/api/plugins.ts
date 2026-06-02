@@ -232,13 +232,15 @@ export async function getPluginDetail(pluginId: string): Promise<IPluginDetail> 
   }
 }
 
-export async function togglePlugin(pluginId: string, enabled: boolean): Promise<void> {
+export async function togglePlugin(pluginId: string, enabled: boolean): Promise<IPluginDetail> {
   try {
-    await http.patch(`plugins/${pluginId}/toggle`, { enabled });
+    const payload = await http.patch<IPluginDetail | ApiEnvelope<IPluginDetail>>(`plugins/${pluginId}/toggle`, { enabled });
+    return unwrap(payload);
   } catch {
     const state = readRecord<boolean>(PLUGIN_STATE_KEY);
     state[pluginId] = enabled;
     writeRecord(PLUGIN_STATE_KEY, state);
+    return getFixtureDetail(pluginId);
   }
 }
 

@@ -7,6 +7,8 @@ import { BusinessException } from '../../common/exceptions/business.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { JwtPayload } from '../../shared/types/current-user.type';
 import { UserService } from '../user/user.service';
+import { UpdateCurrentUserDto } from '../user/dto/update-current-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponse } from './types/auth-response.type';
@@ -107,6 +109,47 @@ export class AuthService {
 
   getProfile(userId: string) {
     return this.userService.findCurrentUser(userId);
+  }
+
+  updateProfile(userId: string, updateCurrentUserDto: UpdateCurrentUserDto) {
+    return this.userService.updateCurrentUser(userId, updateCurrentUserDto);
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new BusinessException(
+        '用户不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      changePasswordDto.oldPassword,
+      user.passwordHash,
+    );
+
+    if (!isPasswordValid) {
+      throw new BusinessException(
+        '当前密码不正确',
+        ErrorCode.InvalidCredentials,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(
+      changePasswordDto.newPassword,
+      this.saltRounds,
+    );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    return { success: true };
   }
 
   private buildAuthResponse(user: Prisma.UserGetPayload<object>): AuthResponse {
