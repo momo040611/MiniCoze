@@ -1,4 +1,4 @@
-import { App, Breadcrumb, Button, Empty, Input, Pagination, Popconfirm, Select, Skeleton, Tag } from 'antd';
+import { App, Breadcrumb, Button, Empty, Form, Input, Modal, Pagination, Popconfirm, Select, Skeleton, Switch, Tag } from 'antd';
 import {
   ApiOutlined,
   CloudServerOutlined,
@@ -12,7 +12,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../../workspace/use-workspace';
 import { usePlugins } from '../hooks/usePlugins';
-import type { IPlugin, PluginStatus, PluginType } from '../../../api/plugins';
+import { createPlugin, type IPlugin, type PluginStatus, type PluginType } from '../../../api/plugins';
 import styles from './PluginList.module.css';
 
 const typeText: Record<PluginType, string> = {
@@ -60,10 +60,13 @@ export function PluginList() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { currentWorkspace, loading: workspaceLoading } = useWorkspace();
+  const [form] = Form.useForm();
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<PluginStatus | undefined>();
   const [type, setType] = useState<PluginType | undefined>();
   const [page, setPage] = useState(1);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const pageSize = 12;
 
   const query = useMemo(
@@ -105,6 +108,43 @@ export function PluginList() {
     next();
   };
 
+  const handleCreate = async () => {
+    if (!currentWorkspace?.id) return;
+
+    try {
+      const values = await form.validateFields();
+      setCreating(true);
+      const maskStrategy = values.maskStrategy?.trim()
+        ? (JSON.parse(values.maskStrategy) as Record<string, unknown>)
+        : undefined;
+      const created = await createPlugin({
+        workspaceId: currentWorkspace.id,
+        code: values.code,
+        name: values.name,
+        description: values.description,
+        iconUrl: values.iconUrl,
+        type: 'HTTP',
+        version: values.version || 'v1.0.0',
+        invocationEnabled: values.invocationEnabled ?? true,
+        maskStrategy,
+      });
+      message.success('插件已创建');
+      setCreateOpen(false);
+      form.resetFields();
+      await refresh();
+      navigate(`/plugins/${created.id}`);
+    } catch (err) {
+      if (err && typeof err === 'object' && 'errorFields' in err) return;
+      if (err instanceof SyntaxError) {
+        message.error('脱敏策略 JSON 格式不正确');
+        return;
+      }
+      message.error(err instanceof Error ? err.message : '插件创建失败');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (workspaceLoading || (loading && data.length === 0)) {
     return (
       <section className={styles.page}>
@@ -122,9 +162,14 @@ export function PluginList() {
             <h1>插件市场</h1>
             <p>展示当前工作区由后端插件模块生成的全部插件，可查看工具能力并管理启停状态。</p>
           </div>
-          <Button icon={<ReloadOutlined />} onClick={refresh} loading={loading}>
-            刷新
-          </Button>
+          <div className={styles.titleActions}>
+            <Button type="primary" onClick={() => setCreateOpen(true)}>
+              创建 HTTP 插件
+            </Button>
+            <Button icon={<ReloadOutlined />} onClick={refresh} loading={loading}>
+              刷新
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -142,11 +187,11 @@ export function PluginList() {
           <strong>{summary.active}</strong>
         </div>
         <div>
-          <span>内置插件</span>
+          <span>本页内置</span>
           <strong>{summary.builtin}</strong>
         </div>
         <div>
-          <span>工具能力</span>
+          <span>本页工具</span>
           <strong>{summary.tools}</strong>
         </div>
       </div>
@@ -257,6 +302,41 @@ export function PluginList() {
           />
         </>
       )}
+
+      <Modal
+        title="创建 HTTP 插件"
+        open={createOpen}
+        okText="创建"
+        cancelText="取消"
+        confirmLoading={creating}
+        onOk={() => void handleCreate()}
+        onCancel={() => setCreateOpen(false)}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical" initialValues={{ version: 'v1.0.0', invocationEnabled: true }}>
+          <Form.Item name="name" label="插件名称" rules={[{ required: true, message: '请输入插件名称' }]}>
+            <Input placeholder="例如：天气查询" />
+          </Form.Item>
+          <Form.Item name="code" label="插件编码" rules={[{ required: true, message: '请输入插件编码' }]}>
+            <Input placeholder="weather" />
+          </Form.Item>
+          <Form.Item name="description" label="插件描述">
+            <Input.TextArea rows={3} maxLength={1000} showCount />
+          </Form.Item>
+          <Form.Item name="iconUrl" label="图标 URL">
+            <Input placeholder="https://example.com/icon.png" />
+          </Form.Item>
+          <Form.Item name="version" label="版本号">
+            <Input placeholder="v1.0.0" />
+          </Form.Item>
+          <Form.Item name="invocationEnabled" label="允许调用" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Form.Item name="maskStrategy" label="脱敏策略 JSON">
+            <Input.TextArea rows={4} placeholder='例如：{"enabled":true,"input":{"maskPaths":["apiKey"]}}' />
+          </Form.Item>
+        </Form>
+      </Modal>
     </section>
   );
 }

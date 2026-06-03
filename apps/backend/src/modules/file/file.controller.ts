@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Res,
   StreamableFile,
   UploadedFile,
@@ -20,11 +21,13 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { FilePurpose } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { CurrentUserInfo } from '../../common/decorators/current-user.decorator';
 import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
+import { FileQueryDto } from './dto/file-query.dto';
 import { UploadFileDto } from './dto/upload-file.dto';
 import { FileService } from './file.service';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
@@ -51,7 +54,7 @@ export class FileController {
         },
         purpose: {
           type: 'string',
-          enum: ['AVATAR', 'KNOWLEDGE_DOCUMENT', 'CHAT_ATTACHMENT'],
+          enum: Object.values(FilePurpose),
         },
         workspaceId: {
           type: 'string',
@@ -73,6 +76,28 @@ export class FileController {
     @Body() uploadFileDto: UploadFileDto,
   ) {
     return this.fileService.upload(currentUser.id, file, uploadFileDto);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取文件列表' })
+  findAll(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Query() query: FileQueryDto,
+  ) {
+    return this.fileService.findAllForUser(currentUser.id, query);
+  }
+
+  @Get(':fileId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '获取文件详情' })
+  findOne(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('fileId') fileId: string,
+  ) {
+    return this.fileService.findOneForUser(fileId, currentUser);
   }
 
   @Get(':fileId/content')

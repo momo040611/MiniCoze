@@ -12,6 +12,14 @@ export interface FileResponse {
   extension: string | null;
   size: number;
   url: string | null;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface FileListResponse {
+  items: FileResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

@@ -71,7 +71,41 @@
 .headerActions {
   display: flex;
   flex-shrink: 0;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.infoPanel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.infoPanel h2 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 16px;
+}
+
+.infoPanel p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.tagLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .toolsBlock {
@@ -121,6 +155,29 @@
   font-size: 12px;
 }
 
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.configGrid strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+.wideSchema {
+  max-height: 260px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+}
+
 .center {
   min-height: 260px;
   display: grid;
@@ -135,5 +192,10 @@
   .headerActions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .infoGrid,
+  .configGrid {
+    grid-template-columns: 1fr;
   }
 }

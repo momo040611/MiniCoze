@@ -29,6 +29,12 @@
   line-height: 1.6;
 }
 
+.titleActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
 .summaryBar {
   display: grid;
   grid-template-columns: minmax(180px, 1.6fr) repeat(4, minmax(100px, 1fr));

@@ -47,6 +47,7 @@ export interface IPlugin {
   invocationEnabled: boolean;
   isBuiltin: boolean;
   version: string;
+  maskStrategy: Record<string, unknown> | null;
   toolCount: number;
   activeToolCount: number;
   credentialSummary?: {
@@ -58,6 +59,51 @@ export interface IPlugin {
 }
 
 export type IPluginDetail = IPlugin & { tools: IPluginTool[] };
+
+export interface IPluginFormPayload {
+  workspaceId?: string;
+  code?: string;
+  name?: string;
+  description?: string;
+  iconUrl?: string;
+  type?: PluginType;
+  version?: string;
+  isBuiltin?: boolean;
+  invocationEnabled?: boolean;
+  maskStrategy?: Record<string, unknown>;
+}
+
+export interface IPluginToolFormPayload {
+  code?: string;
+  name?: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown> | null;
+  meta?: Record<string, unknown> | null;
+}
+
+export interface IPluginInvocation {
+  id: string;
+  pluginId: string;
+  agentId: string | null;
+  conversationId: string | null;
+  runId: string;
+  toolCode: string;
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'TIMEOUT' | 'CANCELED';
+  argsSummary: unknown;
+  outputSummary: unknown;
+  errorSummary: string | null;
+  durationMs: number | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface IPaginatedInvocations {
+  list: IPluginInvocation[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 export interface IPaginatedPlugins {
   list: IPlugin[];
@@ -144,6 +190,8 @@ interface BackendPluginDetail {
   updatedAt: string;
 }
 
+type BackendPluginInvocation = IPluginInvocation;
+
 interface BackendAgentPluginBinding {
   agentId: string;
   pluginId: string;
@@ -203,6 +251,7 @@ function mapPlugin(plugin: BackendPluginDetail): IPluginDetail {
     invocationEnabled: plugin.invocationEnabled,
     isBuiltin: plugin.isBuiltin,
     version: plugin.version,
+    maskStrategy: plugin.maskStrategy,
     toolCount: tools.length,
     activeToolCount: tools.filter((tool) => tool.enabled).length,
     credentialSummary: plugin.credentialSummary,
@@ -244,6 +293,50 @@ export async function togglePlugin(pluginId: string, enabled: boolean): Promise<
     `plugins/${pluginId}/${enabled ? 'activate' : 'disable'}`,
   );
   return mapPlugin(payload.data);
+}
+
+export async function createPlugin(payload: Required<Pick<IPluginFormPayload, 'workspaceId' | 'code' | 'name'>> & IPluginFormPayload): Promise<IPluginDetail> {
+  const res = await http.post<ApiEnvelope<BackendPluginDetail>, IPluginFormPayload>('plugins', payload);
+  return mapPlugin(res.data);
+}
+
+export async function updatePlugin(pluginId: string, payload: IPluginFormPayload): Promise<IPluginDetail> {
+  const res = await http.patch<ApiEnvelope<BackendPluginDetail>, IPluginFormPayload>(`plugins/${pluginId}`, payload);
+  return mapPlugin(res.data);
+}
+
+export async function createPluginTool(
+  pluginId: string,
+  payload: Required<Pick<IPluginToolFormPayload, 'code' | 'name' | 'description' | 'inputSchema'>> & IPluginToolFormPayload,
+): Promise<IPluginTool> {
+  const res = await http.post<ApiEnvelope<BackendPluginTool>, IPluginToolFormPayload>(`plugins/${pluginId}/tools`, payload);
+  return mapTool(pluginId, res.data);
+}
+
+export async function updatePluginTool(
+  pluginId: string,
+  toolId: string,
+  payload: IPluginToolFormPayload,
+): Promise<IPluginTool> {
+  const res = await http.patch<ApiEnvelope<BackendPluginTool>, IPluginToolFormPayload>(
+    `plugins/${pluginId}/tools/${toolId}`,
+    payload,
+  );
+  return mapTool(pluginId, res.data);
+}
+
+export async function getPluginInvocations(
+  pluginId: string,
+  params: { workspaceId: string; page?: number; pageSize?: number },
+): Promise<IPaginatedInvocations> {
+  const res = await http.get<ApiEnvelope<BackendPaginated<BackendPluginInvocation>>>(`plugins/${pluginId}/invocations`, {
+    query: {
+      workspaceId: params.workspaceId,
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 10,
+    },
+  });
+  return res.data;
 }
 
 export async function testTool(
