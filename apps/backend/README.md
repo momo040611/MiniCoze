@@ -111,7 +111,7 @@ apps/backend/prisma/schema.prisma
 - `WorkspaceMember`：用户与工作空间的成员关系，角色包含 `OWNER`、`ADMIN`、`MEMBER`。
 - `Agent`：单 Agent 配置，包含提示词、模型、温度、开场白、上下文条数和状态。
 - `Conversation` / `Message`：会话和消息，保存用户输入、助手回复、模型信息、token 使用和错误信息。
-- `FileAsset`：上传文件元数据，包含用途、可见性、状态、存储 key、URL、MIME 类型和大小。
+- `FileAsset`：上传文件元数据，包含用途、可见性、状态、软删除时间、存储 key、URL、MIME 类型和大小。
 - `Workflow` / `WorkflowVersion`：工作流草稿、当前版本和发布版本。
 - `WorkflowRun` / `WorkflowRunNode`：工作流运行记录和节点执行记录。
 
@@ -301,6 +301,8 @@ GET  /api/workflows/runs/:runId
 
 ```text
 POST   /api/files/upload
+GET    /api/files
+GET    /api/files/:fileId
 GET    /api/files/:fileId/content
 DELETE /api/files/:fileId
 ```
@@ -308,7 +310,7 @@ DELETE /api/files/:fileId
 文件上传使用 `multipart/form-data`，字段：
 
 - `file`：上传文件。
-- `purpose`：文件用途，取值来自 `FilePurpose`，包括 `AVATAR`、`KNOWLEDGE_DOCUMENT`、`CHAT_ATTACHMENT`。
+- `purpose`：文件用途，取值来自 `FilePurpose`，包括 `USER_AVATAR`、`WORKSPACE_AVATAR`、`AGENT_AVATAR`、`PLUGIN_ICON`、`KNOWLEDGE_DOCUMENT`、`CHAT_ATTACHMENT`、`WORKFLOW_ATTACHMENT`、`TEMP_UPLOAD`。
 - `workspaceId`：可选，绑定工作空间文件时使用。
 
 文件读取和删除会校验当前用户权限。公开文件可直接访问；私有文件需要所有者或工作空间成员权限。

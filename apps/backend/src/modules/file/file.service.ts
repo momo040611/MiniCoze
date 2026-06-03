@@ -5,6 +5,7 @@ import {
   FilePurpose,
   FileStatus,
   FileVisibility,
+  Prisma,
 } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
 import type { ReadStream } from 'fs';
@@ -15,14 +16,35 @@ import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
 import { CurrentUser } from '../../shared/types/current-user.type';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
+import { FileQueryDto } from './dto/file-query.dto';
 import { UploadFileDto } from './dto/upload-file.dto';
-import { FileResponse } from './types/file-response.type';
+import { FileListResponse, FileResponse } from './types/file-response.type';
 import { UploadedFile } from './types/uploaded-file.type';
 import { FILE_STORAGE } from './storage/storage.interface';
 import type { StorageService } from './storage/storage.interface';
 
 @Injectable()
 export class FileService {
+  private readonly publicPurposes = new Set<FilePurpose>([
+    FilePurpose.USER_AVATAR,
+    FilePurpose.WORKSPACE_AVATAR,
+    FilePurpose.AGENT_AVATAR,
+    FilePurpose.PLUGIN_ICON,
+  ]);
+
+  private readonly imagePurposes = new Set<FilePurpose>([
+    FilePurpose.USER_AVATAR,
+    FilePurpose.WORKSPACE_AVATAR,
+    FilePurpose.AGENT_AVATAR,
+    FilePurpose.PLUGIN_ICON,
+  ]);
+
+  private readonly attachmentPurposes = new Set<FilePurpose>([
+    FilePurpose.CHAT_ATTACHMENT,
+    FilePurpose.WORKFLOW_ATTACHMENT,
+    FilePurpose.TEMP_UPLOAD,
+  ]);
+
   private readonly imageMimeTypes = new Set([
     'image/png',
     'image/jpeg',
@@ -126,6 +148,70 @@ export class FileService {
     };
   }
 
+  async findAllForUser(
+    userId: string,
+    query: FileQueryDto,
+  ): Promise<FileListResponse> {
+    const { page, pageSize, workspaceId, purpose, keyword } = query;
+    const status = query.status ?? FileStatus.READY;
+
+    if (workspaceId) {
+      await this.workspaceAccessService.ensureMember(userId, workspaceId);
+    }
+
+    const where: Prisma.FileAssetWhereInput = {
+      status,
+      ...(workspaceId ? { workspaceId } : { ownerId: userId }),
+      ...(purpose ? { purpose } : {}),
+      ...(keyword
+        ? {
+            originalName: {
+              contains: keyword,
+              mode: Prisma.QueryMode.insensitive,
+            },
+          }
+        : {}),
+    };
+
+    const [files, total] = await this.prisma.$transaction([
+      this.prisma.fileAsset.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.fileAsset.count({ where }),
+    ]);
+
+    return {
+      items: files.map((fileAsset) => this.toFileResponse(fileAsset)),
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  async findOneForUser(
+    fileId: string,
+    currentUser: CurrentUser,
+  ): Promise<FileResponse> {
+    const fileAsset = await this.findReadyFileOrThrow(fileId);
+    await this.ensureReadPermission(fileAsset, currentUser);
+
+    return this.toFileResponse(fileAsset);
+  }
+
+  async getReadyFileForInternal(fileId: string): Promise<FileAsset> {
+    return this.findReadyFileOrThrow(fileId);
+  }
+
+  async getFileStreamForInternal(fileId: string): Promise<ReadStream> {
+    const fileAsset = await this.findReadyFileOrThrow(fileId);
+    return this.storageService.getStream(fileAsset.storageKey);
+  }
+
   async remove(userId: string, fileId: string): Promise<FileResponse> {
     const fileAsset = await this.findReadyFileOrThrow(fileId);
     await this.ensureDeletePermission(userId, fileAsset);
@@ -136,10 +222,9 @@ export class FileService {
       },
       data: {
         status: FileStatus.DELETED,
+        deletedAt: new Date(),
       },
     });
-
-    await this.storageService.remove(fileAsset.storageKey);
 
     return this.toFileResponse(deletedFile);
   }
@@ -172,7 +257,7 @@ export class FileService {
     }
 
     if (
-      uploadFileDto.purpose !== FilePurpose.AVATAR &&
+      uploadFileDto.purpose !== FilePurpose.USER_AVATAR &&
       !uploadFileDto.workspaceId
     ) {
       throw new BusinessException(
@@ -270,11 +355,11 @@ export class FileService {
   }
 
   private getAllowedMimeTypes(purpose: FilePurpose) {
-    if (purpose === FilePurpose.AVATAR) {
+    if (this.imagePurposes.has(purpose)) {
       return this.imageMimeTypes;
     }
 
-    if (purpose === FilePurpose.CHAT_ATTACHMENT) {
+    if (this.attachmentPurposes.has(purpose)) {
       return new Set([...this.imageMimeTypes, ...this.documentMimeTypes]);
     }
 
@@ -282,7 +367,7 @@ export class FileService {
   }
 
   private getMaxSize(purpose: FilePurpose) {
-    if (purpose === FilePurpose.AVATAR) {
+    if (this.imagePurposes.has(purpose)) {
       return this.configService.get<number>('file.maxImageSize') ?? 5242880;
     }
 
@@ -290,7 +375,7 @@ export class FileService {
   }
 
   private getDefaultVisibility(purpose: FilePurpose) {
-    return purpose === FilePurpose.AVATAR
+    return this.publicPurposes.has(purpose)
       ? FileVisibility.PUBLIC
       : FileVisibility.PRIVATE;
   }
@@ -330,6 +415,9 @@ export class FileService {
       extension: fileAsset.extension,
       size: fileAsset.size,
       url: fileAsset.url,
+      deletedAt: fileAsset.deletedAt
+        ? formatShanghaiDateTime(fileAsset.deletedAt)
+        : null,
       createdAt: formatShanghaiDateTime(fileAsset.createdAt),
       updatedAt: formatShanghaiDateTime(fileAsset.updatedAt),
     };

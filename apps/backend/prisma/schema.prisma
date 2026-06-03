@@ -20,13 +20,17 @@ model User {
   ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
   workspaceMembers WorkspaceMember[]
 
-  createdAgents  Agent[]
-  createdPlugins PluginDefinition[]
-  conversations  Conversation[]
-  uploadedFiles FileAsset[]       @relation("FileAssetOwner")
-  createdWorkflows Workflow[]        @relation("WorkflowCreator")
-  createdWorkflowVersions WorkflowVersion[] @relation("WorkflowVersionCreator")
-  workflowRuns WorkflowRun[]         @relation("WorkflowRunStarter")
+  createdAgents             Agent[]
+  createdAgentVersions      AgentVersion[]      @relation("AgentVersionCreator")
+  createdPlugins            PluginDefinition[]
+  conversations             Conversation[]
+  uploadedFiles             FileAsset[]         @relation("FileAssetOwner")
+  createdKnowledgeBases     KnowledgeBase[]     @relation("KnowledgeBaseCreator")
+  createdKnowledgeDocuments KnowledgeDocument[] @relation("KnowledgeDocumentCreator")
+  createdWorkflows          Workflow[]          @relation("WorkflowCreator")
+  createdWorkflowVersions   WorkflowVersion[]   @relation("WorkflowVersionCreator")
+  workflowRuns              WorkflowRun[]       @relation("WorkflowRunStarter")
+  publishRecords            PublishRecord[]     @relation("PublishRecordOperator")
 }
 
 enum WorkspaceRole {
@@ -43,22 +47,32 @@ model Workspace {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  owner                  User               @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members                WorkspaceMember[]
-  agents                 Agent[]
-  workflows    Workflow[]
-  workflowRuns WorkflowRun[]
-  files        FileAsset[]       @relation("WorkspaceFiles")
-  plugins           PluginDefinition[]
-  pluginCredentials PluginCredential[]
+  owner              User                @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members            WorkspaceMember[]
+  agents             Agent[]
+  workflows          Workflow[]
+  workflowRuns       WorkflowRun[]
+  files              FileAsset[]         @relation("WorkspaceFiles")
+  plugins            PluginDefinition[]
+  pluginCredentials  PluginCredential[]
+  publishRecords     PublishRecord[]
+  publishChannels    PublishChannel[]
+  knowledgeBases     KnowledgeBase[]
+  knowledgeDocuments KnowledgeDocument[]
+  knowledgeChunks    KnowledgeChunk[]
 
   @@index([ownerId])
 }
 
 enum FilePurpose {
-  AVATAR
+  USER_AVATAR
+  WORKSPACE_AVATAR
+  AGENT_AVATAR
+  PLUGIN_ICON
   KNOWLEDGE_DOCUMENT
   CHAT_ATTACHMENT
+  WORKFLOW_ATTACHMENT
+  TEMP_UPLOAD
 }
 
 enum FileVisibility {
@@ -85,16 +99,23 @@ model FileAsset {
   extension    String?
   size         Int
   checksum     String?
+  deletedAt    DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  owner     User       @relation("FileAssetOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  workspace Workspace? @relation("WorkspaceFiles", fields: [workspaceId], references: [id], onDelete: SetNull)
+  owner              User                @relation("FileAssetOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace          Workspace?          @relation("WorkspaceFiles", fields: [workspaceId], references: [id], onDelete: SetNull)
+  knowledgeDocuments KnowledgeDocument[]
 
   @@index([ownerId])
   @@index([workspaceId])
   @@index([purpose])
   @@index([status])
+  @@index([workspaceId, purpose])
+  @@index([workspaceId, status])
+  @@index([workspaceId, checksum])
+  @@index([ownerId, createdAt])
+  @@index([createdAt])
 }
 
 model WorkspaceMember {
@@ -117,6 +138,28 @@ enum AgentStatus {
   DRAFT
   ACTIVE
   ARCHIVED
+}
+
+enum PublishTargetType {
+  AGENT
+}
+
+enum PublishAction {
+  PUBLISH
+  ROLLBACK
+  OFFLINE
+  ENABLE_CHANNEL
+  DISABLE_CHANNEL
+}
+
+enum PublishActionStatus {
+  SUCCESS
+  FAILED
+}
+
+enum PublishChannelType {
+  WEB
+  API
 }
 
 enum MessageRole {
@@ -182,32 +225,74 @@ enum PluginCredentialStatus {
   DISABLED
 }
 
+enum KnowledgeBaseStatus {
+  ACTIVE
+  DISABLED
+  ARCHIVED
+}
+
+enum KnowledgeDocumentStatus {
+  UPLOADED
+  PROCESSING
+  PARSED
+  CHUNKED
+  EMBEDDING
+  READY
+  FAILED
+}
+
 model Agent {
-  id             String      @id @default(cuid())
-  workspaceId    String
-  creatorId      String
-  name           String
-  description    String?
-  avatarUrl      String?
-  systemPrompt   String      @db.Text
-  model          String      @default("deepseek-v4-flash")
-  temperature    Float       @default(0.7)
-  openingMessage String?     @db.Text
-  contextLimit   Int         @default(20)
-  status         AgentStatus @default(DRAFT)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  workspace         Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creator           User                 @relation(fields: [creatorId], references: [id], onDelete: Restrict)
-  conversations     Conversation[]
-  workflows         AgentWorkflow[]
-  workflowRuns      WorkflowRun[]
-  pluginBindings    AgentPluginBinding[]
-  pluginInvocations PluginInvocation[]
+  id                    String                      @id @default(cuid())
+  workspaceId           String
+  creatorId             String
+  name                  String
+  description           String?
+  avatarUrl             String?
+  systemPrompt          String                      @db.Text
+  model                 String                      @default("deepseek-v4-flash")
+  temperature           Float                       @default(0.7)
+  openingMessage        String?                     @db.Text
+  contextLimit          Int                         @default(20)
+  status                AgentStatus                 @default(DRAFT)
+  currentVersionId      String?                     @unique
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  workspace             Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator               User                        @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  versions              AgentVersion[]              @relation("AgentVersions")
+  currentVersion        AgentVersion?               @relation("AgentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  conversations         Conversation[]
+  workflows             AgentWorkflow[]
+  workflowRuns          WorkflowRun[]
+  pluginBindings        AgentPluginBinding[]
+  pluginInvocations     PluginInvocation[]
+  knowledgeBaseBindings KnowledgeBaseAgentBinding[]
 
   @@index([workspaceId])
   @@index([creatorId])
   @@index([workspaceId, status])
+}
+
+model AgentVersion {
+  id          String    @id @default(cuid())
+  agentId     String
+  createdBy   String
+  version     Int
+  snapshot    Json
+  changelog   String?   @db.Text
+  isPublished Boolean   @default(true)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  agent            Agent   @relation("AgentVersions", fields: [agentId], references: [id], onDelete: Cascade)
+  creator          User    @relation("AgentVersionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  currentForAgents Agent[] @relation("AgentCurrentVersion")
+
+  @@unique([agentId, version])
+  @@index([agentId])
+  @@index([createdBy])
+  @@index([agentId, publishedAt])
 }
 
 model Conversation {
@@ -219,9 +304,9 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agent    Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages Message[]
+  agent        Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages     Message[]
   workflowRuns WorkflowRun[]
 
   @@index([agentId])
@@ -255,7 +340,7 @@ model Workflow {
   description      String?
   status           WorkflowStatus @default(DRAFT)
   draftDefinition  Json?
-  currentVersionId String?       @unique
+  currentVersionId String?        @unique
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -272,23 +357,23 @@ model Workflow {
 }
 
 model WorkflowVersion {
-  id          String   @id @default(cuid())
-  workflowId  String
-  createdBy   String
-  version     Int
-  definition  Json
-  inputSchema Json?
+  id           String    @id @default(cuid())
+  workflowId   String
+  createdBy    String
+  version      Int
+  definition   Json
+  inputSchema  Json?
   outputSchema Json?
-  isPublished Boolean  @default(false)
-  publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isPublished  Boolean   @default(false)
+  publishedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  workflow            Workflow      @relation("WorkflowVersions", fields: [workflowId], references: [id], onDelete: Cascade)
-  creator             User          @relation("WorkflowVersionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  workflow            Workflow        @relation("WorkflowVersions", fields: [workflowId], references: [id], onDelete: Cascade)
+  creator             User            @relation("WorkflowVersionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   runs                WorkflowRun[]
   agentBindings       AgentWorkflow[]
-  currentForWorkflows Workflow[]    @relation("WorkflowCurrentVersion")
+  currentForWorkflows Workflow[]      @relation("WorkflowCurrentVersion")
 
   @@unique([workflowId, version])
   @@index([workflowId])
@@ -353,19 +438,19 @@ model WorkflowRun {
 }
 
 model WorkflowRunNode {
-  id          String                @id @default(cuid())
-  runId       String
-  nodeId      String
-  nodeType    String
-  status      WorkflowRunNodeStatus @default(PENDING)
-  input       Json?
-  output      Json?
-  errorMessage String?              @db.Text
-  durationMs  Int?
-  startedAt   DateTime?
-  endedAt     DateTime?
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  id           String                @id @default(cuid())
+  runId        String
+  nodeId       String
+  nodeType     String
+  status       WorkflowRunNodeStatus @default(PENDING)
+  input        Json?
+  output       Json?
+  errorMessage String?               @db.Text
+  durationMs   Int?
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
 
   run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
@@ -480,4 +565,137 @@ model PluginInvocation {
   @@index([pluginId, startedAt])
   @@index([agentId, startedAt])
   @@index([runId])
+}
+
+model PublishRecord {
+  id           String              @id @default(cuid())
+  workspaceId  String
+  targetType   PublishTargetType
+  targetId     String
+  versionId    String?
+  action       PublishAction
+  status       PublishActionStatus
+  changelog    String?             @db.Text
+  errorMessage String?             @db.Text
+  operatorId   String
+  createdAt    DateTime            @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  operator  User      @relation("PublishRecordOperator", fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId])
+  @@index([targetType, targetId])
+  @@index([versionId])
+  @@index([operatorId])
+  @@index([createdAt])
+}
+
+model PublishChannel {
+  id          String             @id @default(cuid())
+  workspaceId String
+  targetType  PublishTargetType
+  targetId    String
+  channel     PublishChannelType
+  enabled     Boolean            @default(false)
+  config      Json?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([targetType, targetId, channel])
+  @@index([workspaceId])
+  @@index([targetType, targetId])
+  @@index([channel, enabled])
+}
+
+model KnowledgeBase {
+  id          String              @id @default(cuid())
+  workspaceId String
+  creatorId   String
+  name        String
+  description String?             @db.Text
+  status      KnowledgeBaseStatus @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  workspace     Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator       User                        @relation("KnowledgeBaseCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  documents     KnowledgeDocument[]
+  chunks        KnowledgeChunk[]
+  agentBindings KnowledgeBaseAgentBinding[]
+
+  @@index([workspaceId])
+  @@index([creatorId])
+  @@index([workspaceId, status])
+}
+
+model KnowledgeDocument {
+  id              String                  @id @default(cuid())
+  knowledgeBaseId String
+  workspaceId     String
+  fileId          String
+  creatorId       String
+  name            String
+  status          KnowledgeDocumentStatus @default(UPLOADED)
+  errorMessage    String?                 @db.Text
+  chunkCount      Int                     @default(0)
+  tokenCount      Int                     @default(0)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  knowledgeBase KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  file          FileAsset        @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  creator       User             @relation("KnowledgeDocumentCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  chunks        KnowledgeChunk[]
+
+  @@unique([knowledgeBaseId, fileId])
+  @@index([knowledgeBaseId])
+  @@index([workspaceId])
+  @@index([fileId])
+  @@index([creatorId])
+  @@index([status])
+}
+
+model KnowledgeChunk {
+  id              String   @id @default(cuid())
+  documentId      String
+  knowledgeBaseId String
+  workspaceId     String
+  content         String   @db.Text
+  index           Int
+  tokenCount      Int      @default(0)
+  metadata        Json?
+  vectorId        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  document      KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase     @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, index])
+  @@index([documentId])
+  @@index([knowledgeBaseId])
+  @@index([workspaceId])
+  @@index([vectorId])
+}
+
+model KnowledgeBaseAgentBinding {
+  id              String   @id @default(cuid())
+  agentId         String
+  knowledgeBaseId String
+  enabled         Boolean  @default(true)
+  config          Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  agent         Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, knowledgeBaseId])
+  @@index([agentId])
+  @@index([knowledgeBaseId])
+  @@index([agentId, enabled])
 }
