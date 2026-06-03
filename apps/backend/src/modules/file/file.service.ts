@@ -23,6 +23,12 @@ import type { StorageService } from './storage/storage.interface';
 
 @Injectable()
 export class FileService {
+  private readonly avatarPurposes: FilePurpose[] = [
+    FilePurpose.USER_AVATAR,
+    FilePurpose.WORKSPACE_AVATAR,
+    FilePurpose.AGENT_AVATAR,
+  ];
+
   private readonly imageMimeTypes = new Set([
     'image/png',
     'image/jpeg',
@@ -172,7 +178,7 @@ export class FileService {
     }
 
     if (
-      uploadFileDto.purpose !== FilePurpose.AVATAR &&
+      !this.avatarPurposes.includes(uploadFileDto.purpose) &&
       !uploadFileDto.workspaceId
     ) {
       throw new BusinessException(
@@ -270,7 +276,7 @@ export class FileService {
   }
 
   private getAllowedMimeTypes(purpose: FilePurpose) {
-    if (purpose === FilePurpose.AVATAR) {
+    if (this.avatarPurposes.includes(purpose)) {
       return this.imageMimeTypes;
     }
 
@@ -282,7 +288,7 @@ export class FileService {
   }
 
   private getMaxSize(purpose: FilePurpose) {
-    if (purpose === FilePurpose.AVATAR) {
+    if (this.avatarPurposes.includes(purpose)) {
       return this.configService.get<number>('file.maxImageSize') ?? 5242880;
     }
 
@@ -290,7 +296,7 @@ export class FileService {
   }
 
   private getDefaultVisibility(purpose: FilePurpose) {
-    return purpose === FilePurpose.AVATAR
+    return this.avatarPurposes.includes(purpose)
       ? FileVisibility.PUBLIC
       : FileVisibility.PRIVATE;
   }

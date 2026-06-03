@@ -3,7 +3,7 @@ import { FilePurpose } from '@prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class UploadFileDto {
-  @ApiProperty({ enum: FilePurpose, example: FilePurpose.AVATAR })
+  @ApiProperty({ enum: FilePurpose, example: FilePurpose.AGENT_AVATAR })
   @IsEnum(FilePurpose)
   purpose!: FilePurpose;
 
