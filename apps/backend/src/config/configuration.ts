@@ -24,10 +24,18 @@ export default () => ({
       .filter(Boolean),
   },
   file: {
+    storageDriver: process.env.FILE_STORAGE_DRIVER ?? 'local',
     uploadDir: process.env.FILE_UPLOAD_DIR ?? 'storage/uploads',
     publicBaseUrl: process.env.FILE_PUBLIC_BASE_URL ?? '/api/files',
     maxImageSize: Number(process.env.FILE_MAX_IMAGE_SIZE ?? 5242880),
     maxDocumentSize: Number(process.env.FILE_MAX_DOCUMENT_SIZE ?? 52428800),
+    cos: {
+      secretId: process.env.COS_SECRET_ID,
+      secretKey: process.env.COS_SECRET_KEY,
+      bucket: process.env.COS_BUCKET,
+      region: process.env.COS_REGION,
+      publicBaseUrl: process.env.COS_PUBLIC_BASE_URL,
+    },
   },
   ai: {
     provider: process.env.AI_PROVIDER,

@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createReadStream, ReadStream } from 'fs';
+import { createReadStream } from 'fs';
 import { mkdir, rm, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import type { Readable } from 'stream';
 import {
   SaveFileInput,
   StorageFileStat,
@@ -25,7 +26,7 @@ export class LocalStorageService implements StorageService {
     await writeFile(fullPath, input.buffer);
   }
 
-  getStream(storageKey: string): Promise<ReadStream> {
+  getStream(storageKey: string): Promise<Readable> {
     return Promise.resolve(
       createReadStream(this.resolveStoragePath(storageKey)),
     );
