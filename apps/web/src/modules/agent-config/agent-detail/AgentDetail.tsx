@@ -7,7 +7,11 @@ import { nextContentKey } from './constants';
 import { AgentDetailNavbar } from './components/AgentDetailNavbar';
 import { AgentDetailContent } from './components/AgentDetailContent';
 import { EditAgentModal } from '../components/EditAgentModal';
-import { updateAgent } from '../../../api/agent-config/index';
+import {
+  checkAgent,
+  publishAgent,
+  offlineAgent,
+} from '../../../api/publish/index';
 
 interface Props {
   agent: AgentDetailData;
@@ -114,16 +118,38 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
     if (publishing) return;
     setPublishing(true);
     try {
-      const newStatus = isPublished ? 'DRAFT' : 'ACTIVE';
-      await updateAgent(agent.id, { status: newStatus });
-      setStatus(newStatus);
+      if (isPublished) {
+        // 下线：调用专用下线接口
+        await offlineAgent(agent.id);
+        setStatus('DRAFT');
+      } else {
+        // 发布：先保存草稿，再执行发布流程
+        if (dirty) {
+          await handleSave();
+        }
+        // 1. 检查是否满足发布条件
+        const checkResult = await checkAgent(agent.id);
+        if (!checkResult.passed) {
+          const failedMessages = checkResult.items
+            .filter((item) => !item.passed)
+            .map((item) => item.message ?? item.label)
+            .join('\n');
+          alert(`发布检查未通过：\n${failedMessages}`);
+          return;
+        }
+        // 2. 执行发布（创建版本快照）
+        await publishAgent(agent.id);
+        setStatus('ACTIVE');
+      }
       onAgentUpdated();
-    } catch {
-      alert(isPublished ? '取消发布失败，请稍后重试' : '发布失败，请稍后重试');
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : '操作失败';
+      alert(isPublished ? `下线失败：${message}` : `发布失败：${message}`);
     } finally {
       setPublishing(false);
     }
-  }, [agent.id, isPublished, publishing, onAgentUpdated]);
+  }, [agent.id, isPublished, publishing, dirty, handleSave, onAgentUpdated]);
 
   const handleModelChange = useCallback(
     (newModel: string) => {

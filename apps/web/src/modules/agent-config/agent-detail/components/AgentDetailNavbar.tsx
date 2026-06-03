@@ -94,7 +94,7 @@ export function AgentDetailNavbar({
             onClick={onPublish}
             disabled={publishing}
           >
-            {publishing ? '取消发布中...' : '取消发布'}
+            {publishing ? '下线中...' : '下线'}
           </button>
         )}
       </div>
