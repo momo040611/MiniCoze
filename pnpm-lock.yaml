@@ -144,7 +144,6 @@ importers:
         specifier: ^6.2.3
         version: 6.2.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@flowgram.ai/free-layout-editor':
-<<<<<<< HEAD
         specifier: ^1.0.11
         version: 1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(styled-components@6.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
       '@flowgram.ai/free-snap-plugin':
@@ -153,10 +152,6 @@ importers:
       '@flowgram.ai/minimap-plugin':
         specifier: ^1.0.11
         version: 1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-=======
-        specifier: latest
-        version: 1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(styled-components@6.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
->>>>>>> origin/test/v0.2
       antd:
         specifier: ^6.4.3
         version: 6.4.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -747,7 +742,6 @@ packages:
       react-dom: '>=16.8'
       styled-components: '>=5'
 
-<<<<<<< HEAD
   '@flowgram.ai/free-snap-plugin@1.0.11':
     resolution: {integrity: sha512-6YPtxwIYkUgj2BBBQgJvIPeSgDZQJpHSDl9r6FyJyalAdQKHeKniCBAR8b3tgaQf/oKR1v/8zt01h+IzMFhodQ==}
     peerDependencies:
@@ -755,8 +749,6 @@ packages:
       react-dom: '>=16.8'
       styled-components: '>=5'
 
-=======
->>>>>>> origin/test/v0.2
   '@flowgram.ai/free-stack-plugin@1.0.11':
     resolution: {integrity: sha512-gbjvJAxzPLCoKzgKuNJAA97WVcURTdmW582TpTeq0FVpIigLU5vQPHHIE7Z2cLgqyvW6slagLSNGObgYVXlP3Q==}
     peerDependencies:
@@ -785,15 +777,12 @@ packages:
       react: '>=16.8'
       react-dom: '>=16.8'
 
-<<<<<<< HEAD
   '@flowgram.ai/minimap-plugin@1.0.11':
     resolution: {integrity: sha512-qDUbnPbOCmvseYbWqVr8MbkQkTuWggVhGHZUmNeTgHETe3D1PpRapYhtuGLuoKaHrCS8RT86XwuwhkJ82C7sjA==}
     peerDependencies:
       react: '>=16.8'
       react-dom: '>=16.8'
 
-=======
->>>>>>> origin/test/v0.2
   '@flowgram.ai/node-core-plugin@1.0.11':
     resolution: {integrity: sha512-OLT2cHFZcP/WCoKrP+6CbVvwANbPU2myH3cDLFJzswNhO9ofsaiFw0eCK48oOvzPEZGMhVfrKZTntiW8vXr/hQ==}
     peerDependencies:
@@ -5086,7 +5075,6 @@ snapshots:
       reflect-metadata: 0.2.2
       styled-components: 6.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
-<<<<<<< HEAD
   '@flowgram.ai/free-snap-plugin@1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(styled-components@6.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6))':
     dependencies:
       '@flowgram.ai/core': 1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -5099,8 +5087,6 @@ snapshots:
       reflect-metadata: 0.2.2
       styled-components: 6.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
-=======
->>>>>>> origin/test/v0.2
   '@flowgram.ai/free-stack-plugin@1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(styled-components@6.4.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6))':
     dependencies:
       '@flowgram.ai/core': 1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -5165,7 +5151,6 @@ snapshots:
       react-dom: 19.2.6(react@19.2.6)
       reflect-metadata: 0.2.2
 
-<<<<<<< HEAD
   '@flowgram.ai/minimap-plugin@1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
       '@flowgram.ai/core': 1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -5177,8 +5162,6 @@ snapshots:
       react-dom: 19.2.6(react@19.2.6)
       reflect-metadata: 0.2.2
 
-=======
->>>>>>> origin/test/v0.2
   '@flowgram.ai/node-core-plugin@1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
     dependencies:
       '@flowgram.ai/core': 1.0.11(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

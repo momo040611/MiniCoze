@@ -40,16 +40,7 @@ export function usePluginDetail(pluginId?: string): IUsePluginDetailResult {
   const toggle = useCallback(
     async (enabled: boolean) => {
       if (!pluginId) return;
-      await togglePlugin(pluginId, enabled);
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              enabled,
-              tools: current.tools.map((tool) => ({ ...tool, enabled: enabled && tool.enabled })),
-            }
-          : current,
-      );
+      setData(await togglePlugin(pluginId, enabled));
     },
     [pluginId],
   );
