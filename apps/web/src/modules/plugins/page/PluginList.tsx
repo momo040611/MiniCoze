@@ -120,7 +120,7 @@ export function PluginList() {
         <div className={styles.titleRow}>
           <div>
             <h1>插件市场</h1>
-            <p>浏览当前工作区可用插件，管理启停状态，并检查每个插件暴露的工具能力。</p>
+            <p>展示当前工作区由后端插件模块生成的全部插件，可查看工具能力并管理启停状态。</p>
           </div>
           <Button icon={<ReloadOutlined />} onClick={refresh} loading={loading}>
             刷新
@@ -228,7 +228,11 @@ export function PluginList() {
                   <Button onClick={() => navigate(`/plugins/${plugin.id}`)}>查看详情</Button>
                   <Popconfirm
                     title={plugin.enabled ? '停用插件' : '启用插件'}
-                    description={plugin.enabled ? '停用后，该插件下的工具将无法被调用。' : '启用后，该插件工具可用于测试和绑定。'}
+                    description={
+                      plugin.enabled
+                        ? '停用后，该插件下的工具将无法被调用。'
+                        : '启用后，该插件工具可用于测试和绑定。'
+                    }
                     okText="确认"
                     cancelText="取消"
                     onConfirm={() => void handleToggle(plugin)}

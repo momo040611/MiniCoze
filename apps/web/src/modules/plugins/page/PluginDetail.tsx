@@ -150,7 +150,11 @@ export function PluginDetail() {
           </Button>
           <Popconfirm
             title={data.enabled ? '停用插件' : '启用插件'}
-            description={data.enabled ? '停用后，该插件下的所有工具将不可调用。' : '启用后，该插件工具可用于测试和绑定。'}
+            description={
+              data.enabled
+                ? '停用后，该插件下的所有工具将不可调用。'
+                : '启用后，该插件工具可用于测试和绑定。'
+            }
             okText="确认"
             cancelText="取消"
             onConfirm={() => void handleToggle()}
