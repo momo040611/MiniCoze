@@ -26,7 +26,6 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   const [editVisible, setEditVisible] = useState(false);
   const [status, setStatus] = useState(agent.status);
   const [publishing, setPublishing] = useState(false);
-
   const isPublished = status === 'ACTIVE';
 
   const {

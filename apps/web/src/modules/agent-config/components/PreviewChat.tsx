@@ -317,10 +317,10 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
         )}
 
         {openingConfig.openingQuestionsEnabled &&
-          openingConfig.openingQuestions.length > 0 &&
+          (openingConfig.openingQuestions?.length ?? 0) > 0 &&
           messages.length === 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 38, marginBottom: 12 }}>
-              {openingConfig.openingQuestions.map((q, i) => (
+            <div className={styles.openingQuestions}>
+              {(openingConfig.openingQuestions ?? []).map((q, i) => (
                 <span
                   key={i}
                   onClick={() => doSend(q)}

@@ -446,17 +446,16 @@
   margin-bottom: 24px;
 }
 
-.topBarTitle {
-  font-size: 22px;
-  font-weight: 700;
-  color: #18202f;
-  flex-shrink: 0;
-}
-
 .topBarLeft {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.topBarTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #18202f;
   flex-shrink: 0;
 }
 
@@ -529,78 +528,56 @@
 }
 
 /* ============================================
-   M* — 筛选栏 (Coze 风格)
+   M1 — 筛选下拉框
    ============================================ */
 .filterBar {
   position: relative;
-  display: flex;
-  align-items: center;
 }
 
-/* 触发按钮 */
 .filterTrigger {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border: 1px solid #e7ebf3;
+  border: 1px solid rgba(104, 119, 144, 0.25);
   border-radius: 8px;
   background: #fff;
-  color: #374151;
+  color: #506070;
   font-size: 13px;
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s;
-  line-height: 1.4;
-  user-select: none;
 }
 
 .filterTrigger:hover {
-  border-color: #c4cdd8;
-}
-
-.filterTrigger:focus {
-  outline: none;
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+  border-color: #2563eb;
 }
 
 .filterTriggerLabel {
-  white-space: nowrap;
+  font-weight: 500;
 }
 
 .filterTriggerArrow {
-  flex-shrink: 0;
+  transition: transform 0.15s;
   color: #8896a6;
-  transition: transform 0.2s;
 }
 
 .filterTriggerArrowOpen {
   transform: rotate(180deg);
-  color: #374151;
 }
 
-/* 下拉面板 */
 .filterDropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 6px);
   left: 0;
-  z-index: 100;
-  margin-top: 6px;
-  width: 200px;
+  min-width: 180px;
+  padding: 6px;
   background: #fff;
   border: 1px solid #e7ebf3;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
-  padding: 6px;
-  animation: dropdownFadeIn 0.15s ease;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+  z-index: 100;
 }
 
-@keyframes dropdownFadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* 分组 */
 .filterDropdownGroup {
   display: flex;
   flex-direction: column;
@@ -613,37 +590,38 @@
   color: #a0aec0;
   text-transform: none;
   letter-spacing: 0;
-  user-select: none;
 }
 
-.filterDropdownDivider {
-  height: 1px;
-  margin: 4px 6px;
-  background: #f0f2f5;
-}
-
-/* 选项 */
 .filterDropdownItem {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-radius: 6px;
   font-size: 13px;
-  color: #374151;
+  color: #18202f;
   cursor: pointer;
   transition: background 0.12s;
-  user-select: none;
 }
 
 .filterDropdownItem:hover {
-  background: #f5f3ff;
+  background: #f3f4f6;
 }
 
 .filterDropdownItemActive {
-  color: #7c3aed;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.06);
   font-weight: 600;
-  background: #f5f3ff;
+}
+
+.filterDropdownItemActive svg {
+  stroke: #2563eb;
+}
+
+.filterDropdownDivider {
+  height: 1px;
+  margin: 6px 8px;
+  background: #e7ebf3;
 }
 
 /* ============================================
@@ -682,10 +660,11 @@
   font-size: 14px;
 }
 
-/* 智能体卡片 */
+/* 智能体卡片 — 长方形横向 */
 .agentCard {
   position: relative;
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
   gap: 16px;
   padding: 24px;
@@ -694,6 +673,7 @@
   background: #fff;
   cursor: pointer;
   transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+  min-height: 0;
 }
 
 .agentCard:hover {
@@ -709,10 +689,9 @@
 .agentCardAvatar {
   width: 52px;
   height: 52px;
-  border-radius: 12px;
+  border-radius: 14px;
   object-fit: cover;
   flex-shrink: 0;
-  margin-top: 1px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
@@ -738,17 +717,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex-shrink: 1;
-  min-width: 0;
+  max-width: 100%;
 }
 
 .agentCardStatus {
-  flex-shrink: 0;
-  padding: 2px 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+  line-height: 1.6;
 }
 
 .agentCardStatusPublished {
@@ -762,18 +742,19 @@
 }
 
 .agentCardDesc {
-  font-size: 13px;
+  font-size: 12px;
   color: #8896a6;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.5;
+  max-width: 100%;
+  line-height: 1.4;
 }
 
 .agentCardTime {
   font-size: 12px;
   color: #c0c8d4;
-  margin-top: 2px;
+  line-height: 1.4;
 }
 
 .agentCardDelete {

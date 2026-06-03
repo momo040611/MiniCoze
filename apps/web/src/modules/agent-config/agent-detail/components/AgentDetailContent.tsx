@@ -3,9 +3,6 @@ import type { AgentMode, AgentDetailData, PlannerConfig, FlowConfig, MultiConfig
 import { SingleAgentPlanner } from '../../agent-planner/SingleAgentPlanner';
 import { SingleAgentFlow } from '../../agent-flow/SingleAgentFlow';
 import { MultiAgents } from '../../agent-multi/MultiAgents';
-import { ToolBindSelector } from '../../../plugins/components/ToolBindSelector';
-import styles from '../agent-detail.module.css';
-
 interface AgentDetailContentProps {
   mode: AgentMode;
   agent: AgentDetailData;
@@ -101,16 +98,5 @@ export function AgentDetailContent({
     }
   })();
 
-  return (
-    <>
-      {modeContent}
-      <section className={styles.toolBindingPanel}>
-        <div className={styles.toolBindingHeader}>
-          <h2>工具绑定</h2>
-          <p>选择当前智能体可调用的插件工具，保存后刷新页面仍会保留绑定关系。</p>
-        </div>
-        <ToolBindSelector agentId={agent.id} />
-      </section>
-    </>
-  );
+  return <>{modeContent}</>;
 }
