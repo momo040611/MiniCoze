@@ -120,7 +120,7 @@ export class AuthService {
 
   async updateAvatar(userId: string, file: UploadedFile | undefined) {
     const uploadedFile = await this.fileService.upload(userId, file, {
-      purpose: FilePurpose.AVATAR,
+      purpose: FilePurpose.USER_AVATAR,
     });
     const avatarUrl = uploadedFile.url;
 
