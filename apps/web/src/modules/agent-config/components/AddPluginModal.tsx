@@ -26,9 +26,7 @@ export function AddPluginModal({ visible, onClose, onSelect }: Props) {
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState('all');
-  const [payType, setPayType] = useState('all');
   const [sourceType, setSourceType] = useState('all');
-  const [toolType, setToolType] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
 
   const loadPlugins = useCallback(async () => {
@@ -50,9 +48,7 @@ export function AddPluginModal({ visible, onClose, onSelect }: Props) {
       setSearch('');
       setSelectedIds(new Set());
       setCategory('all');
-      setPayType('all');
       setSourceType('all');
-      setToolType('all');
       setSortBy('popular');
     }
   }, [visible, loadPlugins]);
@@ -242,31 +238,12 @@ export function AddPluginModal({ visible, onClose, onSelect }: Props) {
             <div className={styles.toolbar}>
               <select
                 className={styles.filterSelect}
-                value={payType}
-                onChange={(e) => setPayType(e.target.value)}
-              >
-                <option value="all">付费类型 全部</option>
-                <option value="free">免费</option>
-                <option value="paid">付费</option>
-              </select>
-              <select
-                className={styles.filterSelect}
                 value={sourceType}
                 onChange={(e) => setSourceType(e.target.value)}
               >
                 <option value="all">来源类型 全部</option>
                 <option value="builtin">内置</option>
                 <option value="thirdparty">三方</option>
-              </select>
-              <select
-                className={styles.filterSelect}
-                value={toolType}
-                onChange={(e) => setToolType(e.target.value)}
-              >
-                <option value="all">工具类型 全部</option>
-                <option value="search">搜索</option>
-                <option value="image">图像</option>
-                <option value="text">文本</option>
               </select>
               <div className={styles.filterSpacer} />
               <select

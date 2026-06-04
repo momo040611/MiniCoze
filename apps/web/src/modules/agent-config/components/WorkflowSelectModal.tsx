@@ -84,7 +84,7 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
         {/* 顶部标题栏 */}
         <div className={styles.header}>
-          <h2 className={styles.title}>添加工流</h2>
+          <h2 className={styles.title}>添加工作流</h2>
           <button className={styles.closeBtn} onClick={onClose}>
             &#x2715;
           </button>
