@@ -8,6 +8,8 @@ import { KnowledgeSelectModal } from '../components/KnowledgeSelectModal'
 import { DatabaseTags } from '../components/DatabaseTags'
 import { WorkflowSelectModal } from '../components/WorkflowSelectModal'
 import { WorkflowTags } from '../components/WorkflowTags'
+import { AddPluginModal } from '../components/AddPluginModal'
+import type { IPlugin } from '../../../api/plugins'
 
 interface Props {
   agent: AgentDetailData
@@ -65,6 +67,7 @@ export function SingleAgentPlanner({
   const [modelOpen, setModelOpen] = useState(false)
   const [knowledgeModalOpen, setKnowledgeModalOpen] = useState(false)
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false)
+  const [pluginModalOpen, setPluginModalOpen] = useState(false)
   const { plugins, fileBoxEnabled, longMemoryEnabled, variables, databases } = config
 
   const updateConfig = useCallback(
@@ -221,7 +224,7 @@ export function SingleAgentPlanner({
                 {plugins.length > 0 && (
                   <span className={styles.configRowCount}>{plugins.length} 个插件</span>
                 )}
-                <button className={styles.addBtn} >
+                <button className={styles.addBtn} onClick={() => setPluginModalOpen(true)}>
                   <span>+</span>
                 </button>
               </div>
@@ -293,7 +296,7 @@ export function SingleAgentPlanner({
             <div className={styles.configRow}>
             <div className={styles.configRowInfo}>
               <div className={styles.configRowText}>
-                <span className={styles.configRowName}>知识库</span>
+                <span className={styles.configRowName}>数据库</span>
               </div>
             </div>
             <div className={styles.configRowRight}>
@@ -378,6 +381,13 @@ export function SingleAgentPlanner({
           if (!config.workflows.includes(wf.id)) {
             updateConfig({ workflows: [...config.workflows, wf.id] })
           }
+        }}
+      />
+      <AddPluginModal
+        visible={pluginModalOpen}
+        onClose={() => setPluginModalOpen(false)}
+        onSelect={(selectedPlugins: IPlugin[]) => {
+          updateConfig({ plugins: selectedPlugins.map((p) => p.id) })
         }}
       />
       <KnowledgeSelectModal
