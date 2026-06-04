@@ -29,7 +29,6 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
   const [items, setItems] = useState<Workflow[]>([]);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('DRAFT');
 
   const load = useCallback(async () => {
@@ -49,7 +48,6 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
       load();
       setSearch('');
       setSelectedId(null);
-      setTypeFilter('all');
       setStatusFilter('DRAFT');
     }
   }, [visible, load]);
@@ -94,7 +92,7 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
         <div className={styles.main}>
           {/* 左侧边栏 */}
           <div className={styles.sidebar}>
-            <h3 className={styles.sidebarTitle}>添加工流</h3>
+            <h3 className={styles.sidebarTitle}>添加工作流</h3>
 
             <div className={styles.searchWrap}>
               <span className={styles.searchIcon}>
@@ -158,16 +156,6 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
             <div className={styles.toolbar}>
               <select
                 className={styles.filterSelect}
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                style={{ minWidth: 120 }}
-              >
-                <option value="all">类型：全部</option>
-                <option value="workflow">工作流</option>
-                <option value="chatflow">对话流</option>
-              </select>
-              <select
-                className={styles.filterSelect}
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 style={{ minWidth: 120 }}
@@ -177,7 +165,7 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
                 <option value="ACTIVE">状态：已发布</option>
               </select>
               <div className={styles.filterSpacer} />
-              <button className={styles.addBtn}>添加</button>
+              <button className={styles.addBtn} onClick={() => { onClose(); navigate('/workflows'); }}>添加</button>
             </div>
 
             {/* 工作流列表 / 空状态 */}

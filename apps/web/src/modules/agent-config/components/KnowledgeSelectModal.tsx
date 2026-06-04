@@ -47,7 +47,6 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect }: Props) {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [timeFilter, setTimeFilter] = useState('all');
 
   const load = async () => {
@@ -68,7 +67,6 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect }: Props) {
       setSearch('');
       setSelectedId(null);
       setSourceFilter('all');
-      setTypeFilter('all');
       setTimeFilter('all');
     }
   }, [visible]);
@@ -172,25 +170,16 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect }: Props) {
                 onChange={(e) => setSourceFilter(e.target.value)}
                 style={{ minWidth: 130 }}
               >
-                <option value="all">coze</option>
+                <option value="all">全部来源</option>
                 <option value="local_file">本地文件</option>
                 <option value="text">文本</option>
                 <option value="url">网页链接</option>
               </select>
               <select
                 className={styles.filterSelect}
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                style={{ minWidth: 100 }}
-              >
-                <option value="all">照片</option>
-                <option value="text">文本</option>
-                <option value="table">表格</option>
-              </select>
-              <select
-                className={styles.filterSelect}
                 value={timeFilter}
                 onChange={(e) => setTimeFilter(e.target.value)}
+                style={{ minWidth: 130 }}
               >
                 <option value="all">创建时间</option>
                 <option value="newest">最新创建</option>

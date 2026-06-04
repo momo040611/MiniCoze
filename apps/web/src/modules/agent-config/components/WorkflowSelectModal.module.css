@@ -1,5 +1,5 @@
-﻿/* ============================================
-   娣诲姞宸ユ祦寮圭獥
+/* ============================================
+   添加工作流弹窗
    ============================================ */
 .overlay {
   position: fixed;
@@ -30,7 +30,7 @@
   overflow: hidden;
 }
 
-/* ---- 椤堕儴鏍囬鏍?---- */
+/* ---- 顶部标题栏 ---- */
 .header {
   display: flex;
   align-items: center;
@@ -67,7 +67,7 @@
   color: #374151;
 }
 
-/* ---- 涓诲尯鍩燂細宸﹀彸涓ゆ爮 ---- */
+/* ---- 主区域：左右两栏 ---- */
 .main {
   display: flex;
   flex: 1;
@@ -75,7 +75,7 @@
   overflow: hidden;
 }
 
-/* ---- 宸︿晶杈规爮 ---- */
+/* ---- 左侧边栏 ---- */
 .sidebar {
   width: 240px;
   flex-shrink: 0;
@@ -132,7 +132,7 @@
   background: #fff;
 }
 
-/* 鍒涘缓 / 瀵煎叆鎸夐挳 */
+/* 创建 / 导入按钮 */
 .sidebarBtns {
   display: flex;
   gap: 8px;
@@ -198,7 +198,7 @@
   margin: 0 0 12px 0;
 }
 
-/* 鑿滃崟 */
+/* 菜单 */
 .menuList {
   list-style: none;
   margin: 0;
@@ -243,7 +243,7 @@
   border-radius: 10px;
 }
 
-/* ---- 鍙充晶鍐呭鍖?---- */
+/* ---- 右侧内容区 ---- */
 .content {
   flex: 1;
   display: flex;
@@ -253,7 +253,7 @@
   background: #fff;
 }
 
-/* 椤堕儴绛涢€夋爮 */
+/* 顶部筛选栏 */
 .toolbar {
   display: flex;
   align-items: center;
@@ -312,7 +312,7 @@
   border-color: #9ca3af;
 }
 
-/* ---- 宸ヤ綔娴佸垪琛?---- */
+/* ---- 工作流列表 ---- */
 .listBody {
   flex: 1;
   overflow-y: auto;
@@ -329,7 +329,7 @@
   border-radius: 3px;
 }
 
-/* 宸ヤ綔娴佸崱鐗?*/
+/* 工作流卡片 */
 .wfCard {
   display: flex;
   align-items: center;
@@ -413,7 +413,7 @@
   max-width: 180px;
 }
 
-/* 鍙充晶娣诲姞鎸夐挳 */
+/* 右侧添加按钮 */
 .wfCardRight {
   flex-shrink: 0;
 }
@@ -440,7 +440,7 @@
   color: #1677ff;
 }
 
-/* 閫変腑鏍囪 */
+/* 选中标记 */
 .selectedMark {
   display: flex;
   align-items: center;
@@ -455,7 +455,7 @@
   margin-left: 8px;
 }
 
-/* 绌虹姸鎬?*/
+/* 空状态 */
 .emptyState {
   flex: 1;
   display: flex;
@@ -497,7 +497,7 @@
   background: #4096ff;
 }
 
-/* 鍔犺浇 */
+/* 加载 */
 .loading {
   flex: 1;
   display: flex;
@@ -507,7 +507,7 @@
   font-size: 14px;
 }
 
-/* ---- 搴曢儴鎿嶄綔鏍?---- */
+/* ---- 底部操作栏 ---- */
 .footer {
   display: flex;
   align-items: center;
