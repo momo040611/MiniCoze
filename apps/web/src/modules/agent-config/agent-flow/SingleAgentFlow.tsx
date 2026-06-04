@@ -1,19 +1,28 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import styles from '../agent-detail/agent-detail.module.css'
 import flowStyles from './SingleAgentFlow.module.css'
+import plannerStyles from '../agent-planner/SingleAgentPlanner.module.css'
 import type { AgentDetailData, FlowConfig, OpeningConfig } from '../agent-detail'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
 import { PreviewChat } from '../components/PreviewChat'
-import { useNavigate } from 'react-router-dom'
-import { SelectModal } from '../components/SelectModal'
+import { KnowledgeSelectModal } from '../components/KnowledgeSelectModal'
+import { DatabaseTags } from '../components/DatabaseTags'
+import { WorkflowSelectModal } from '../components/WorkflowSelectModal'
+import { WorkflowTags } from '../components/WorkflowTags'
 const MIN_LEFT_PCT = 30
 const MAX_LEFT_PCT = 78
 const DEFAULT_LEFT_PCT = 58
+
+const MODEL_OPTIONS = [
+  { label: 'DeepSeek V4 Flash', value: 'deepseek-v4-flash' },
+  { label: 'DeepSeek V4 Pro', value: 'deepseek-v4-pro' },
+]
 
 interface Props {
   agent: AgentDetailData
   persona: string
   model: string
+  onModelChange: (v: string) => void
   temperature: number
   contextLimit: number
   onTemperatureChange: (v: number) => void
@@ -45,18 +54,21 @@ export function SingleAgentFlow({
   agent,
   persona,
   model,
+  onModelChange,
   temperature,
   contextLimit,
   onTemperatureChange,
   onContextLimitChange,
+  config,
+  onConfigChange,
   openingConfig,
   onOpeningChange,
 }: Props) {
-  const navigate = useNavigate()
   const [leftPct, setLeftPct] = useState(DEFAULT_LEFT_PCT)
   const [dragging, setDragging] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const leftPctRef = useRef(leftPct)
+  const [modelOpen, setModelOpen] = useState(false)
   const [dialogFlow, setdialogFlow] = useState(false)
   const [dialogDatabase, setdialogDatabase] = useState(false)
 
@@ -112,13 +124,47 @@ export function SingleAgentFlow({
         </div>
         <div className={styles.colBody}>
           <div className={flowStyles.flowAddArea}>
-            <button onClick={() => setdialogFlow(true)} className={styles.flowAddButton}>+点击添加对话流</button>
+            <WorkflowTags
+              ids={config.workflows}
+              onRemove={(id) => onConfigChange({ ...config, workflows: config.workflows.filter(w => w !== id) })}
+              onAdd={() => setdialogFlow(true)}
+            />
+            <span className={styles.flowAddDesc}>添加对话流</span>
           </div>
           <span className={styles.flowAddDesc}>
               每次对话都会调用该对话流，用户"本轮对话输入"会作为对话流的输入参数"USER_INPUT"传入
             </span>
           <div style={{ marginTop: 20 }}>
             <CollapsePanel title="模型参数">
+              <div className={plannerStyles.modelSelector}>
+                <div
+                  className={plannerStyles.modelTrigger}
+                  onClick={() => setModelOpen((v) => !v)}
+                >
+                  <span className={plannerStyles.modelName}>{MODEL_OPTIONS.find(m => m.value === model)?.label ?? model}</span>
+                  <span className={`${plannerStyles.modelArrow} ${modelOpen ? plannerStyles.modelArrowOpen : ''}`}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </div>
+                {modelOpen && (
+                  <div className={plannerStyles.modelDropdown}>
+                    {MODEL_OPTIONS.map((m) => (
+                      <button
+                        key={m.value}
+                        className={`${plannerStyles.modelOption} ${m.value === model ? plannerStyles.modelOptionActive : ''}`}
+                        onClick={() => {
+                          onModelChange(m.value)
+                          setModelOpen(false)
+                        }}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
                   <div className={styles.configRowText}>
@@ -193,11 +239,15 @@ export function SingleAgentFlow({
               <div className={styles.configRow}>
                 <div className={styles.configRowInfo}>
                   <div className={styles.configRowText}>
-                    <span className={styles.configRowName}>数据库</span>
+                    <span className={styles.configRowName}>知识库</span>
                   </div>
                 </div>
                 <div className={styles.configRowRight}>
-                  <button className={styles.addBtn} onClick={() => setdialogDatabase(true)}><span>+</span></button>
+                  <DatabaseTags
+                    ids={config.databases}
+                    onRemove={(id) => onConfigChange({ ...config, databases: config.databases.filter(d => d !== id) })}
+                    onAdd={() => setdialogDatabase(true)}
+                  />
                 </div>
               </div>
             </CollapsePanel>
@@ -235,21 +285,23 @@ export function SingleAgentFlow({
             temperature={temperature}
             openingConfig={openingConfig}
           />
-          <SelectModal
+          <WorkflowSelectModal
             visible={dialogFlow}
-            title="添加对话流"
-            emptyText="暂无对话流"
-            createLabel="添加对话流"
             onClose={() => setdialogFlow(false)}
-            onCreate={() =>navigate('/workflows') }
+            onSelect={(wf) => {
+              if (!config.workflows.includes(wf.id)) {
+                onConfigChange({ ...config, workflows: [...config.workflows, wf.id] })
+              }
+            }}
           />
-          <SelectModal
+          <KnowledgeSelectModal
             visible={dialogDatabase}
-            title="添加知识库"
-            emptyText="暂无知识库"
-            createLabel="添加知识库"
             onClose={() => setdialogDatabase(false)}
-            onCreate={() =>navigate('/knowledge-bases/document') }
+            onSelect={(kb) => {
+              if (!config.databases.includes(kb.id)) {
+                onConfigChange({ ...config, databases: [...config.databases, kb.id] })
+              }
+            }}
           />
         </div>
       </div>

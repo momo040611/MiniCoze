@@ -3,8 +3,6 @@ import type { AgentMode, AgentDetailData, PlannerConfig, FlowConfig, MultiConfig
 import { SingleAgentPlanner } from '../../agent-planner/SingleAgentPlanner';
 import { SingleAgentFlow } from '../../agent-flow/SingleAgentFlow';
 import { MultiAgents } from '../../agent-multi/MultiAgents';
-import styles from '../agent-detail.module.css';
-
 interface AgentDetailContentProps {
   mode: AgentMode;
   agent: AgentDetailData;
@@ -76,6 +74,7 @@ export function AgentDetailContent({
           agent={agent}
           persona={persona}
           model={model}
+          onModelChange={onModelChange}
           temperature={temperature}
           contextLimit={contextLimit}
           onTemperatureChange={onTemperatureChange}
@@ -99,9 +98,5 @@ export function AgentDetailContent({
     }
   })();
 
-  return (
-    <>
-      {modeContent}
-    </>
-  );
+  return <>{modeContent}</>;
 }

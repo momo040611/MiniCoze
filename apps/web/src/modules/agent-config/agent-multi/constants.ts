@@ -7,7 +7,7 @@ export const NODE_ID_PREFIX = 'node-'
 export const CONN_ID_PREFIX = 'conn-'
 
 export const NODE_DIMENSIONS: Record<CanvasNode['type'], { width: number; height: number }> = {
-  start: { width: 130, height: 44 },
-  agent: { width: 180, height: 52 },
-  subAgent: { width: 180, height: 52 },
+  start: { width: 120, height: 40 },
+  agent: { width: 280, height: 540 },
+  subAgent: { width: 280, height: 540 },
 }

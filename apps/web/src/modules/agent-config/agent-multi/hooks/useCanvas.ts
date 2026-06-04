@@ -206,24 +206,32 @@ export function useCanvas({ agent, subAgents }: UseCanvasOptions) {
     setConnectingFrom(null)
   }, [])
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault()
+  useEffect(() => {
     const viewport = viewportRef.current
     if (!viewport) return
-    const rect = viewport.getBoundingClientRect()
-    const mx = e.clientX - rect.left
-    const my = e.clientY - rect.top
 
-    const direction = e.deltaY > 0 ? -1 : 1
-    const factor = 1.1
-    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * (direction > 0 ? factor : 1 / factor)))
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = viewport.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
 
-    const newOffsetX = mx - (mx - offset.x) * (newScale / scale)
-    const newOffsetY = my - (my - offset.y) * (newScale / scale)
+      const direction = e.deltaY > 0 ? -1 : 1
+      const factor = 1.1
+      setScale((prevScale) => {
+        const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prevScale * (direction > 0 ? factor : 1 / factor)))
+        setOffset((prevOffset) => {
+          const newOffsetX = mx - (mx - prevOffset.x) * (newScale / prevScale)
+          const newOffsetY = my - (my - prevOffset.y) * (newScale / prevScale)
+          return { x: newOffsetX, y: newOffsetY }
+        })
+        return newScale
+      })
+    }
 
-    setScale(newScale)
-    setOffset({ x: newOffsetX, y: newOffsetY })
-  }, [scale, offset])
+    viewport.addEventListener('wheel', onWheel, { passive: false })
+    return () => viewport.removeEventListener('wheel', onWheel)
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -331,6 +339,12 @@ export function useCanvas({ agent, subAgents }: UseCanvasOptions) {
     setSelectedNodeId(null)
   }, [])
 
+  const nodeHeightsRef = useRef<Map<string, number>>(new Map())
+
+  const setNodeHeight = useCallback((nodeId: string, height: number) => {
+    nodeHeightsRef.current.set(nodeId, height)
+  }, [])
+
   const nodeMap = useMemo(() => {
     const map = new Map<string, CanvasNode>()
     nodes.forEach(n => map.set(n.id, n))
@@ -352,6 +366,8 @@ export function useCanvas({ agent, subAgents }: UseCanvasOptions) {
     showNodeMenu,
     setShowNodeMenu,
     nodeMap,
+    nodeHeightsRef,
+    setNodeHeight,
     zoomPercent,
     addNode,
     handleUndo,
@@ -363,7 +379,6 @@ export function useCanvas({ agent, subAgents }: UseCanvasOptions) {
     handlePortMouseDown,
     handlePortMouseUp,
     handleCanvasMouseUp,
-    handleWheel,
     handleZoomIn,
     handleZoomOut,
     handleResetView,
