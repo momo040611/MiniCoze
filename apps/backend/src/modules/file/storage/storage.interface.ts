@@ -1,4 +1,4 @@
-import { ReadStream } from 'fs';
+import type { Readable } from 'stream';
 
 export const FILE_STORAGE = Symbol('FILE_STORAGE');
 
@@ -13,7 +13,7 @@ export interface StorageFileStat {
 
 export interface StorageService {
   save(input: SaveFileInput): Promise<void>;
-  getStream(storageKey: string): Promise<ReadStream>;
+  getStream(storageKey: string): Promise<Readable>;
   getStat(storageKey: string): Promise<StorageFileStat>;
   remove(storageKey: string): Promise<void>;
 }

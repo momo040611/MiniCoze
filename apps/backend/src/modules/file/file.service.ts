@@ -8,8 +8,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
-import type { ReadStream } from 'fs';
 import path from 'path';
+import type { Readable } from 'stream';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
@@ -132,7 +132,7 @@ export class FileService {
   async getContent(
     fileId: string,
     currentUser?: CurrentUser | null,
-  ): Promise<{ fileAsset: FileAsset; stream: ReadStream; size: number }> {
+  ): Promise<{ fileAsset: FileAsset; stream: Readable; size: number }> {
     const fileAsset = await this.findReadyFileOrThrow(fileId);
     await this.ensureReadPermission(fileAsset, currentUser);
 
@@ -207,7 +207,7 @@ export class FileService {
     return this.findReadyFileOrThrow(fileId);
   }
 
-  async getFileStreamForInternal(fileId: string): Promise<ReadStream> {
+  async getFileStreamForInternal(fileId: string): Promise<Readable> {
     const fileAsset = await this.findReadyFileOrThrow(fileId);
     return this.storageService.getStream(fileAsset.storageKey);
   }

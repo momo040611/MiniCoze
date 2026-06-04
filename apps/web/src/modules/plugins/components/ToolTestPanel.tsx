@@ -13,7 +13,7 @@ type IFormValues = Record<string, unknown>;
 function getDefaultValue(param: IToolParam) {
   if (param.default !== undefined) return param.default;
   if (param.type === 'boolean') return false;
-  if (param.type === 'number') return 0;
+  if (param.type === 'number' || param.type === 'integer') return 0;
   if (param.type === 'array') return [];
   if (param.type === 'object') return {};
   return '';
@@ -48,8 +48,8 @@ function renderInput(param: IToolParam) {
     return <Select options={param.enum.map((value) => ({ label: value, value }))} />;
   }
 
-  if (param.type === 'number') {
-    return <InputNumber className={styles.fullInput} />;
+  if (param.type === 'number' || param.type === 'integer') {
+    return <InputNumber className={styles.fullInput} precision={param.type === 'integer' ? 0 : undefined} />;
   }
 
   if (param.type === 'boolean') {
@@ -83,7 +83,7 @@ export function ToolTestPanel({ tool }: IToolTestPanelProps) {
     try {
       await form.validateFields();
       const params = collectValues(form, tool);
-      const result = await runTest(tool.id, params);
+      const result = await runTest(tool.id, params, tool.pluginId);
       if (result.success) {
         message.success('工具测试成功');
       } else {
@@ -108,7 +108,7 @@ export function ToolTestPanel({ tool }: IToolTestPanelProps) {
     const rawJson = form.getFieldValue('rawJson');
     try {
       const params = JSON.parse(typeof rawJson === 'string' ? rawJson : '{}') as Record<string, unknown>;
-      const result = await runTest(tool.id, params);
+      const result = await runTest(tool.id, params, tool.pluginId);
       if (result.success) {
         message.success('工具测试成功');
       } else {
@@ -178,7 +178,7 @@ export function ToolTestPanel({ tool }: IToolTestPanelProps) {
                 <span>{new Date(record.createdAt).toLocaleTimeString()}</span>
                 {record.duration !== undefined && <span>{record.duration} ms</span>}
               </div>
-              <pre>{JSON.stringify(record.success ? record.data : record.error, null, 2)}</pre>
+              <pre>{JSON.stringify(record.success ? record.data ?? record.output : record.error, null, 2)}</pre>
             </div>
           ))
         )}

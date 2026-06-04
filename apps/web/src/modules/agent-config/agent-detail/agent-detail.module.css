@@ -560,27 +560,3 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
-.toolBindingPanel {
-  margin-top: 20px;
-  padding: 20px;
-  border: 1px solid rgba(104, 119, 144, 0.16);
-  border-radius: 8px;
-  background: #fff;
-}
-
-.toolBindingHeader {
-  margin-bottom: 16px;
-}
-
-.toolBindingHeader h2 {
-  margin: 0;
-  color: #111827;
-  font-size: 18px;
-}
-
-.toolBindingHeader p {
-  margin: 8px 0 0;
-  color: #64748b;
-  line-height: 1.6;
-}

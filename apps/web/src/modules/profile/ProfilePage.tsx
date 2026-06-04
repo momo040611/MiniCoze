@@ -39,7 +39,7 @@ import {
   UploadOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { changePassword, updateProfile, type UpdateProfilePayload } from '../../api/auth';
+import { changePassword, updateAvatar, updateProfile, type UpdateProfilePayload } from '../../api/auth';
 import { getCurrentUser, subscribeToAuth } from '../../api/auth/auth-store';
 import { getAgentList, type AgentConfig } from '../../api/agent-config';
 import {
@@ -194,6 +194,7 @@ export function ProfilePage() {
   const [pinnedLoaded, setPinnedLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [, setAvatarUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editingValue, setEditingValue] = useState('');
@@ -418,19 +419,22 @@ export function ProfilePage() {
   const handleAvatarChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      messageApi.error('请选择图片文件');
+      event.target.value = '';
+      return;
+    }
+
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (readerEvent) => resolve(readerEvent.target?.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      setAvatarUrl(dataUrl);
-      await updateProfile({ avatarUrl: dataUrl });
+      setAvatarUploading(true);
+      const nextAvatarUrl = await updateAvatar(file);
+      setAvatarUrl(nextAvatarUrl);
       messageApi.success('头像已更新');
-    } catch {
-      messageApi.error('头像上传失败');
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : '头像上传失败');
     } finally {
+      setAvatarUploading(false);
       event.target.value = '';
     }
   }, [messageApi]);

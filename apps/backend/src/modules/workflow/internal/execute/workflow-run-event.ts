@@ -14,3 +14,11 @@ export interface WorkflowRunEvent {
   errorMessage?: string;
   durationMs?: number;
 }
+
+// 对外（SSE）暴露的运行级事件，配合节点事件一起推给前端。
+export type WorkflowStreamEvent =
+  | { type: 'run.created'; runId: string }
+  | { type: 'run.completed'; runId: string; output: Record<string, unknown> }
+  | { type: 'run.failed'; runId: string; error: string }
+  | { type: 'stream.done'; runId: string }
+  | WorkflowRunEvent;
