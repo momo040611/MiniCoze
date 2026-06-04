@@ -12,6 +12,7 @@ import {
   resolveValueRef,
   VariableScope,
 } from '../variable/variable-resolver';
+import { CodeNodeExecutor } from '../nodes/code-node.executor';
 import { EndNodeExecutor } from '../nodes/end-node.executor';
 import { LlmNodeExecutor } from '../nodes/llm-node.executor';
 import { SelectorNodeExecutor } from '../nodes/selector-node.executor';
@@ -59,12 +60,14 @@ export class WorkflowAsyncRunner {
     llmNodeExecutor: LlmNodeExecutor,
     endNodeExecutor: EndNodeExecutor,
     selectorNodeExecutor: SelectorNodeExecutor,
+    codeNodeExecutor: CodeNodeExecutor,
   ) {
     this.executors = new Map<string, WorkflowNodeExecutor>([
       [startNodeExecutor.type, startNodeExecutor],
       [llmNodeExecutor.type, llmNodeExecutor],
       [endNodeExecutor.type, endNodeExecutor],
       [selectorNodeExecutor.type, selectorNodeExecutor],
+      [codeNodeExecutor.type, codeNodeExecutor],
     ]);
   }
 
