@@ -30,6 +30,7 @@ describe('KnowledgeBaseService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       delete: jest.Mock;
+      update: jest.Mock;
     };
   };
   let access: { ensureMember: jest.Mock; ensureCanManage: jest.Mock };
@@ -42,6 +43,7 @@ describe('KnowledgeBaseService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         delete: jest.fn(),
+        update: jest.fn(),
       },
     };
     access = {
@@ -139,6 +141,104 @@ describe('KnowledgeBaseService', () => {
     prisma.knowledgeBase.findUnique.mockResolvedValueOnce(null);
     await expect(service.findOneForUser('u1', 'x')).rejects.toMatchObject({
       message: expect.stringContaining('不存在'),
+    });
+  });
+
+  it('toResponse: 派生 enabled = (status === ACTIVE)', async () => {
+    prisma.knowledgeBase.findMany.mockResolvedValueOnce([
+      buildKb({ id: 'kb1', status: 'ACTIVE' }),
+      buildKb({ id: 'kb2', status: 'DISABLED' }),
+      buildKb({ id: 'kb3', status: 'ARCHIVED' }),
+    ]);
+    const out = await service.findByWorkspace('u1', 'ws1');
+    expect(out.map((kb) => kb.enabled)).toEqual([true, false, false]);
+  });
+
+  describe('toggleEnabled', () => {
+    it('enabled=true 且当前 DISABLED → update 为 ACTIVE，返回 enabled=true', async () => {
+      prisma.knowledgeBase.findUnique.mockResolvedValueOnce(
+        buildKb({ status: 'DISABLED' }),
+      );
+      prisma.knowledgeBase.update.mockResolvedValueOnce(
+        buildKb({ status: 'ACTIVE' }),
+      );
+
+      const out = await service.toggleEnabled('u1', 'kb1', true);
+
+      expect(access.ensureCanManage).toHaveBeenCalledWith('u1', 'ws1');
+      expect(prisma.knowledgeBase.update).toHaveBeenCalledWith({
+        where: { id: 'kb1' },
+        data: { status: 'ACTIVE' },
+      });
+      expect(out.enabled).toBe(true);
+    });
+
+    it('enabled=false 且当前 ACTIVE → update 为 DISABLED，返回 enabled=false', async () => {
+      prisma.knowledgeBase.findUnique.mockResolvedValueOnce(
+        buildKb({ status: 'ACTIVE' }),
+      );
+      prisma.knowledgeBase.update.mockResolvedValueOnce(
+        buildKb({ status: 'DISABLED' }),
+      );
+
+      const out = await service.toggleEnabled('u1', 'kb1', false);
+
+      expect(prisma.knowledgeBase.update).toHaveBeenCalledWith({
+        where: { id: 'kb1' },
+        data: { status: 'DISABLED' },
+      });
+      expect(out.enabled).toBe(false);
+    });
+
+    it('幂等：enabled=true 且当前已是 ACTIVE → 不调用 update', async () => {
+      prisma.knowledgeBase.findUnique.mockResolvedValueOnce(
+        buildKb({ status: 'ACTIVE' }),
+      );
+
+      const out = await service.toggleEnabled('u1', 'kb1', true);
+
+      expect(prisma.knowledgeBase.update).not.toHaveBeenCalled();
+      expect(out.enabled).toBe(true);
+    });
+
+    it('ARCHIVED → 抛 KnowledgeBaseInvalidStatus，不调用 update', async () => {
+      prisma.knowledgeBase.findUnique.mockResolvedValueOnce(
+        buildKb({ status: 'ARCHIVED' }),
+      );
+
+      try {
+        await service.toggleEnabled('u1', 'kb1', true);
+        fail('should throw');
+      } catch (e) {
+        expect((e as BusinessException).getErrorCode()).toBe(
+          ErrorCode.KnowledgeBaseInvalidStatus,
+        );
+      }
+      expect(prisma.knowledgeBase.update).not.toHaveBeenCalled();
+    });
+
+    it('KB 不存在 → KnowledgeBaseNotFound', async () => {
+      prisma.knowledgeBase.findUnique.mockResolvedValueOnce(null);
+      try {
+        await service.toggleEnabled('u1', 'missing', true);
+        fail('should throw');
+      } catch (e) {
+        expect((e as BusinessException).getErrorCode()).toBe(
+          ErrorCode.KnowledgeBaseNotFound,
+        );
+      }
+      expect(prisma.knowledgeBase.update).not.toHaveBeenCalled();
+    });
+
+    it('非管理者 → Forbidden，不调用 update', async () => {
+      prisma.knowledgeBase.findUnique.mockResolvedValueOnce(buildKb());
+      access.ensureCanManage.mockRejectedValueOnce(
+        new BusinessException('forbidden', ErrorCode.Forbidden),
+      );
+      await expect(
+        service.toggleEnabled('u1', 'kb1', false),
+      ).rejects.toBeInstanceOf(BusinessException);
+      expect(prisma.knowledgeBase.update).not.toHaveBeenCalled();
     });
   });
 });

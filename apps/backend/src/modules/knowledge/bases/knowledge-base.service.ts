@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { KnowledgeBase } from '@prisma/client';
+import { KnowledgeBaseStatus, type KnowledgeBase } from '@prisma/client';
 import { ErrorCode } from '../../../common/constants/error-code';
 import { BusinessException } from '../../../common/exceptions/business.exception';
 import { formatShanghaiDateTime } from '../../../common/utils/date-time';
@@ -64,6 +64,37 @@ export class KnowledgeBaseService {
     return this.toResponse(removed);
   }
 
+  async toggleEnabled(
+    userId: string,
+    knowledgeBaseId: string,
+    enabled: boolean,
+  ): Promise<KnowledgeBaseResponseDto> {
+    const kb = await this.findByIdOrThrow(knowledgeBaseId);
+    await this.workspaceAccess.ensureCanManage(userId, kb.workspaceId);
+
+    if (kb.status === KnowledgeBaseStatus.ARCHIVED) {
+      throw new BusinessException(
+        '归档的知识库无法切换状态',
+        ErrorCode.KnowledgeBaseInvalidStatus,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const nextStatus = enabled
+      ? KnowledgeBaseStatus.ACTIVE
+      : KnowledgeBaseStatus.DISABLED;
+
+    if (kb.status === nextStatus) {
+      return this.toResponse(kb);
+    }
+
+    const updated = await this.prisma.knowledgeBase.update({
+      where: { id: knowledgeBaseId },
+      data: { status: nextStatus },
+    });
+    return this.toResponse(updated);
+  }
+
   /** 内部辅助：找 KB 并校验当前 user 是 workspace 成员，供 Document 模块复用。 */
   async findOneForUser(
     userId: string,
@@ -95,6 +126,7 @@ export class KnowledgeBaseService {
       creatorId: kb.creatorId,
       name: kb.name,
       description: kb.description,
+      enabled: kb.status === KnowledgeBaseStatus.ACTIVE,
       createdAt: formatShanghaiDateTime(kb.createdAt),
       updatedAt: formatShanghaiDateTime(kb.updatedAt),
     };

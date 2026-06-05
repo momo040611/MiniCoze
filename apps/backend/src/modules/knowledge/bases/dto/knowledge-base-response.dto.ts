@@ -16,6 +16,9 @@ export class KnowledgeBaseResponseDto {
   @ApiPropertyOptional()
   description!: string | null;
 
+  @ApiProperty({ description: '是否启用（status === ACTIVE）' })
+  enabled!: boolean;
+
   @ApiProperty()
   createdAt!: string;
 

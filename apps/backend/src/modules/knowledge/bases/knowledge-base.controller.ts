@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -13,6 +14,7 @@ import { CurrentUserInfo } from '../../../common/decorators/current-user.decorat
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../../shared/types/current-user.type';
 import { CreateKnowledgeBaseDto } from './dto/create-knowledge-base.dto';
+import { ToggleKnowledgeBaseDto } from './dto/toggle-knowledge-base.dto';
 import { KnowledgeBaseService } from './knowledge-base.service';
 
 @ApiTags('knowledge')
@@ -47,5 +49,15 @@ export class KnowledgeBaseController {
     @Param('id') id: string,
   ) {
     return this.service.remove(currentUser.id, id);
+  }
+
+  @Patch(':id/enabled')
+  @ApiOperation({ summary: '启用/禁用知识库（切换 status ACTIVE↔DISABLED）' })
+  toggleEnabled(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('id') id: string,
+    @Body() dto: ToggleKnowledgeBaseDto,
+  ) {
+    return this.service.toggleEnabled(currentUser.id, id, dto.enabled);
   }
 }

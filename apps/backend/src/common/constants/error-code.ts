@@ -52,4 +52,7 @@ export enum ErrorCode {
 
   // 切片不存在。
   KnowledgeChunkNotFound = 60108,
+
+  // 知识库当前状态不允许该操作（例如对 ARCHIVED 知识库切换 enabled）。
+  KnowledgeBaseInvalidStatus = 60109,
 }
