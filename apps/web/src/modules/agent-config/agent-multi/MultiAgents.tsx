@@ -474,6 +474,8 @@ export function MultiAgents({
           <WorkflowSelectModal
             visible={dialogFlow}
             onClose={() => setDialogFlow(false)}
+            selectedIds={config.workflows}
+            onRemove={(id) => onConfigChange({ ...config, workflows: config.workflows.filter(w => w !== id) })}
             onSelect={(wf) => {
               if (!config.workflows.includes(wf.id)) {
                 onConfigChange({ ...config, workflows: [...config.workflows, wf.id] })
@@ -483,6 +485,8 @@ export function MultiAgents({
           <KnowledgeSelectModal
             visible={database}
             onClose={() => setDatabase(false)}
+            selectedIds={config.databases}
+            onRemove={(id) => onConfigChange({ ...config, databases: config.databases.filter(d => d !== id) })}
             onSelect={(kb) => {
               if (!config.databases.includes(kb.id)) {
                 onConfigChange({ ...config, databases: [...config.databases, kb.id] })
@@ -492,6 +496,7 @@ export function MultiAgents({
           <AddPluginModal
             visible={pluginModalOpen}
             onClose={() => setPluginModalOpen(false)}
+            selectedIds={config.plugins}
             onSelect={(selectedPlugins: IPlugin[]) => {
               onConfigChange({ ...config, plugins: selectedPlugins.map((p) => p.id) })
             }}

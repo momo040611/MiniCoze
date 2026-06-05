@@ -308,6 +308,14 @@
   background: #dbeafe;
 }
 
+.pluginCardAdded {
+  background: #f0fdf4;
+}
+
+.pluginCardAdded:hover {
+  background: #dcfce7;
+}
+
 /* 左侧：图标 + 信息 */
 .pluginCardLeft {
   display: flex;
@@ -478,6 +486,10 @@
   font-size: 11px;
   flex-shrink: 0;
   margin-left: 8px;
+}
+
+.selectedMarkAdded {
+  background: #22c55e;
 }
 
 /* ---- 空状态/加载 ---- */

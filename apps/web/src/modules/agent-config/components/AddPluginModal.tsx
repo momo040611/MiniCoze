@@ -8,6 +8,7 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onSelect: (plugins: IPlugin[]) => void;
+  selectedIds?: string[];
 }
 
 const PLUGIN_TYPE_LABELS: Record<string, string> = {
@@ -19,7 +20,7 @@ function getPluginTypeLabel(plugin: IPlugin): string {
   return PLUGIN_TYPE_LABELS[plugin.type] ?? plugin.type;
 }
 
-export function AddPluginModal({ visible, onClose, onSelect }: Props) {
+export function AddPluginModal({ visible, onClose, onSelect, selectedIds: preSelectedIds }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [plugins, setPlugins] = useState<IPlugin[]>([]);
@@ -46,12 +47,12 @@ export function AddPluginModal({ visible, onClose, onSelect }: Props) {
     if (visible) {
       loadPlugins();
       setSearch('');
-      setSelectedIds(new Set());
+      setSelectedIds(new Set(preSelectedIds ?? []));
       setCategory('all');
       setSourceType('all');
       setSortBy('popular');
     }
-  }, [visible, loadPlugins]);
+  }, [visible, loadPlugins, preSelectedIds]);
 
   const filtered = useMemo(() => {
     let list = plugins;

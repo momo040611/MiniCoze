@@ -8,6 +8,8 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onSelect: (kb: KnowledgeBase) => void;
+  selectedIds?: string[];
+  onRemove?: (id: string) => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -40,7 +42,7 @@ function formatDate(dateStr: string): string {
   return `${y}-${m}-${day}`;
 }
 
-export function KnowledgeSelectModal({ visible, onClose, onSelect }: Props) {
+export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, onRemove }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<KnowledgeBase[]>([]);
@@ -208,6 +210,7 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect }: Props) {
               <div className={styles.listBody}>
                 {filtered.map((kb) => {
                   const isSelected = selectedId === kb.id;
+                  const isAlreadyAdded = (selectedIds ?? []).includes(kb.id);
                   const statusLabel = STATUS_LABELS[kb.status] ?? kb.status;
                   const statusClass =
                     STATUS_CLASSES[kb.status] ?? styles.tagDisabled;
@@ -217,8 +220,14 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect }: Props) {
                   return (
                     <div
                       key={kb.id}
-                      className={`${styles.kbCard} ${isSelected ? styles.kbCardSelected : ''}`}
-                      onClick={() => setSelectedId(kb.id)}
+                      className={`${styles.kbCard} ${isSelected ? styles.kbCardSelected : ''} ${isAlreadyAdded ? styles.kbCardAdded : ''}`}
+                      onClick={() => {
+                        if (isAlreadyAdded) {
+                          onRemove?.(kb.id);
+                          return;
+                        }
+                        setSelectedId(kb.id);
+                      }}
                     >
                       {/* 左侧：图标 + 信息 */}
                       <div className={styles.kbCardLeft}>
@@ -325,9 +334,9 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect }: Props) {
                         </span>
                       </div>
 
-                      {/* 选中标记 */}
-                      {isSelected && (
-                        <span className={styles.selectedMark}>
+                      {/* 选中标记 / 已添加标记 */}
+                      {(isSelected || isAlreadyAdded) && (
+                        <span className={`${styles.selectedMark} ${isAlreadyAdded ? styles.selectedMarkAdded : ''}`}>
                           <svg
                             width="12"
                             height="12"

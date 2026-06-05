@@ -352,6 +352,14 @@
   background: #dbeafe;
 }
 
+.wfCardAdded {
+  background: #f0fdf4;
+}
+
+.wfCardAdded:hover {
+  background: #dcfce7;
+}
+
 .wfCardLeft {
   display: flex;
   align-items: center;
@@ -440,6 +448,18 @@
   color: #1677ff;
 }
 
+.wfRemoveBtn {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.wfRemoveBtn:hover {
+  border-color: #ef4444;
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 /* 选中标记 */
 .selectedMark {
   display: flex;
@@ -453,6 +473,10 @@
   font-size: 11px;
   flex-shrink: 0;
   margin-left: 8px;
+}
+
+.selectedMarkAdded {
+  background: #22c55e;
 }
 
 /* 空状态 */

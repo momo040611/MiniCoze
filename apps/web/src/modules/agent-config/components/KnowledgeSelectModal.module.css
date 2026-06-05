@@ -375,6 +375,14 @@
   background: #dbeafe;
 }
 
+.kbCardAdded {
+  background: #f0fdf4;
+}
+
+.kbCardAdded:hover {
+  background: #dcfce7;
+}
+
 .kbCardLeft {
   display: flex;
   align-items: center;
@@ -555,4 +563,8 @@
   font-size: 11px;
   flex-shrink: 0;
   margin-left: 8px;
+}
+
+.selectedMarkAdded {
+  background: #22c55e;
 }

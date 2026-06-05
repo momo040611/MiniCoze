@@ -377,6 +377,8 @@ export function SingleAgentPlanner({
       <WorkflowSelectModal
         visible={workflowModalOpen}
         onClose={() => setWorkflowModalOpen(false)}
+        selectedIds={config.workflows}
+        onRemove={(id) => updateConfig({ workflows: config.workflows.filter(w => w !== id) })}
         onSelect={(wf) => {
           if (!config.workflows.includes(wf.id)) {
             updateConfig({ workflows: [...config.workflows, wf.id] })
@@ -386,6 +388,7 @@ export function SingleAgentPlanner({
       <AddPluginModal
         visible={pluginModalOpen}
         onClose={() => setPluginModalOpen(false)}
+        selectedIds={config.plugins}
         onSelect={(selectedPlugins: IPlugin[]) => {
           updateConfig({ plugins: selectedPlugins.map((p) => p.id) })
         }}
@@ -393,6 +396,8 @@ export function SingleAgentPlanner({
       <KnowledgeSelectModal
         visible={knowledgeModalOpen}
         onClose={() => setKnowledgeModalOpen(false)}
+        selectedIds={config.databases}
+        onRemove={(id) => updateConfig({ databases: config.databases.filter(d => d !== id) })}
         onSelect={(kb) => {
           if (!config.databases.includes(kb.id)) {
             onConfigChange({ ...config, databases: [...config.databases, kb.id] })

@@ -7,6 +7,8 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onSelect: (wf: Workflow) => void;
+  onRemove?: (id: string) => void;
+  selectedIds?: string[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -23,7 +25,7 @@ function formatDate(dateStr: string): string {
   return `${y}-${m}-${day}`;
 }
 
-export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
+export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, selectedIds }: Props) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<Workflow[]>([]);
@@ -67,11 +69,6 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
     }
     return list;
   }, [items, search, statusFilter]);
-
-  const handleSelect = (wf: Workflow) => {
-    onSelect(wf);
-    onClose();
-  };
 
   const isEmpty = !loading && filtered.length === 0;
 
@@ -189,16 +186,21 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
               <div className={styles.listBody}>
                 {filtered.map((wf) => {
                   const isSelected = selectedId === wf.id;
+                  const isAlreadyAdded = (selectedIds ?? []).includes(wf.id);
                   const status = wf.status ?? 'DRAFT';
                   const statusLabel = STATUS_LABELS[status] ?? status;
 
                   return (
                     <div
                       key={wf.id}
-                      className={`${styles.wfCard} ${isSelected ? styles.wfCardSelected : ''}`}
-                      onClick={() =>
-                        setSelectedId(isSelected ? null : wf.id)
-                      }
+                      className={`${styles.wfCard} ${isSelected ? styles.wfCardSelected : ''} ${isAlreadyAdded ? styles.wfCardAdded : ''}`}
+                      onClick={() => {
+                        if (isAlreadyAdded) {
+                          onRemove?.(wf.id);
+                          return;
+                        }
+                        setSelectedId(isSelected ? null : wf.id);
+                      }}
                     >
                       {/* 左侧：图标 + 信息 */}
                       <div className={styles.wfCardLeft}>
@@ -230,22 +232,26 @@ export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
                         </div>
                       </div>
 
-                      {/* 右侧：添加按钮 */}
+                      {/* 右侧：添加/移除按钮 */}
                       <div className={styles.wfCardRight}>
                         <button
-                          className={styles.wfAddBtn}
+                          className={`${styles.wfAddBtn} ${isAlreadyAdded ? styles.wfRemoveBtn : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleSelect(wf);
+                            if (isAlreadyAdded) {
+                              onRemove?.(wf.id);
+                            } else {
+                              onSelect(wf);
+                            }
                           }}
                         >
-                          添加
+                          {isAlreadyAdded ? '移除' : '添加'}
                         </button>
                       </div>
 
-                      {/* 选中标记 */}
-                      {isSelected && (
-                        <span className={styles.selectedMark}>
+                      {/* 选中标记 / 已添加标记 */}
+                      {(isSelected || isAlreadyAdded) && (
+                        <span className={`${styles.selectedMark} ${isAlreadyAdded ? styles.selectedMarkAdded : ''}`}>
                           <svg
                             width="12"
                             height="12"
