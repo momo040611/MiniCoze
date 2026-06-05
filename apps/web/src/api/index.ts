@@ -9,6 +9,32 @@ export * from './agent-config';
 
 // 统一导出“工作流画布界面”模块 API，后续画布节点、连线、运行调试等接口放在该模块下。
 export * from './workflow-canvas';
+export {
+  DEFAULT_WORKFLOW_CANVAS_DATA,
+  createWorkflow,
+  createWorkflowRemote,
+  deleteWorkflow,
+  fromWorkflowResponse,
+  getWorkflowById,
+  getWorkflowByIdRemote,
+  getWorkflowDetail,
+  getWorkflowList,
+  getWorkflowListRemote,
+  saveWorkflowDraft,
+  saveWorkflowDraftRemote,
+  toCreateWorkflowRequest,
+  toWorkflowDefinition,
+  updateWorkflow,
+  updateWorkflowRemote,
+  type CreateWorkflowParams,
+  type CreateWorkflowRequest,
+  type PaginatedWorkflowResponse,
+  type UpdateWorkflowRequest,
+  type Workflow,
+  type WorkflowCanvasData,
+  type WorkflowDefinition,
+  type WorkflowResponseLike,
+} from './workflows';
 
 // 统一导出"创建知识库界面"模块 API，后续文件上传、解析、知识库管理等接口放在该模块下。
 export * from './knowledge-base';
@@ -20,3 +46,4 @@ export * from './homepage';
 export * from './workspace';
 // 统一导出"Agent 运行时"模块 API（SSE 流式对话）。
 export * from './agent-runtime';
+export * from './plugins';

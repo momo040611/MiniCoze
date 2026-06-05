@@ -4,4 +4,4 @@ build/
 .env
 logs/
 *.log
-
+/storage/

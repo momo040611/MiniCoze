@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Avatar, Button, Dropdown, Menu, Select } from 'antd';
+import { Avatar, Button, ConfigProvider, Dropdown, Menu, Select, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DownOutlined,
@@ -11,7 +11,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { logout } from '../../api/auth';
-import { getCurrentUser } from '../../api/auth/auth-store';
+import { getCurrentUser, subscribeToAuth } from '../../api/auth/auth-store';
 import { useWorkspace } from '../workspace/use-workspace';
 import { appMenuItems, flattenMenuItems, getMenuParentKeys } from './menu';
 import styles from './AppLayout.module.css';
@@ -29,10 +29,23 @@ function getSelectedMenuKey(pathname: string) {
 export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = getCurrentUser();
+  const [user, setUser] = useState(getCurrentUser());
   const { workspaces, currentWorkspace, loading, switchWorkspace } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
   const [openKeys, setOpenKeys] = useState<string[]>([]);
+
+  // 订阅 auth 数据变化（头像/昵称修改后自动刷新）
+  useEffect(() => {
+    return subscribeToAuth(() => {
+      setUser(getCurrentUser());
+    });
+  }, []);
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
+    return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') ?? 'light';
+  });
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+  );
   const selectedKey = getSelectedMenuKey(location.pathname);
   const selectedParentKeys = selectedKey ? getMenuParentKeys(appMenuItems, selectedKey) : [];
 
@@ -41,6 +54,28 @@ export function AppLayout() {
       setOpenKeys((currentKeys) => Array.from(new Set([...currentKeys, ...selectedParentKeys])));
     }
   }, [collapsed, selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 监听系统主题偏好变化
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // 应用 CSS 变量主题到 document
+  useEffect(() => {
+    localStorage.setItem('theme', themeMode);
+    if (themeMode === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else if (themeMode === 'system') {
+      document.documentElement.setAttribute('data-theme', systemPrefersDark ? 'dark' : '');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  }, [themeMode, systemPrefersDark]);
+
+  const isDark = themeMode === 'dark' || (themeMode === 'system' && systemPrefersDark);
 
   const sidebarMenuItems: MenuProps['items'] = useMemo(
     () =>
@@ -60,16 +95,43 @@ export function AppLayout() {
   const userDropdownItems: MenuProps['items'] = useMemo(
     () => [
       {
-        key: 'profile',
-        icon: <UserOutlined />,
+        key: 'username-display',
         label: user?.username ?? '用户',
         disabled: true,
       },
       { type: 'divider' },
       {
+        key: 'profile',
+        label: '个人中心',
+        icon: <UserOutlined />,
+      },
+      {
+        key: 'theme',
+        label: '主题',
+        popupOffset: [8, 0],
+        children: [
+          { key: 'theme-light', label: '亮色' },
+          { key: 'theme-dark', label: '暗色' },
+          { key: 'theme-system', label: '跟随系统' },
+        ],
+      },
+      { key: 'download', label: '下载客户端' },
+      { key: 'settings', label: '设置' },
+      { key: 'docs', label: '文档' },
+      {
+        key: 'contact',
+        label: '联系我们',
+        popupOffset: [8, 0],
+        children: [
+          { key: 'contact-email', label: '邮箱' },
+          { key: 'contact-github', label: 'GitHub' },
+        ],
+      },
+      { type: 'divider' },
+      {
         key: 'logout',
-        icon: <LogoutOutlined />,
         label: '退出登录',
+        icon: <LogoutOutlined />,
         danger: true,
       },
     ],
@@ -80,18 +142,50 @@ export function AppLayout() {
     if (key === 'logout') {
       logout();
       navigate('/login');
+    } else if (key === 'profile') {
+      navigate('/profile');
+    } else if (key === 'theme-light') {
+      setThemeMode('light');
+    } else if (key === 'theme-dark') {
+      setThemeMode('dark');
+    } else if (key === 'theme-system') {
+      setThemeMode('system');
     }
   };
 
   return (
+    <ConfigProvider
+      theme={{
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+      }}
+    >
     <div className={styles.appLayout}>
       <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''}`}>
-        <div className={styles.brand}>
-          <div className={styles.brandIcon}>
-            <RobotOutlined />
+        {!collapsed ? (
+          <div className={styles.sidebarTop}>
+            <div className={styles.brand}>
+              <div className={styles.brandIcon}>
+                <RobotOutlined />
+              </div>
+              <span className={styles.brandText}>AI Agent 平台</span>
+            </div>
+            <Button
+              type="text"
+              icon={<MenuFoldOutlined />}
+              onClick={() => setCollapsed((value) => !value)}
+              className={styles.collapseButton}
+              aria-label="收起侧边栏"
+            />
           </div>
-          {!collapsed && <span className={styles.brandText}>AI Agent 平台</span>}
-        </div>
+        ) : (
+          <Button
+            type="text"
+            icon={<MenuUnfoldOutlined />}
+            onClick={() => setCollapsed((value) => !value)}
+            className={styles.collapseButton}
+            aria-label="展开侧边栏"
+          />
+        )}
 
         <Menu
           className={styles.navMenu}
@@ -109,49 +203,41 @@ export function AppLayout() {
           }}
         />
 
-        <div className={styles.sidebarFooter}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed((value) => !value)}
-            className={styles.collapseButton}
-            aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}
+        <div className={`${styles.sidebarUser} ${collapsed ? styles.sidebarUserCollapsed : ''}`}>
+          <Dropdown
+            menu={{ items: userDropdownItems, onClick: handleUserMenuClick }}
+            placement="topLeft"
+            trigger={['click']}
           >
-            {!collapsed && '收起'}
-          </Button>
-        </div>
-      </aside>
-
-      <section className={styles.shell}>
-        <header className={styles.header}>
-          <div className={styles.headerLeft}>
-            <Select
-              className={styles.workspaceSelect}
-              value={currentWorkspace?.id}
-              placeholder="选择一个工作区"
-              loading={loading}
-              options={workspaces.map((workspace) => ({
-                value: workspace.id,
-                label: workspace.name,
-              }))}
-              onChange={switchWorkspace}
-              suffixIcon={<DownOutlined />}
-            />
-          </div>
-
-          <div className={styles.headerRight}>
-            <Dropdown
-              menu={{ items: userDropdownItems, onClick: handleUserMenuClick }}
-              placement="bottomRight"
-              trigger={['click']}
-            >
+            {collapsed ? (
+              <button className={styles.userButtonCompact} type="button">
+                <Avatar size={34} src={user?.avatarUrl ?? undefined} icon={!user?.avatarUrl && <UserOutlined />} />
+              </button>
+            ) : (
               <button className={styles.userButton} type="button">
                 <Avatar size={34} src={user?.avatarUrl ?? undefined} icon={!user?.avatarUrl && <UserOutlined />} />
                 <span className={styles.userName}>{user?.username ?? '用户'}</span>
                 <DownOutlined className={styles.userArrow} />
               </button>
-            </Dropdown>
-          </div>
+            )}
+          </Dropdown>
+        </div>
+      </aside>
+
+      <section className={styles.shell}>
+        <header className={styles.header}>
+          <Select
+            className={styles.workspaceSelect}
+            value={currentWorkspace?.id}
+            placeholder="选择一个工作区"
+            loading={loading}
+            options={workspaces.map((workspace) => ({
+              value: workspace.id,
+              label: workspace.name,
+            }))}
+            onChange={switchWorkspace}
+            suffixIcon={<DownOutlined />}
+          />
         </header>
 
         <main className={styles.content}>
@@ -159,5 +245,6 @@ export function AppLayout() {
         </main>
       </section>
     </div>
+    </ConfigProvider>
   );
 }

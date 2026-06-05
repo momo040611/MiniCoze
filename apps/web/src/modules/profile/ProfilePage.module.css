@@ -1,0 +1,323 @@
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 0 40px;
+  color: var(--sidebar-brand-text);
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.toolbar h1 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 8px;
+}
+
+.identityBanner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--sidebar-border-color);
+  border-radius: 8px;
+  background: var(--sidebar-bg-main);
+}
+
+.identityMain {
+  min-width: 0;
+}
+
+.identityNameRow,
+.identityBioRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.identityNameRow strong {
+  font-size: 16px;
+}
+
+.verifiedIcon {
+  color: var(--sidebar-nav-selected-color);
+}
+
+.identityBioRow {
+  margin-top: 2px;
+  color: var(--sidebar-nav-item);
+  font-size: 13px;
+}
+
+.identityBioRow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identityStats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px 14px;
+  color: var(--sidebar-nav-item);
+  font-size: 13px;
+}
+
+.identityStats strong {
+  color: var(--sidebar-brand-text);
+}
+
+.statsSkeleton {
+  width: 260px;
+}
+
+.segmented {
+  margin: 16px 0;
+}
+
+.content {
+  min-height: 360px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--sidebar-border-color);
+  border-radius: 8px;
+  background: var(--sidebar-bg-main);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.sectionHeader span {
+  color: var(--sidebar-nav-item);
+  font-size: 13px;
+}
+
+.agentGrid,
+.featuredGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agentCard {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--sidebar-border-color);
+  border-radius: 8px;
+  background: var(--sidebar-bg-panel, var(--sidebar-bg-main));
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.agentCard:hover {
+  border-color: var(--sidebar-nav-selected-color);
+  box-shadow: 0 6px 18px rgba(22, 119, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.agentHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agentInfo {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agentName {
+  overflow: hidden;
+  color: var(--sidebar-brand-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agentDesc,
+.agentFooter {
+  color: var(--sidebar-nav-item);
+  font-size: 12px;
+}
+
+.agentDesc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agentMeta,
+.agentFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agentFooter {
+  min-height: 24px;
+}
+
+.iconButton {
+  flex: 0 0 auto;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.activityItem {
+  display: flex;
+  gap: 10px;
+}
+
+.activityIcon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--sidebar-nav-hover-bg);
+  color: var(--sidebar-nav-selected-color);
+}
+
+.activityBody {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activityBody span {
+  color: var(--sidebar-brand-text);
+}
+
+.activityBody time {
+  color: var(--sidebar-nav-item);
+  font-size: 12px;
+}
+
+.statCard {
+  height: 100%;
+  padding: 14px;
+  border: 1px solid var(--sidebar-border-color);
+  border-radius: 8px;
+  background: var(--sidebar-bg-panel, var(--sidebar-bg-main));
+}
+
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 12px;
+}
+
+.badgeItem {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--sidebar-border-color);
+  border-radius: 8px;
+  background: var(--sidebar-bg-panel, var(--sidebar-bg-main));
+  color: var(--sidebar-brand-text);
+}
+
+.badgeIcon {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--sidebar-nav-hover-bg);
+  color: var(--sidebar-nav-selected-color);
+  font-size: 20px;
+}
+
+.avatarRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fileInput {
+  display: none;
+}
+
+[data-theme="dark"] .identityBanner,
+[data-theme="dark"] .section,
+[data-theme="dark"] .agentCard,
+[data-theme="dark"] .statCard,
+[data-theme="dark"] .badgeItem {
+  background: var(--sidebar-bg-panel, var(--sidebar-bg-main));
+  border-color: var(--sidebar-border-color);
+}
+
+[data-theme="dark"] .activityIcon,
+[data-theme="dark"] .badgeIcon {
+  background: var(--sidebar-nav-hover-bg);
+}
+
+@media (max-width: 760px) {
+  .toolbar,
+  .identityBanner {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbarActions,
+  .identityStats {
+    justify-content: flex-start;
+  }
+
+  .agentGrid,
+  .featuredGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -17,7 +17,6 @@ export class WorkspaceAccessService {
         },
       },
     });
-
     if (!member) {
       throw new BusinessException(
         '无权访问该工作空间',

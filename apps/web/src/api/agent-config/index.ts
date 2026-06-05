@@ -151,7 +151,6 @@ export async function createAgent(params: {
     model: params.model ?? DEFAULT_AGENT_MODEL,
     temperature: 0.7,
     contextLimit: 20,
-    status: 'ACTIVE',
   });
 
   const backend = res.data;

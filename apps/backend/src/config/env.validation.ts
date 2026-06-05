@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
 
@@ -13,6 +14,11 @@ enum NodeEnv {
   Development = 'development',
   Production = 'production',
   Test = 'test',
+}
+
+enum FileStorageDriver {
+  Local = 'local',
+  Cos = 'cos',
 }
 
 class EnvironmentVariables {
@@ -50,36 +56,104 @@ class EnvironmentVariables {
   CORS_ORIGIN =
     'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173';
 
-  // === Knowledge / Embedding ===
-  // OpenAI 兼容 embedding 接口；硅基流动 / 阿里 DashScope 等。
   @IsString()
-  @IsNotEmpty()
-  EMBEDDING_BASE_URL!: string;
+  @IsOptional()
+  @IsEnum(FileStorageDriver)
+  FILE_STORAGE_DRIVER: FileStorageDriver = FileStorageDriver.Local;
 
   @IsString()
-  @IsNotEmpty()
-  EMBEDDING_API_KEY!: string;
+  @IsOptional()
+  FILE_UPLOAD_DIR = 'storage/uploads';
 
   @IsString()
-  @IsNotEmpty()
-  EMBEDDING_MODEL!: string;
+  @IsOptional()
+  FILE_PUBLIC_BASE_URL = '/api/files';
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  EMBEDDING_DIM!: number;
+  FILE_MAX_IMAGE_SIZE = 5242880;
 
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @IsOptional()
-  EMBEDDING_BATCH_SIZE = 32;
+  FILE_MAX_DOCUMENT_SIZE = 52428800;
 
-  // === Knowledge / Upload Stage ===
-  // 上传 stage 文件的本地磁盘目录，相对 backend 工作目录或绝对路径。
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_SECRET_ID?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_SECRET_KEY?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_BUCKET?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_REGION?: string;
+
   @IsString()
   @IsOptional()
-  UPLOAD_STORAGE_DIR = './storage/uploads';
+  COS_PUBLIC_BASE_URL?: string;
+
+  @IsString()
+  @IsOptional()
+  BING_SEARCH_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  BING_SEARCH_ENDPOINT = 'https://api.bing.microsoft.com/v7.0/search';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  BING_SEARCH_TIMEOUT_MS = 10000;
+
+  @IsString()
+  @IsOptional()
+  IMAGE_UNDERSTANDING_API_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  IMAGE_UNDERSTANDING_BASE_URL = 'https://api.openai.com/v1';
+
+  @IsString()
+  @IsOptional()
+  IMAGE_UNDERSTANDING_MODEL = 'gpt-4o-mini';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  IMAGE_UNDERSTANDING_TIMEOUT_MS = 20000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  LINK_READER_TIMEOUT_MS = 15000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  LINK_READER_MAX_CHARS = 20000;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

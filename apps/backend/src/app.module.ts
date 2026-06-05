@@ -14,8 +14,10 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { FileModule } from './modules/file/file.module';
 import { PublishModule } from './modules/publish/publish.module';
+import { PublicAgentModule } from './modules/public-agent/public-agent.module';
 import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module';
 import { AgentRuntimeModule } from './modules/agent-runtime/agent-runtime.module';
+import { PluginModule } from './modules/plugins/plugin.module';
 
 @Module({
   imports: [
@@ -36,8 +38,10 @@ import { AgentRuntimeModule } from './modules/agent-runtime/agent-runtime.module
     KnowledgeModule,
     FileModule,
     PublishModule,
+    PublicAgentModule,
     AiGatewayModule,
     AgentRuntimeModule,
+    PluginModule,
   ],
 })
 export class AppModule {}

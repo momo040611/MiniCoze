@@ -1,16 +1,30 @@
  .workflowPage {
      min-height: 100vh;
+     overflow: hidden;
      background: #f3f4f8;
  }
 
+ .header {
+     top: 0;
+     z-index: 100;
+ }
+
  .canvasArea {
-     min-height: 100vh;
-     padding-top: 64px;
+     position: relative;
+     height: calc(100vh - 64px);
+     margin-top: 64px;
+     min-height: 0;
+     padding-top: 0;
+     overflow: hidden;
      background-color: #f3f4f8;
      background-image:
          linear-gradient(#e5e7eb 1px, transparent 1px),
          linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
      background-size: 24px 24px;
+ }
+
+ .canvasArea :global(.gedit-playground) {
+     background-color: transparent;
  }
 
  body {

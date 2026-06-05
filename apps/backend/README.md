@@ -1,7 +1,8 @@
 # MiniCoze Backend
 
 MiniCoze Backend 是 MiniCoze 可视化 AI Agent 搭建平台的后端服务，基于 NestJS、TypeScript、Prisma 和 PostgreSQL 构建。
-当前后端已经包含用户认证、工作空间、Agent 配置管理、普通对话、AI Gateway 和 Agent Runtime 流式运行能力。知识库、工作流、文件和发布模块目前仍是占位接口或待完善模块。
+
+当前后端已包含用户认证、当前用户资料、工作空间、Agent 配置、普通会话、Agent Runtime 流式运行、AI Gateway、工作流运行、文件上传等能力；`knowledge`、`publish` 目前仍是模块占位或待完善能力。
 
 ## 技术栈
 
@@ -14,11 +15,11 @@ MiniCoze Backend 是 MiniCoze 可视化 AI Agent 搭建平台的后端服务，�
 - class-validator / class-transformer
 - Jest / Supertest
 
-## 应用基础能力
+## 全局约定
 
-后端统一使用 `/api` 作为业务接口前缀，Swagger 文档地址为：
+业务接口统一使用 `/api` 前缀，Swagger 地址为：
 
-```txt
+```text
 http://localhost:3000/api-docs
 ```
 
@@ -30,7 +31,7 @@ http://localhost:3000/api-docs
 - 全局 `HttpExceptionFilter`
 - Swagger
 
-普通接口成功响应会被包装为：
+普通成功响应会被包装为：
 
 ```json
 {
@@ -40,7 +41,7 @@ http://localhost:3000/api-docs
 }
 ```
 
-异常响应会被包装为：
+异常响应会被统一处理为：
 
 ```json
 {
@@ -50,80 +51,82 @@ http://localhost:3000/api-docs
 }
 ```
 
-分页数据统一使用 `PaginatedData<T>`：
+分页响应优先使用 `PaginatedData<T>`：
 
 ```json
 {
-  "code": 0,
-  "message": "success",
-  "data": {
-    "list": [],
-    "total": 100,
-    "page": 1,
-    "pageSize": 20
-  }
+  "list": [],
+  "total": 100,
+  "page": 1,
+  "pageSize": 20
 }
 ```
 
-SSE、文件流等特殊响应可以使用 `@SkipResponseWrap()` 跳过统一响应包装。当前 `/api/agent-runs/stream` 就是 SSE 接口。
+SSE、文件流等不适合统一包装的响应，需要使用 `@SkipResponseWrap()`。
 
 ## 环境变量
 
 在仓库根目录或后端运行环境中准备 `.env`。核心变量如下：
 
-| 变量 | 说明 | 示例 |
+| 变量 | 说明 | 默认值/示例 |
 | --- | --- | --- |
 | `NODE_ENV` | 运行环境 | `development` |
 | `PORT` | 后端端口 | `3000` |
 | `DATABASE_URL` | PostgreSQL 连接地址 | `postgresql://user:password@localhost:5432/minicoze?schema=public` |
-| `JWT_SECRET` | JWT 签名密钥 | `replace-me` |
+| `JWT_SECRET` | JWT 签名密钥 | 必填 |
 | `JWT_EXPIRES_IN` | JWT 过期时间 | `2h` |
+| `REDIS_HOST` | Redis 地址，预留配置 | `localhost` |
+| `REDIS_PORT` | Redis 端口，预留配置 | `6379` |
 | `CORS_ORIGIN` | 允许跨域的前端地址，多个地址用英文逗号分隔 | `http://localhost:5173` |
+| `FILE_UPLOAD_DIR` | 本地文件存储目录 | `storage/uploads` |
+| `FILE_PUBLIC_BASE_URL` | 文件公开访问基础路径 | `/api/files` |
+| `FILE_MAX_IMAGE_SIZE` | 图片最大上传大小，字节 | `5242880` |
+| `FILE_MAX_DOCUMENT_SIZE` | 文档最大上传大小，字节 | `52428800` |
 | `AI_PROVIDER` | AI 供应商 | `openai` 或 `deepseek` |
 | `OPENAI_API_KEY` | OpenAI API Key | `sk-xxxx` |
 | `OPENAI_BASE_URL` | OpenAI 兼容接口地址 | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | OpenAI 默认模型 | `gpt-4o-mini` |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key | `sk-xxxx` |
 | `DEEPSEEK_BASE_URL` | DeepSeek 兼容接口地址 | `https://api.deepseek.com` |
-| `DEEPSEEK_MODEL` | DeepSeek 默认模型 | `deepseek-chat` |
+| `DEEPSEEK_MODEL` | DeepSeek 默认模型 | `deepseek-v4-flash` |
 
 注意：
 
 - `DATABASE_URL` 和 `JWT_SECRET` 是必填项。
-- 生产环境中 `JWT_SECRET` 不能使用 `replace-me`，长度也不能太短。
+- 生产环境中 `JWT_SECRET` 不能使用 `replace-me`，长度不能小于 32。
 - `.env` 不要提交到 Git。
-- 当前 `env.validation.ts` 主要校验基础运行变量；AI 相关变量会在 AI Gateway 初始化或调用时暴露配置缺失问题。
 
 ## 数据库
 
 Prisma schema 位于：
 
-```txt
+```text
 apps/backend/prisma/schema.prisma
 ```
 
 当前核心模型：
 
-- `User`：用户账号，支持注册、登录和当前用户信息。
-- `Workspace`：工作空间，是 Agent 等资源的归属边界。
-- `WorkspaceMember`：用户与工作空间的成员关系，包含 `OWNER`、`ADMIN`、`MEMBER` 角色。
-- `Agent`：单 Agent 配置，包含名称、提示词、模型、温度、状态等字段。
-- `Conversation`：对话，关联 Agent 和用户。
-- `Message`：对话消息，保存用户输入、助手回复、模型信息、token 使用量和错误信息。
+- `User`：用户账号、密码哈希、头像、状态和资源归属。
+- `Workspace`：工作空间，是 Agent、Workflow、File 等资源的归属边界。
+- `WorkspaceMember`：用户与工作空间的成员关系，角色包含 `OWNER`、`ADMIN`、`MEMBER`。
+- `Agent`：单 Agent 配置，包含提示词、模型、温度、开场白、上下文条数和状态。
+- `Conversation` / `Message`：会话和消息，保存用户输入、助手回复、模型信息、token 使用和错误信息。
+- `FileAsset`：上传文件元数据，包含用途、可见性、状态、软删除时间、存储 key、URL、MIME 类型和大小。
+- `Workflow` / `WorkflowVersion`：工作流草稿、当前版本和发布版本。
+- `WorkflowRun` / `WorkflowRunNode`：工作流运行记录和节点执行记录。
 
-常用 Prisma 命令：
+修改数据库结构时的流程：
 
 ```bash
-pnpm --filter backend prisma:generate
 pnpm --filter backend prisma:migrate
-pnpm --filter backend prisma:studio
+pnpm --filter backend prisma:generate
 ```
 
-## 核心接口
+## 模块与接口
 
 ### Health
 
-```txt
+```text
 GET /api/health
 ```
 
@@ -131,21 +134,21 @@ GET /api/health
 
 ### Auth
 
-```txt
+```text
 POST /api/auth/register
 POST /api/auth/login
 GET  /api/auth/profile
 ```
 
-注册时使用 bcrypt 保存密码哈希。登录成功后返回 Bearer Token。受保护接口通过 `JwtAuthGuard` 校验请求头：
+注册时使用 bcrypt 保存密码哈希。登录成功后返回 Bearer Token。受保护接口使用：
 
-```txt
+```text
 Authorization: Bearer <token>
 ```
 
 ### User
 
-```txt
+```text
 GET   /api/users/me
 PATCH /api/users/me
 ```
@@ -154,7 +157,7 @@ PATCH /api/users/me
 
 ### Workspace
 
-```txt
+```text
 POST   /api/workspaces
 GET    /api/workspaces
 GET    /api/workspaces/:workspaceId
@@ -177,7 +180,7 @@ DELETE /api/workspaces/:workspaceId
 
 ### Agent 配置
 
-```txt
+```text
 POST   /api/agents
 GET    /api/agents?workspaceId=...
 GET    /api/agents/:agentId
@@ -185,7 +188,7 @@ PATCH  /api/agents/:agentId
 DELETE /api/agents/:agentId
 ```
 
-创建 Agent 的主要字段：
+常用创建字段：
 
 ```json
 {
@@ -194,7 +197,7 @@ DELETE /api/agents/:agentId
   "description": "用于回答产品和售后问题",
   "avatarUrl": "https://example.com/avatar.png",
   "systemPrompt": "你是一个专业、耐心的客服助手。",
-  "model": "gpt-4o-mini",
+  "model": "deepseek-v4-flash",
   "temperature": 0.7,
   "openingMessage": "你好，我可以帮你解答产品和售后问题。",
   "contextLimit": 20,
@@ -202,65 +205,42 @@ DELETE /api/agents/:agentId
 }
 ```
 
-字段说明：
+说明：
 
-- `workspaceId`、`name`、`systemPrompt` 是创建时必填。
-- `openingMessage` 是前端对话页展示用的开场白，不会作为系统提示词发送给模型。
-- `contextLimit` 表示每次模型调用最多携带的历史消息条数，不包含当前用户输入。
-- `status` 可选值来自 Prisma 的 `AgentStatus`：`DRAFT`、`ACTIVE`、`ARCHIVED`。
-- 查询列表支持 `workspaceId`、`status`、`keyword`、`page`、`pageSize`。
-- 创建、更新、删除 Agent 需要当前用户具备工作空间管理权限。
-- 查询 Agent 详情和列表需要当前用户是工作空间成员。
+- 创建、更新、删除 Agent 需要工作空间管理权限。
+- 查询 Agent 列表和详情需要当前用户是工作空间成员。
+- `openingMessage` 仅用于前端展示，不作为系统提示词发送给模型。
+- `contextLimit` 表示模型调用时最多携带的历史消息条数，不包含当前用户输入。
 
 ### Conversation 普通对话
 
-```txt
-POST /api/workspaces/:workspaceId/conversations
-GET  /api/workspaces/:workspaceId/conversations/:conversationId
-POST /api/workspaces/:workspaceId/conversations/:conversationId/messages
-GET  /api/workspaces/:workspaceId/conversations/agents/:agentId
-```
-
-创建对话并发送首条消息：
-
-```json
-{
-  "agentId": "agent-id",
-  "content": "你好"
-}
-```
-
-继续发送消息：
-
-```json
-{
-  "content": "继续说明一下"
-}
+```text
+POST   /api/workspaces/:workspaceId/conversations
+GET    /api/workspaces/:workspaceId/conversations/:conversationId
+POST   /api/workspaces/:workspaceId/conversations/:conversationId/messages
+GET    /api/workspaces/:workspaceId/conversations/agents/:agentId
+DELETE /api/workspaces/:workspaceId/conversations/:conversationId
 ```
 
 普通对话链路：
 
-```txt
+```text
 校验工作空间权限
 创建或读取 Conversation
 保存用户 Message
-读取 Agent systemPrompt/model/temperature
+读取 Agent systemPrompt/model/temperature/contextLimit
 调用 AI Gateway
 保存 assistant Message
 返回完整回复
 ```
 
-这条链路适合普通请求响应式对话，不是 SSE 流式接口。
-
 ### Agent Runtime 流式运行
 
-```txt
+```text
 POST /api/agent-runs/stream
 ```
 
-该接口需要 Bearer Token，并以 SSE 返回事件。
-
-最低请求体：
+该接口需要 Bearer Token，并以 SSE 返回事件。最小请求体：
 
 ```json
 {
@@ -269,34 +249,9 @@ POST /api/agent-runs/stream
 }
 ```
 
-完整请求体可选字段：
+常见事件顺序：
 
-```json
-{
-  "agentId": "agent-id",
-  "message": "你好，请介绍一下你自己",
-  "conversationId": "optional-conversation-id",
-  "model": "deepseek-chat",
-  "systemPrompt": "你是一个简洁的助手。",
-  "temperature": 0.4,
-  "maxTokens": 512,
-  "tools": []
-}
-```
-
-行为说明：
-
-- `agentId` 必须对应当前用户可访问的 Agent。
-- `conversationId` 不传时会自动创建新对话。
-- `conversationId` 传入时，必须属于当前用户和当前 Agent。
-- `model`、`systemPrompt`、`temperature` 可以临时覆盖 Agent 数据库配置。
-- `maxTokens` 不传时默认使用 `1024`。
-- Runtime 会使用 Agent 的 `contextLimit` 截取历史消息；当前请求的 `message` 始终会发送给模型。
-- `openingMessage` 只用于前端展示，不参与 Runtime 的模型上下文。
-
-成功时常见事件顺序：
-
-```txt
+```text
 run.created
 run.in_progress
 message.delta
@@ -305,78 +260,87 @@ run.completed
 stream.done
 ```
 
-失败时常见事件顺序：
+失败时会返回：
 
-```txt
-run.created
-run.in_progress
+```text
 run.failed
 stream.done
 ```
 
-Runtime 内部职责：
+### Workflow
 
-- 生成 `runId`
-- 创建或复用 `conversationId`
-- 加载历史消息
-- 读取并组装 Agent 配置
-- 保存用户输入
-- 调用执行策略
-- 转发执行策略产生的事件
-- 保存最终 assistant 消息
-- 更新运行状态
-
-当前 Runtime 没有独立 `AgentRun` 数据表。运行中的状态暂存在 `RuntimePrismaRepository` 的内存 `Map` 中，`Conversation` 和 `Message` 会落库。
-
-## AI Gateway
-
-AI Gateway 负责屏蔽不同模型供应商的调用差异，当前支持 OpenAI 兼容接口和 DeepSeek。
-
-核心 service 位于：
-
-```txt
-src/modules/ai-gateway/ai-gateway.service.ts
+```text
+POST /api/workflows
+GET  /api/workflows?workspaceId=...
+GET  /api/workflows/:workflowId
+PATCH /api/workflows/:workflowId
+PUT  /api/workflows/:workflowId/draft
+POST /api/workflows/:workflowId/validate
+POST /api/workflows/:workflowId/publish
+GET  /api/workflows/:workflowId/versions
+POST /api/workflows/:workflowId/run
+GET  /api/workflows/:workflowId/runs
+GET  /api/workflows/runs/:runId
 ```
 
-它提供：
+工作流当前支持：
 
-- `generate()`：普通非流式生成。
-- `generateStream()`：provider 原始流式输出。
-- `chatStream()`：供 Runtime / SingleAgentRunner 使用的流式适配接口。
+- 保存草稿定义到 `draftDefinition`。
+- 校验节点和边的基础合法性。
+- 发布工作流版本，生成 `WorkflowVersion`。
+- 运行已发布版本，记录 `WorkflowRun` 和 `WorkflowRunNode`。
+- 支持 start、llm、end 等节点执行基础链路。
 
-支持供应商列表接口：
+状态说明：
 
-```txt
+- `WorkflowStatus`：`DRAFT`、`ACTIVE`、`ARCHIVED`
+- `WorkflowRunStatus`：`PENDING`、`RUNNING`、`SUCCEEDED`、`FAILED`、`CANCELED`
+- `WorkflowRunNodeStatus`：`PENDING`、`RUNNING`、`SUCCEEDED`、`FAILED`、`SKIPPED`
+
+### File
+
+```text
+POST   /api/files/upload
+GET    /api/files
+GET    /api/files/:fileId
+GET    /api/files/:fileId/content
+DELETE /api/files/:fileId
+```
+
+文件上传使用 `multipart/form-data`，字段：
+
+- `file`：上传文件。
+- `purpose`：文件用途，取值来自 `FilePurpose`，包括 `USER_AVATAR`、`WORKSPACE_AVATAR`、`AGENT_AVATAR`、`PLUGIN_ICON`、`KNOWLEDGE_DOCUMENT`、`CHAT_ATTACHMENT`、`WORKFLOW_ATTACHMENT`、`TEMP_UPLOAD`。
+- `workspaceId`：可选，绑定工作空间文件时使用。
+
+文件读取和删除会校验当前用户权限。公开文件可直接访问；私有文件需要所有者或工作空间成员权限。
+
+### AI Gateway
+
+```text
 GET /api/ai-gateway/providers
 ```
 
-## SingleAgentRunner
+AI Gateway 负责屏蔽不同模型供应商的调用差异。当前支持 OpenAI 兼容接口和 DeepSeek，核心 service 位于：
 
-`SingleAgentRunner` 是当前 Agent Runtime 使用的执行策略。
-
-代码层面保留了单 Agent ReAct/tool-call 循环结构：
-
-```txt
-调用 aiGateway.chatStream
-读取 message.delta
-如果没有 toolCalls，输出 message.completed 并结束
-如果存在 toolCalls，执行 toolExecutor
-将工具结果追加回 messages
-进入下一轮模型调用
+```text
+src/modules/ai-gateway/ai-gateway.service.ts
 ```
 
-当前 `ToolRunner` 仍是工具执行边界，具体工具能力可以继续扩展。
+主要能力：
 
-## 占位模块
+- `generate()`：非流式生成。
+- `generateStream()`：provider 原始流式输出。
+- `chatStream()`：供 Agent Runtime / Runner 使用的流式适配接口。
 
-以下模块当前主要是模块占位或基础 Controller，业务能力还需要继续补齐：
+### 占位模块
 
-- `workflow`
+以下模块当前主要是占位或待继续完善：
+
 - `knowledge`
-- `file`
 - `publish`
 
-## 启动和验证
+## 启动
 
 在仓库根目录执行：
 
@@ -392,18 +356,20 @@ pnpm.cmd --filter backend start:dev
 
 默认地址：
 
-```txt
+```text
 http://localhost:3000/api/health
 http://localhost:3000/api-docs
 ```
 
 ## 开发约定
 
-- 不要把业务逻辑写进 `main.ts` 或 `app.module.ts`。
 - 新业务优先放到 `src/modules/<module-name>`。
-- 成功响应默认由全局拦截器包装。
-- 业务异常优先使用 `BusinessException`。
+- Controller 只负责路由、参数接收和调用 Service。
+- 业务逻辑放在 Service。
+- HTTP 入参使用 DTO，并通过 `class-validator` 描述校验规则。
 - 数据库访问统一通过 `PrismaService`。
-- 涉及用户资源时优先复用工作空间权限服务。
-- SSE、文件下载等特殊响应需要使用 `@SkipResponseWrap()`。
-- 不要提交 `.env`、日志、构建产物或本地临时文件。
+- 通用错误、分页、响应、鉴权和用户上下文优先复用 `src/common`。
+- 普通成功响应不要在 Controller 中手动包装 `{ code, message, data }`。
+- 业务异常优先使用 `BusinessException`。
+- 文件下载、SSE、AI 流式响应等特殊响应使用 `@SkipResponseWrap()`。
+- 修改 Prisma schema 后必须生成 migration 并执行 `prisma:generate`。

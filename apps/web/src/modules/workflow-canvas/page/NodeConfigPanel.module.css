@@ -1,0 +1,92 @@
+.drawerRoot {
+  pointer-events: none;
+}
+
+.drawer {
+  pointer-events: auto;
+}
+
+.drawerRoot :global(.ant-drawer-content-wrapper) {
+  top: 64px;
+  height: calc(100vh - 64px);
+}
+
+.drawer :global(.ant-drawer-header) {
+  padding: 14px 16px;
+}
+
+.drawer :global(.ant-drawer-body) {
+  padding: 16px;
+}
+
+.title {
+  max-width: 320px;
+  overflow: hidden;
+  color: #1f2329;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subTitle {
+  margin-top: 4px;
+  color: #8f959e;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.form {
+  padding-bottom: 24px;
+}
+
+.errorAlert {
+  margin-bottom: 16px;
+}
+
+.errorList {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.errorList li + li {
+  margin-top: 4px;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+
+.sectionTitle {
+  margin-bottom: 10px;
+  color: #1f2329;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.variableList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.variableCard {
+  padding: 12px;
+  background: #f7f8fa;
+  border: 1px solid #eff0f3;
+  border-radius: 8px;
+}
+
+.variableCard :global(.ant-form-item) {
+  margin-bottom: 10px;
+}
+
+.variableCard :global(.ant-form-item:last-of-type) {
+  margin-bottom: 0;
+}
+
+.fullWidth {
+  width: 100%;
+}

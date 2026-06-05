@@ -1,0 +1,274 @@
+/* ============================================
+   G — 预览区（PreviewChat 专属）
+   ============================================ */
+.previewBox {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.previewToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(104, 119, 144, 0.12);
+  background: #fff;
+}
+
+.previewToolbarText {
+  font-size: 12px;
+  font-weight: 600;
+  color: #506070;
+}
+
+.previewClearBtn {
+  padding: 4px 10px;
+  border: 1px solid rgba(104, 119, 144, 0.18);
+  border-radius: 6px;
+  background: #fff;
+  color: #506070;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.previewClearBtn:hover:not(:disabled) {
+  border-color: rgba(124, 58, 237, 0.35);
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.previewClearBtn:disabled {
+  color: #b8c1cc;
+  cursor: not-allowed;
+}
+
+.previewChat {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.previewChat::-webkit-scrollbar {
+  width: 4px;
+}
+
+.previewChat::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.previewChat::-webkit-scrollbar-thumb {
+  background: #d0d5dd;
+  border-radius: 2px;
+}
+
+.previewBubble {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.previewBubbleUser {
+  flex-direction: row-reverse;
+}
+
+.previewAvatarSmall {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.previewMsg {
+  padding: 8px 14px;
+  border-radius: 0 8px 8px 8px;
+  background: #f3f4f6;
+  font-size: 13px;
+  color: #18202f;
+  line-height: 1.6;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.previewBubbleUser .previewMsg {
+  border-radius: 8px 0 8px 8px;
+  background: #f5f3ff;
+}
+
+.previewMeta {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #a0aec0;
+}
+
+.previewInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(104, 119, 144, 0.12);
+  background: #fff;
+}
+
+.previewInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(104, 119, 144, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #18202f;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: #f9fafb;
+}
+
+.previewInput::placeholder {
+  color: #a0aec0;
+}
+
+.previewInput:focus {
+  border-color: #7c3aed;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+.previewActionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #8896a6;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.previewActionBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.previewSendBtn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.previewSendBtn:hover {
+  background: #6d28d9;
+}
+
+/* ============================================
+   J — 简化预览（对话流模式）
+   ============================================ */
+.simplePreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 40px 20px;
+}
+
+.simplePreviewAvatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  margin-bottom: 12px;
+}
+
+.simplePreviewName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #18202f;
+  margin-bottom: 4px;
+}
+
+.simplePreviewDesc {
+  font-size: 12px;
+  color: #8896a6;
+  margin-bottom: 24px;
+}
+
+/* ============================================
+   K — 文件上传（同工作台样式）
+   ============================================ */
+.previewAttachBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  font-size: 18px;
+  color: #8896a6;
+}
+
+.filePreviewBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #fff;
+  border-top: 1px solid rgba(104, 119, 144, 0.12);
+}
+
+.filePreviewThumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.previewDocIcon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+  border-radius: 6px;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.filePreviewInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.filePreviewName {
+  font-size: 13px;
+  color: #18202f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filePreviewSize {
+  font-size: 11px;
+  color: #8896a6;
+}

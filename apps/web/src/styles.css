@@ -20,6 +20,26 @@
   --sidebar-nav-hover-bg: rgba(34, 197, 94, 0.06);
   --sidebar-icon-bg: #111620;
   --sidebar-icon-color: #fff;
+
+  /* ═══ AppLayout 亮色变量 ═══ */
+  --layout-bg: #f5f7fb;
+  --sidebar-bg: #ffffff;
+  --sidebar-border-color: #e7ebf3;
+  --sidebar-divider: #edf0f6;
+  --sidebar-brand-icon-bg: #2563eb;
+  --sidebar-brand-icon-shadow: rgba(37, 99, 235, 0.24);
+  --sidebar-brand-icon-color: #ffffff;
+  --sidebar-brand-text: #111827;
+  --sidebar-nav-item: #46546b;
+  --sidebar-nav-hover-bg: #f1f5ff;
+  --sidebar-nav-hover-color: #1d4ed8;
+  --sidebar-nav-selected-bg: #eef4ff;
+  --sidebar-nav-selected-color: #165dff;
+  --sidebar-user-hover: #f2f5fb;
+  --sidebar-user-text: #1f2937;
+  --sidebar-btn-color: #536179;
+  --sidebar-arrow-color: #6b7280;
+  --header-bg: rgba(255, 255, 255, 0.96);
 }
 
 * {
@@ -193,6 +213,26 @@ select {
   --sidebar-nav-hover-bg: rgba(255, 255, 255, 0.06);
   --sidebar-icon-bg: #2d2d44;
   --sidebar-icon-color: #e5e7eb;
+
+  /* ═══ AppLayout 暗色变量 ═══ */
+  --layout-bg: #0d0d1a;
+  --sidebar-bg: #1a1a2e;
+  --sidebar-border-color: rgba(255, 255, 255, 0.08);
+  --sidebar-divider: rgba(255, 255, 255, 0.06);
+  --sidebar-brand-icon-bg: #2563eb;
+  --sidebar-brand-icon-shadow: rgba(37, 99, 235, 0.3);
+  --sidebar-brand-icon-color: #ffffff;
+  --sidebar-brand-text: #e5e7eb;
+  --sidebar-nav-item: #9ca3af;
+  --sidebar-nav-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-nav-hover-color: #60a5fa;
+  --sidebar-nav-selected-bg: rgba(37, 99, 235, 0.15);
+  --sidebar-nav-selected-color: #60a5fa;
+  --sidebar-user-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-user-text: #e5e7eb;
+  --sidebar-btn-color: #8896a6;
+  --sidebar-arrow-color: #6b7280;
+  --header-bg: rgba(26, 26, 46, 0.96);
 }
 
 [data-theme="dark"] body {

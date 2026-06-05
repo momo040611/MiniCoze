@@ -1,12 +1,16 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, WorkspaceRole } from '@prisma/client';
+import { FilePurpose, Prisma, WorkspaceRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { JwtPayload } from '../../shared/types/current-user.type';
+import { FileService } from '../file/file.service';
+import { UploadedFile } from '../file/types/uploaded-file.type';
 import { UserService } from '../user/user.service';
+import { UpdateCurrentUserDto } from '../user/dto/update-current-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponse } from './types/auth-response.type';
@@ -21,6 +25,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
+    private readonly fileService: FileService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
@@ -107,6 +112,66 @@ export class AuthService {
 
   getProfile(userId: string) {
     return this.userService.findCurrentUser(userId);
+  }
+
+  updateProfile(userId: string, updateCurrentUserDto: UpdateCurrentUserDto) {
+    return this.userService.updateCurrentUser(userId, updateCurrentUserDto);
+  }
+
+  async updateAvatar(userId: string, file: UploadedFile | undefined) {
+    const uploadedFile = await this.fileService.upload(userId, file, {
+      purpose: FilePurpose.USER_AVATAR,
+    });
+    const avatarUrl = uploadedFile.url;
+
+    if (!avatarUrl) {
+      throw new BusinessException(
+        '头像地址生成失败',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.userService.updateCurrentUser(userId, { avatarUrl });
+
+    return { avatarUrl };
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      throw new BusinessException(
+        '用户不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      changePasswordDto.oldPassword,
+      user.passwordHash,
+    );
+
+    if (!isPasswordValid) {
+      throw new BusinessException(
+        '当前密码不正确',
+        ErrorCode.InvalidCredentials,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(
+      changePasswordDto.newPassword,
+      this.saltRounds,
+    );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    return { success: true };
   }
 
   private buildAuthResponse(user: Prisma.UserGetPayload<object>): AuthResponse {

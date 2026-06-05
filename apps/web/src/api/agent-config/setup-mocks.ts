@@ -12,6 +12,8 @@ interface MockAgent {
   temperature: number;
   status: string;
   workspaceId: string;
+  openingMessage: string | null;
+  contextLimit: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +27,8 @@ const mockAgents: MockAgent[] = [
     systemPrompt: '你是一个有用的AI助手。',
     model: 'gpt-4o-mini',
     temperature: 0.7,
+    openingMessage: null,
+    contextLimit: 20,
     status: 'ACTIVE',
     workspaceId: 'default-workspace',
     createdAt: '2025-06-01T00:00:00Z',
@@ -38,6 +42,8 @@ const mockAgents: MockAgent[] = [
     systemPrompt: '你是一个专业的代码审查助手。',
     model: 'gpt-4o-mini',
     temperature: 0.5,
+    openingMessage: null,
+    contextLimit: 20,
     status: 'ACTIVE',
     workspaceId: 'default-workspace',
     createdAt: '2025-06-02T00:00:00Z',
@@ -49,7 +55,7 @@ export function setupAgentMocks() {
   if (registered) return;
   registered = true;
 
-  // 获取智能体列表
+  // ① 列表：GET /agents
   registerMockHandler('GET', 'agents', async () => ({
     code: 0,
     message: 'ok',
@@ -61,7 +67,7 @@ export function setupAgentMocks() {
     },
   }));
 
-  // 创建智能体
+  // ② 创建：POST /agents
   registerMockHandler('POST', 'agents', async (body) => {
     const params = body as {
       name: string;
@@ -73,7 +79,7 @@ export function setupAgentMocks() {
       temperature?: number;
       status?: string;
     };
-    const newAgent = {
+    const newAgent: MockAgent = {
       id: `agent-${Date.now()}`,
       name: params.name,
       description: params.description ?? '',
@@ -81,6 +87,8 @@ export function setupAgentMocks() {
       systemPrompt: params.systemPrompt ?? '',
       model: params.model ?? 'gpt-4o-mini',
       temperature: params.temperature ?? 0.7,
+      openingMessage: null,
+      contextLimit: 20,
       status: params.status ?? 'ACTIVE',
       workspaceId: params.workspaceId,
       createdAt: new Date().toISOString(),
@@ -88,5 +96,33 @@ export function setupAgentMocks() {
     };
     mockAgents.push(newAgent);
     return { code: 0, message: 'ok', data: newAgent };
+  });
+
+  // ③ 更新：PATCH /agents/:id（通过前缀匹配命中 /agents/xxx）
+  registerMockHandler('PATCH', 'agents', async (body, _headers, path) => {
+    const params = body as {
+      name?: string;
+      description?: string;
+      avatarUrl?: string;
+      systemPrompt?: string;
+      model?: string;
+      temperature?: number;
+      openingMessage?: string;
+      contextLimit?: number;
+    };
+    const agentId = path.split('/').pop() ?? '';
+    const agent = mockAgents.find((a) => a.id === agentId);
+    if (agent) {
+      if (params.name !== undefined) agent.name = params.name;
+      if (params.description !== undefined) agent.description = params.description;
+      if (params.avatarUrl !== undefined) agent.avatarUrl = params.avatarUrl;
+      if (params.systemPrompt !== undefined) agent.systemPrompt = params.systemPrompt;
+      if (params.model !== undefined) agent.model = params.model;
+      if (params.temperature !== undefined) agent.temperature = params.temperature;
+      if (params.openingMessage !== undefined) agent.openingMessage = params.openingMessage;
+      if (params.contextLimit !== undefined) agent.contextLimit = params.contextLimit;
+      agent.updatedAt = new Date().toISOString();
+    }
+    return { code: 0, message: 'ok', data: agent };
   });
 }
