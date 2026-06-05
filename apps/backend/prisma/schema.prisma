@@ -33,6 +33,7 @@ model User {
   createdWorkflowVersions   WorkflowVersion[]   @relation("WorkflowVersionCreator")
   workflowRuns              WorkflowRun[]       @relation("WorkflowRunStarter")
   publishRecords            PublishRecord[]     @relation("PublishRecordOperator")
+  uploadStages              KnowledgeUploadStage[]
 }
 
 enum WorkspaceRole {
@@ -643,8 +644,11 @@ model KnowledgeDocument {
   errorMessage    String?                 @db.Text
   chunkCount      Int                     @default(0)
   tokenCount      Int                     @default(0)
+  chunkType       String?
+  chunkConfig     Json?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
+  totalChars      Int                     @default(0)
 
   knowledgeBase KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -700,4 +704,21 @@ model KnowledgeBaseAgentBinding {
   @@index([agentId])
   @@index([knowledgeBaseId])
   @@index([agentId, enabled])
+}
+
+model KnowledgeUploadStage {
+  id            String   @id @default(cuid())
+  fileId        String   @unique
+  uploaderId   String
+  originalName  String
+  fileExtension String
+  fileSize      Int
+  storagePath   String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  uploader User @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([uploaderId])
+  @@index([expiresAt])
 }

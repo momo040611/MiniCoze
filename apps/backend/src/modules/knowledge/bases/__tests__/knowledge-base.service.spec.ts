@@ -17,8 +17,7 @@ const buildKb = (overrides: Partial<Record<string, unknown>> = {}) => ({
   creatorId: 'u1',
   name: 'KB',
   description: null,
-  embeddingModel: 'BAAI/bge-large-zh-v1.5',
-  embeddingDim: 1024,
+  status: 'ACTIVE',
   createdAt: new Date('2026-05-28T00:00:00Z'),
   updatedAt: new Date('2026-05-28T00:00:00Z'),
   ...overrides,
@@ -56,7 +55,7 @@ describe('KnowledgeBaseService', () => {
     );
   });
 
-  it('create: 成员校验通过 → 写入 KB，固化当前 embedder 模型与维度', async () => {
+  it('create: 成员校验通过 → 写入 KB', async () => {
     prisma.knowledgeBase.create.mockResolvedValueOnce(buildKb());
 
     const out = await service.create('u1', {
@@ -67,11 +66,11 @@ describe('KnowledgeBaseService', () => {
     expect(access.ensureMember).toHaveBeenCalledWith('u1', 'ws1');
     expect(prisma.knowledgeBase.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        embeddingModel: 'BAAI/bge-large-zh-v1.5',
-        embeddingDim: 1024,
+        workspaceId: 'ws1',
+        name: 'KB',
       }),
     });
-    expect(out.embeddingDim).toBe(1024);
+    expect(out.id).toBe('kb1');
   });
 
   it('create: 非成员 → 抛 Forbidden', async () => {

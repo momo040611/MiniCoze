@@ -32,9 +32,6 @@ export class KnowledgeBaseService {
         creatorId: userId,
         name: dto.name,
         description: dto.description ?? null,
-        // 创建时固化当前 embedder 的模型与维度，避免后续切换破坏检索一致性。
-        embeddingModel: this.embedder.model,
-        embeddingDim: this.embedder.dimensions,
       },
     });
 
@@ -98,8 +95,6 @@ export class KnowledgeBaseService {
       creatorId: kb.creatorId,
       name: kb.name,
       description: kb.description,
-      embeddingModel: kb.embeddingModel,
-      embeddingDim: kb.embeddingDim,
       createdAt: formatShanghaiDateTime(kb.createdAt),
       updatedAt: formatShanghaiDateTime(kb.updatedAt),
     };

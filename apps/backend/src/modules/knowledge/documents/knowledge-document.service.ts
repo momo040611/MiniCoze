@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import { Prisma, type KnowledgeDocument } from '@prisma/client';
+import { Prisma, type FileAsset, type KnowledgeDocument } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { ErrorCode } from '../../../common/constants/error-code';
 import { BusinessException } from '../../../common/exceptions/business.exception';
@@ -90,14 +90,16 @@ export class KnowledgeDocumentService {
       const doc = await tx.knowledgeDocument.create({
         data: {
           knowledgeBaseId,
-          originalName: stage.originalName,
-          fileExtension: meta.fileExtension,
-          fileSize: stage.fileSize,
+          workspaceId: kb.workspaceId,
+          fileId,
+          creatorId: userId,
+          name: stage.originalName,
           chunkType: meta.chunkType,
           chunkConfig: config as unknown as Prisma.InputJsonValue,
-          totalChunks: meta.totalChunks,
+          chunkCount: meta.totalChunks,
           totalChars: meta.totalChars,
         },
+        include: { file: true },
       });
 
       // pgvector 字段无法通过 Prisma client 写入，逐条 raw insert。
@@ -146,6 +148,7 @@ export class KnowledgeDocumentService {
     const list = await this.prisma.knowledgeDocument.findMany({
       where: { knowledgeBaseId },
       orderBy: { createdAt: 'desc' },
+      include: { file: true },
     });
     return list.map((d) => this.toDocumentResponse(d));
   }
@@ -213,6 +216,7 @@ export class KnowledgeDocumentService {
 
     const removed = await this.prisma.knowledgeDocument.delete({
       where: { id: documentId },
+      include: { file: true },
     });
     return this.toDocumentResponse(removed);
   }
@@ -222,16 +226,18 @@ export class KnowledgeDocumentService {
     return `[${v.join(',')}]`;
   }
 
-  private toDocumentResponse(doc: KnowledgeDocument): UploadedDocumentDto {
+  private toDocumentResponse(
+    doc: KnowledgeDocument & { file: FileAsset },
+  ): UploadedDocumentDto {
     return {
       id: doc.id,
       knowledgeBaseId: doc.knowledgeBaseId,
-      originalName: doc.originalName,
-      fileExtension: doc.fileExtension,
-      fileSize: doc.fileSize,
-      chunkType: doc.chunkType,
-      chunkConfig: doc.chunkConfig as unknown as Record<string, unknown>,
-      totalChunks: doc.totalChunks,
+      originalName: doc.file.originalName,
+      fileExtension: doc.file.extension ?? '',
+      fileSize: doc.file.size,
+      chunkType: doc.chunkType ?? '',
+      chunkConfig: (doc.chunkConfig ?? {}) as unknown as Record<string, unknown>,
+      totalChunks: doc.chunkCount,
       totalChars: doc.totalChars,
       createdAt: formatShanghaiDateTime(doc.createdAt),
     };
