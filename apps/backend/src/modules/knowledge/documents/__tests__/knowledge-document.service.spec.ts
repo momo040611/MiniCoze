@@ -12,8 +12,7 @@ const buildKb = (overrides: Partial<Record<string, unknown>> = {}) => ({
   creatorId: 'u1',
   name: 'KB',
   description: null,
-  embeddingModel: 'BAAI/bge-large-zh-v1.5',
-  embeddingDim: 1024,
+  status: 'ACTIVE',
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -22,14 +21,24 @@ const buildKb = (overrides: Partial<Record<string, unknown>> = {}) => ({
 const buildDoc = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: 'doc1',
   knowledgeBaseId: 'kb1',
-  originalName: 'demo.txt',
-  fileExtension: 'txt',
-  fileSize: 100,
+  workspaceId: 'ws1',
+  fileId: 'f1',
+  creatorId: 'u1',
+  name: 'demo.txt',
+  status: 'READY',
+  chunkCount: 2,
+  tokenCount: 0,
+  totalChars: 10,
   chunkType: 'default',
   chunkConfig: {},
-  totalChunks: 2,
-  totalChars: 10,
   createdAt: new Date(),
+  updatedAt: new Date(),
+  file: {
+    id: 'f1',
+    originalName: 'demo.txt',
+    extension: 'txt',
+    size: 100,
+  },
   ...overrides,
 });
 
@@ -124,20 +133,21 @@ describe('KnowledgeDocumentService', () => {
     expect(txMock.$executeRaw).toHaveBeenCalledTimes(1);
     expect(out.document.id).toBe('doc1');
 
+    const insertSql = txMock.$executeRaw.mock.calls[0][0].join('');
+    expect(insertSql).toContain('"documentId"');
+    expect(insertSql).toContain('"knowledgeBaseId"');
+    expect(insertSql).toContain('"workspaceId"');
+    expect(insertSql).toContain('"content"');
+    expect(insertSql).toContain('"index"');
+    expect(insertSql).toContain('"vectorId"');
+    expect(insertSql).toContain('"updatedAt"');
+    expect(insertSql).not.toContain('"chunkIndex"');
+    expect(insertSql).not.toContain('"charCount"');
+    expect(insertSql).not.toContain('"embedding"');
+
     // best-effort 异步触发，等微任务跑完
     await new Promise((r) => setImmediate(r));
     expect(stageService.removeAfterIngest).toHaveBeenCalledWith('f1');
-  });
-
-  it('embedder 维度与 KB 固化值不一致 → KnowledgeEmbeddingDimMismatch，无写入、不读 stage', async () => {
-    const embedder = makeEmbedder([], 512);
-    const service = buildService(embedder);
-
-    await expect(
-      service.chunkAndIngest('u1', 'kb1', 'f1', { chunkType: 'default' }),
-    ).rejects.toMatchObject({ message: expect.stringContaining('does not match') });
-    expect(stageService.loadForUser).not.toHaveBeenCalled();
-    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('扩展名不支持（stage 是 pdf） → KnowledgeFileTypeUnsupported', async () => {
@@ -274,6 +284,7 @@ describe('KnowledgeDocumentService', () => {
     expect(kbService.findOneForUser).toHaveBeenCalledWith('u1', 'kb1');
     expect(prisma.knowledgeDocument.delete).toHaveBeenCalledWith({
       where: { id: 'doc1' },
+      include: { file: true },
     });
   });
 
@@ -290,18 +301,24 @@ describe('KnowledgeDocumentService', () => {
     }
   });
 
-  it('listChunksByDocument: 用 raw SQL 查 chunks（不含向量）', async () => {
+  it('listChunksByDocument: 用当前 schema 字段查 chunks 并映射响应', async () => {
     prisma.knowledgeDocument.findUnique.mockResolvedValueOnce(buildDoc());
     prisma.$queryRaw.mockResolvedValueOnce([
-      { id: 'c1', chunkIndex: 0, content: 'hello', charCount: 5 },
-      { id: 'c2', chunkIndex: 1, content: 'world', charCount: 5 },
+      { id: 'c1', index: 0, content: 'hello' },
+      { id: 'c2', index: 1, content: '你😀好' },
     ]);
     const service = buildService(makeEmbedder([]));
 
     const out = await service.listChunksByDocument('u1', 'doc1');
     expect(kbService.findOneForUser).toHaveBeenCalledWith('u1', 'kb1');
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(out.totalChunks).toBe(2);
-    expect(out.list[0].content).toBe('hello');
+    expect(out).toEqual({
+      documentId: 'doc1',
+      totalChunks: 2,
+      list: [
+        { id: 'c1', chunkIndex: 0, content: 'hello', charCount: 5 },
+        { id: 'c2', chunkIndex: 1, content: '你😀好', charCount: 3 },
+      ],
+    });
   });
 });

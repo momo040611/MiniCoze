@@ -18,10 +18,15 @@ import {
   UploadDocumentResponseDto,
   UploadedDocumentDto,
 } from './dto/upload-document-response.dto';
-import {
-  DocumentChunkItemDto,
-  DocumentChunksResponseDto,
-} from './dto/document-chunks-response.dto';
+import { DocumentChunksResponseDto } from './dto/document-chunks-response.dto';
+
+type KnowledgeDocumentWithFile = KnowledgeDocument & { file: FileAsset };
+
+type KnowledgeChunkRow = {
+  id: string;
+  index: number;
+  content: string;
+};
 
 @Injectable()
 export class KnowledgeDocumentService {
@@ -35,7 +40,7 @@ export class KnowledgeDocumentService {
   ) {}
 
   /**
-   * 核心流程：从 stage 加载文件 → 切分 → 维度校验 → 向量化（事务外）
+   * 核心流程：从 stage 加载文件 → 切分 → 向量化（事务外）
    * → 单事务写入 document + chunks → 事务后 best-effort 清理 stage。
    */
   async chunkAndIngest(
@@ -48,14 +53,6 @@ export class KnowledgeDocumentService {
       userId,
       knowledgeBaseId,
     );
-
-    // 当前 embedder 与 KB 固化维度不一致 → 立即失败，避免错误向量入库。
-    if (this.embedder.dimensions !== kb.embeddingDim) {
-      throw new BusinessException(
-        `embedder dimension (${this.embedder.dimensions}) does not match KnowledgeBase.embeddingDim (${kb.embeddingDim})`,
-        ErrorCode.KnowledgeEmbeddingDimMismatch,
-      );
-    }
 
     const { stage, buffer } = await this.uploadStageService.loadForUser(
       userId,
@@ -102,21 +99,21 @@ export class KnowledgeDocumentService {
         include: { file: true },
       });
 
-      // pgvector 字段无法通过 Prisma client 写入，逐条 raw insert。
-      // 事务内执行可保证原子性；百级 chunks 单文档延迟可接受。
+      // chunk insert 使用当前 schema 字段：documentId, knowledgeBaseId, workspaceId, content, index, vectorId, updatedAt
+      // tokenCount 使用 DB 默认 0，metadata 省略，createdAt 使用 DB 默认
       for (let i = 0; i < chunks.length; i++) {
         const c = chunks[i];
-        const v = vectors[i];
         const chunkId = randomUUID();
         await tx.$executeRaw`
-          INSERT INTO "KnowledgeChunk" ("id", "documentId", "chunkIndex", "content", "charCount", "embedding", "createdAt")
+          INSERT INTO "KnowledgeChunk" ("id", "documentId", "knowledgeBaseId", "workspaceId", "content", "index", "vectorId", "updatedAt")
           VALUES (
             ${chunkId},
             ${doc.id},
-            ${c.index},
+            ${kb.id},
+            ${kb.workspaceId},
             ${c.content},
-            ${c.charCount},
-            ${this.toVectorLiteral(v)}::vector,
+            ${c.index},
+            NULL,
             NOW()
           )
         `;
@@ -180,17 +177,22 @@ export class KnowledgeDocumentService {
       doc.knowledgeBaseId,
     );
 
-    const rows = await this.prisma.$queryRaw<DocumentChunkItemDto[]>`
-      SELECT "id", "chunkIndex", "content", "charCount"
+    const rows = await this.prisma.$queryRaw<KnowledgeChunkRow[]>`
+      SELECT "id", "index", "content"
       FROM "KnowledgeChunk"
       WHERE "documentId" = ${documentId}
-      ORDER BY "chunkIndex" ASC
+      ORDER BY "index" ASC
     `;
 
     return {
       documentId,
       totalChunks: rows.length,
-      list: rows,
+      list: rows.map((row) => ({
+        id: row.id,
+        chunkIndex: row.index,
+        content: row.content,
+        charCount: Array.from(row.content).length,
+      })),
     };
   }
 
@@ -221,13 +223,8 @@ export class KnowledgeDocumentService {
     return this.toDocumentResponse(removed);
   }
 
-  /** 把 number[] 转成 pgvector 接受的字面量字符串：'[0.1,0.2,...]'。 */
-  private toVectorLiteral(v: number[]): string {
-    return `[${v.join(',')}]`;
-  }
-
   private toDocumentResponse(
-    doc: KnowledgeDocument & { file: FileAsset },
+    doc: KnowledgeDocumentWithFile,
   ): UploadedDocumentDto {
     return {
       id: doc.id,
