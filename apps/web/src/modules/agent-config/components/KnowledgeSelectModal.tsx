@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { knowledgeApi, type KnowledgeBase } from '../../../api/knowledge-base';
 import { KnowledgeStatus } from '../../../api/knowledge-base/types';
@@ -51,7 +51,7 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
   const [sourceFilter, setSourceFilter] = useState('all');
   const [timeFilter, setTimeFilter] = useState('all');
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const response = await knowledgeApi.getKnowledgeBases();
@@ -61,7 +61,7 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -71,7 +71,7 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
       setSourceFilter('all');
       setTimeFilter('all');
     }
-  }, [visible]);
+  }, [visible, load]);
 
   const filtered = useMemo(() => {
     let list = items;
