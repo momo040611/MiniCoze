@@ -5,6 +5,7 @@ import { WorkflowAsyncRunner } from './internal/compose/workflow-async-runner';
 import { WorkflowCancellationRegistry } from './internal/execute/workflow-cancellation.registry';
 import { CodeNodeExecutor } from './internal/nodes/code-node.executor';
 import { EndNodeExecutor } from './internal/nodes/end-node.executor';
+import { HttpNodeExecutor } from './internal/nodes/http-node.executor';
 import { LlmNodeExecutor } from './internal/nodes/llm-node.executor';
 import { SelectorNodeExecutor } from './internal/nodes/selector-node.executor';
 import { StartNodeExecutor } from './internal/nodes/start-node.executor';
@@ -27,6 +28,7 @@ import { WorkflowService } from './workflow.service';
     EndNodeExecutor,
     SelectorNodeExecutor,
     CodeNodeExecutor,
+    HttpNodeExecutor,
   ],
 })
 export class WorkflowModule {}

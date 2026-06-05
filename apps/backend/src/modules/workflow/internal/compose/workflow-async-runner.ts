@@ -15,6 +15,7 @@ import {
 } from '../variable/variable-resolver';
 import { CodeNodeExecutor } from '../nodes/code-node.executor';
 import { EndNodeExecutor } from '../nodes/end-node.executor';
+import { HttpNodeExecutor } from '../nodes/http-node.executor';
 import { LlmNodeExecutor } from '../nodes/llm-node.executor';
 import { SelectorNodeExecutor } from '../nodes/selector-node.executor';
 import { StartNodeExecutor } from '../nodes/start-node.executor';
@@ -66,6 +67,7 @@ export class WorkflowAsyncRunner {
     endNodeExecutor: EndNodeExecutor,
     selectorNodeExecutor: SelectorNodeExecutor,
     codeNodeExecutor: CodeNodeExecutor,
+    httpNodeExecutor: HttpNodeExecutor,
   ) {
     this.executors = new Map<string, WorkflowNodeExecutor>([
       [startNodeExecutor.type, startNodeExecutor],
@@ -73,6 +75,7 @@ export class WorkflowAsyncRunner {
       [endNodeExecutor.type, endNodeExecutor],
       [selectorNodeExecutor.type, selectorNodeExecutor],
       [codeNodeExecutor.type, codeNodeExecutor],
+      [httpNodeExecutor.type, httpNodeExecutor],
     ]);
   }
 
