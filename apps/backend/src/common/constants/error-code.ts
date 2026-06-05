@@ -38,24 +38,15 @@ export enum ErrorCode {
   // 知识库不支持的文件类型（本期仅支持 txt / md）。
   KnowledgeFileTypeUnsupported = 60102,
 
-  // 知识库上传文件过大（超过 10MB）。
-  KnowledgeFileTooLarge = 60103,
-
   // Embedding 调用失败：HTTP 错、网络错、维度不符等。
   KnowledgeEmbeddingFailed = 60104,
 
-  // KnowledgeBase 固化的 embeddingDim 与当前 EMBEDDING_DIM 不一致。
-  KnowledgeEmbeddingDimMismatch = 60105,
+  // 知识库上传文件过大（超过限制）。
+  KnowledgeFileTooLarge = 60103,
 
   // 知识库不存在或无访问权限。
   KnowledgeBaseNotFound = 60106,
 
   // 文档不存在或无访问权限。
   KnowledgeDocumentNotFound = 60107,
-
-  // 上传 stage 不存在或不属于当前用户。
-  KnowledgeUploadStageNotFound = 60108,
-
-  // 上传 stage 已过期（默认 24h TTL）。
-  KnowledgeUploadStageExpired = 60109,
 }

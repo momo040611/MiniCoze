@@ -1,9 +1,10 @@
+import { FilePurpose, FileStatus, FileVisibility } from '@prisma/client';
 import { ErrorCode } from '../../../../common/constants/error-code';
 import { BusinessException } from '../../../../common/exceptions/business.exception';
 import { PrismaService } from '../../../../database/prisma.service';
+import { FileService } from '../../../file/file.service';
 import { KnowledgeBaseService } from '../../bases/knowledge-base.service';
 import type { Embedder } from '../../embedding/embedder.interface';
-import { UploadStageService } from '../../uploads/upload-stage.service';
 import { KnowledgeDocumentService } from '../knowledge-document.service';
 
 const buildKb = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -13,6 +14,26 @@ const buildKb = (overrides: Partial<Record<string, unknown>> = {}) => ({
   name: 'KB',
   description: null,
   status: 'ACTIVE',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  ...overrides,
+});
+
+const buildFileAsset = (overrides: Partial<Record<string, unknown>> = {}) => ({
+  id: 'f1',
+  workspaceId: 'ws1',
+  ownerId: 'u1',
+  purpose: FilePurpose.KNOWLEDGE_DOCUMENT,
+  visibility: FileVisibility.PRIVATE,
+  status: FileStatus.READY,
+  originalName: 'demo.md',
+  storageKey: 'knowledge-document/2026/06/f1.md',
+  url: '/api/files/f1/content',
+  mimeType: 'text/markdown',
+  extension: '.md',
+  size: 100,
+  checksum: null,
+  deletedAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -33,25 +54,7 @@ const buildDoc = (overrides: Partial<Record<string, unknown>> = {}) => ({
   chunkConfig: {},
   createdAt: new Date(),
   updatedAt: new Date(),
-  file: {
-    id: 'f1',
-    originalName: 'demo.txt',
-    extension: 'txt',
-    size: 100,
-  },
-  ...overrides,
-});
-
-const buildStage = (overrides: Partial<Record<string, unknown>> = {}) => ({
-  id: 'stage1',
-  fileId: 'f1',
-  uploaderId: 'u1',
-  originalName: 'demo.md',
-  fileExtension: 'md',
-  fileSize: 11,
-  storagePath: '/tmp/x',
-  expiresAt: new Date(Date.now() + 60_000),
-  createdAt: new Date(),
+  file: buildFileAsset({ originalName: 'demo.txt', extension: '.txt' }),
   ...overrides,
 });
 
@@ -72,9 +75,9 @@ describe('KnowledgeDocumentService', () => {
     $queryRaw: jest.Mock;
   };
   let kbService: { findOneForUser: jest.Mock };
-  let stageService: {
-    loadForUser: jest.Mock;
-    removeAfterIngest: jest.Mock;
+  let fileService: {
+    getReadyFileForUser: jest.Mock;
+    getFileBufferForInternal: jest.Mock;
   };
   let txMock: {
     knowledgeDocument: { create: jest.Mock };
@@ -85,7 +88,7 @@ describe('KnowledgeDocumentService', () => {
     new KnowledgeDocumentService(
       prisma as unknown as PrismaService,
       kbService as unknown as KnowledgeBaseService,
-      stageService as unknown as UploadStageService,
+      fileService as unknown as FileService,
       embedder,
     );
 
@@ -108,16 +111,15 @@ describe('KnowledgeDocumentService', () => {
     kbService = {
       findOneForUser: jest.fn().mockResolvedValue(buildKb()),
     };
-    stageService = {
-      loadForUser: jest.fn().mockResolvedValue({
-        stage: buildStage(),
-        buffer: Buffer.from('hello world', 'utf8'),
-      }),
-      removeAfterIngest: jest.fn().mockResolvedValue(undefined),
+    fileService = {
+      getReadyFileForUser: jest.fn().mockResolvedValue(buildFileAsset()),
+      getFileBufferForInternal: jest
+        .fn()
+        .mockResolvedValue(Buffer.from('hello world', 'utf8')),
     };
   });
 
-  it('happy path: stage → 切分 → 向量化 → 写 document + chunks → 清 stage', async () => {
+  it('happy path: FileAsset → 切分 → 向量化 → 写 document + chunks，保留文件资产', async () => {
     const embedder = makeEmbedder([new Array(1024).fill(0.1)]);
     const service = buildService(embedder);
 
@@ -126,10 +128,23 @@ describe('KnowledgeDocumentService', () => {
     });
 
     expect(kbService.findOneForUser).toHaveBeenCalledWith('u1', 'kb1');
-    expect(stageService.loadForUser).toHaveBeenCalledWith('u1', 'f1');
+    expect(fileService.getReadyFileForUser).toHaveBeenCalledWith('f1', {
+      id: 'u1',
+      email: '',
+      username: '',
+    });
+    expect(fileService.getFileBufferForInternal).toHaveBeenCalledWith('f1');
     expect(embedder.embed).toHaveBeenCalledTimes(1);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(txMock.knowledgeDocument.create).toHaveBeenCalledTimes(1);
+    expect(txMock.knowledgeDocument.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fileId: 'f1',
+          name: 'demo.md',
+        }),
+        include: { file: true },
+      }),
+    );
     expect(txMock.$executeRaw).toHaveBeenCalledTimes(1);
     expect(out.document.id).toBe('doc1');
 
@@ -144,17 +159,12 @@ describe('KnowledgeDocumentService', () => {
     expect(insertSql).not.toContain('"chunkIndex"');
     expect(insertSql).not.toContain('"charCount"');
     expect(insertSql).not.toContain('"embedding"');
-
-    // best-effort 异步触发，等微任务跑完
-    await new Promise((r) => setImmediate(r));
-    expect(stageService.removeAfterIngest).toHaveBeenCalledWith('f1');
   });
 
-  it('扩展名不支持（stage 是 pdf） → KnowledgeFileTypeUnsupported', async () => {
-    stageService.loadForUser.mockResolvedValueOnce({
-      stage: buildStage({ fileExtension: 'pdf' }),
-      buffer: Buffer.from('x'),
-    });
+  it('文件 purpose 非 KNOWLEDGE_DOCUMENT → KnowledgeFileTypeUnsupported', async () => {
+    fileService.getReadyFileForUser.mockResolvedValueOnce(
+      buildFileAsset({ purpose: FilePurpose.CHAT_ATTACHMENT }),
+    );
     const service = buildService(makeEmbedder([]));
 
     try {
@@ -166,7 +176,23 @@ describe('KnowledgeDocumentService', () => {
       );
     }
     expect(prisma.$transaction).not.toHaveBeenCalled();
-    expect(stageService.removeAfterIngest).not.toHaveBeenCalled();
+  });
+
+  it('扩展名不支持（FileAsset 是 pdf） → KnowledgeFileTypeUnsupported', async () => {
+    fileService.getReadyFileForUser.mockResolvedValueOnce(
+      buildFileAsset({ originalName: 'demo.pdf', extension: '.pdf' }),
+    );
+    const service = buildService(makeEmbedder([]));
+
+    try {
+      await service.chunkAndIngest('u1', 'kb1', 'f1', { chunkType: 'default' });
+      fail('should throw');
+    } catch (e) {
+      expect((e as BusinessException).getErrorCode()).toBe(
+        ErrorCode.KnowledgeFileTypeUnsupported,
+      );
+    }
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('config 非法 → KnowledgeChunkConfigInvalid', async () => {
@@ -182,7 +208,7 @@ describe('KnowledgeDocumentService', () => {
     }
   });
 
-  it('embedder 失败抛错 → 不进事务，stage 保留', async () => {
+  it('embedder 失败抛错 → 不进事务，文件资产保留', async () => {
     const embedder: Embedder = {
       model: 'mock',
       dimensions: 1024,
@@ -201,7 +227,6 @@ describe('KnowledgeDocumentService', () => {
       service.chunkAndIngest('u1', 'kb1', 'f1', { chunkType: 'default' }),
     ).rejects.toMatchObject({ message: expect.stringContaining('provider down') });
     expect(prisma.$transaction).not.toHaveBeenCalled();
-    expect(stageService.removeAfterIngest).not.toHaveBeenCalled();
   });
 
   it('KB 不存在 → KnowledgeBaseNotFound', async () => {
@@ -213,15 +238,12 @@ describe('KnowledgeDocumentService', () => {
     await expect(
       service.chunkAndIngest('u1', 'missing', 'f1', { chunkType: 'default' }),
     ).rejects.toMatchObject({ message: expect.stringContaining('not found') });
-    expect(stageService.loadForUser).not.toHaveBeenCalled();
+    expect(fileService.getReadyFileForUser).not.toHaveBeenCalled();
   });
 
-  it('stage 不存在 → KnowledgeUploadStageNotFound', async () => {
-    stageService.loadForUser.mockRejectedValueOnce(
-      new BusinessException(
-        'stage not found',
-        ErrorCode.KnowledgeUploadStageNotFound,
-      ),
+  it('文件不存在 → 透传文件服务错误', async () => {
+    fileService.getReadyFileForUser.mockRejectedValueOnce(
+      new BusinessException('文件不存在', ErrorCode.NotFound),
     );
     const service = buildService(makeEmbedder([]));
 
@@ -231,9 +253,7 @@ describe('KnowledgeDocumentService', () => {
       });
       fail('should throw');
     } catch (e) {
-      expect((e as BusinessException).getErrorCode()).toBe(
-        ErrorCode.KnowledgeUploadStageNotFound,
-      );
+      expect((e as BusinessException).getErrorCode()).toBe(ErrorCode.NotFound);
     }
   });
 

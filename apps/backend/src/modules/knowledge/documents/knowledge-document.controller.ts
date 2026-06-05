@@ -11,7 +11,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUserInfo } from '../../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../../shared/types/current-user.type';
-import { ChunkWithStageDto } from '../uploads/dto/chunk-with-stage.dto';
+import { ChunkWithFileDto } from '../dto/chunk-with-file.dto';
 import { KnowledgeDocumentService } from './knowledge-document.service';
 
 @ApiTags('knowledge')
@@ -23,14 +23,14 @@ export class KnowledgeDocumentController {
 
   @Post('bases/:id/documents')
   @ApiOperation({
-    summary: '上传 stage → 切分 → 向量化 → 入库（同步）',
+    summary: '通用文件 → 切分 → 向量化 → 入库（同步）',
     description:
-      '基于已有 fileId（先调 POST /knowledge/uploads 上传文件）。同步完成切分+向量化+事务入库；成功后 stage 自动清理。',
+      '基于已有 fileId（先调 POST /files/upload，purpose=KNOWLEDGE_DOCUMENT）。同步完成切分+向量化+事务入库；成功后保留 FileAsset。',
   })
   upload(
     @CurrentUserInfo() currentUser: CurrentUser,
     @Param('id') knowledgeBaseId: string,
-    @Body() dto: ChunkWithStageDto,
+    @Body() dto: ChunkWithFileDto,
   ) {
     return this.service.chunkAndIngest(
       currentUser.id,

@@ -9,11 +9,8 @@ import { CurrentUserInfo } from '../../common/decorators/current-user.decorator'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
 import { ChunkDocumentResponseDto } from './dto/chunk-document-response.dto';
+import { ChunkWithFileDto } from './dto/chunk-with-file.dto';
 import { KnowledgeService } from './knowledge.service';
-import { ChunkWithStageDto } from './uploads/dto/chunk-with-stage.dto';
-
-// 兼容旧错误码引用，避免未使用 import 报错。
-void HttpStatus;
 
 @ApiTags('knowledge')
 @Controller('knowledge')
@@ -24,14 +21,14 @@ export class KnowledgeController {
 
   @Post('chunk')
   @ApiOperation({
-    summary: '切分预览（基于 stage fileId，不入库）',
+    summary: '切分预览（基于通用文件 fileId，不入库）',
     description:
-      '先调用 POST /knowledge/uploads 上传文件拿到 fileId，再用 fileId + 切分配置预览 chunks。可重复调以调试切分参数。',
+      '先调用 POST /files/upload 上传文件（purpose=KNOWLEDGE_DOCUMENT）拿到 FileAsset.id，再用 fileId + 切分配置预览 chunks。可重复调以调试切分参数。',
   })
   @ApiResponse({ status: HttpStatus.OK, type: ChunkDocumentResponseDto })
   async chunk(
     @CurrentUserInfo() currentUser: CurrentUser,
-    @Body() dto: ChunkWithStageDto,
+    @Body() dto: ChunkWithFileDto,
   ): Promise<ChunkDocumentResponseDto> {
     const result = await this.knowledgeService.chunkDocument(
       currentUser.id,

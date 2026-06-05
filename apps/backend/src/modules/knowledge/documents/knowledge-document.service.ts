@@ -1,10 +1,11 @@
-import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import { Prisma, type FileAsset, type KnowledgeDocument } from '@prisma/client';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { FilePurpose, Prisma, type FileAsset, type KnowledgeDocument } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { ErrorCode } from '../../../common/constants/error-code';
 import { BusinessException } from '../../../common/exceptions/business.exception';
 import { formatShanghaiDateTime } from '../../../common/utils/date-time';
 import { PrismaService } from '../../../database/prisma.service';
+import { FileService } from '../../file/file.service';
 import { KnowledgeBaseService } from '../bases/knowledge-base.service';
 import { chunk } from '../chunking/chunk';
 import type { ChunkConfig } from '../chunking/types';
@@ -13,12 +14,11 @@ import {
   EMBEDDER_TOKEN,
   type Embedder,
 } from '../embedding/embedder.interface';
-import { UploadStageService } from '../uploads/upload-stage.service';
+import { DocumentChunksResponseDto } from './dto/document-chunks-response.dto';
 import {
   UploadDocumentResponseDto,
   UploadedDocumentDto,
 } from './dto/upload-document-response.dto';
-import { DocumentChunksResponseDto } from './dto/document-chunks-response.dto';
 
 type KnowledgeDocumentWithFile = KnowledgeDocument & { file: FileAsset };
 
@@ -30,18 +30,16 @@ type KnowledgeChunkRow = {
 
 @Injectable()
 export class KnowledgeDocumentService {
-  private readonly logger = new Logger(KnowledgeDocumentService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
-    private readonly uploadStageService: UploadStageService,
+    private readonly fileService: FileService,
     @Inject(EMBEDDER_TOKEN) private readonly embedder: Embedder,
   ) {}
 
   /**
-   * 核心流程：从 stage 加载文件 → 切分 → 向量化（事务外）
-   * → 单事务写入 document + chunks → 事务后 best-effort 清理 stage。
+   * 核心流程：从 FileAsset 加载文件 → 切分 → 向量化（事务外）
+   * → 单事务写入 document + chunks。文件资产保留。
    */
   async chunkAndIngest(
     userId: string,
@@ -54,12 +52,12 @@ export class KnowledgeDocumentService {
       knowledgeBaseId,
     );
 
-    const { stage, buffer } = await this.uploadStageService.loadForUser(
+    const { fileAsset, buffer } = await this.loadKnowledgeDocumentFile(
       userId,
       fileId,
     );
 
-    const ext = stage.fileExtension;
+    const ext = this.extractExtension(fileAsset.originalName);
     const config: ChunkConfig = ChunkConfigDto.fromJsonString(
       JSON.stringify(configRawObject),
     );
@@ -90,7 +88,7 @@ export class KnowledgeDocumentService {
           workspaceId: kb.workspaceId,
           fileId,
           creatorId: userId,
-          name: stage.originalName,
+          name: fileAsset.originalName,
           chunkType: meta.chunkType,
           chunkConfig: config as unknown as Prisma.InputJsonValue,
           chunkCount: meta.totalChunks,
@@ -122,12 +120,6 @@ export class KnowledgeDocumentService {
       return doc;
     });
 
-    // 入库成功 → best-effort 清理 stage。失败仅 log，由 GC 兜底。
-    this.uploadStageService.removeAfterIngest(fileId).catch((e: unknown) => {
-      const reason = e instanceof Error ? e.message : String(e);
-      this.logger.warn(`removeAfterIngest unexpected failure: ${reason}`);
-    });
-
     return {
       document: this.toDocumentResponse(document),
       chunkSummary: {
@@ -153,9 +145,6 @@ export class KnowledgeDocumentService {
   /**
    * 列出某文档的所有 chunks（不含 embedding 向量）。
    * 用于前端"按知识库 id 查看历史文档切分内容"的回放能力。
-   *
-   * 注意：embedding 字段是 pgvector 类型，Prisma client 读它需要扩展支持，
-   * 这里用 raw SQL 显式只 select 需要的列，避免触碰 vector 类型。
    */
   async listChunksByDocument(
     userId: string,
@@ -221,6 +210,40 @@ export class KnowledgeDocumentService {
       include: { file: true },
     });
     return this.toDocumentResponse(removed);
+  }
+
+  private async loadKnowledgeDocumentFile(userId: string, fileId: string) {
+    const currentUser = {
+      id: userId,
+      email: '',
+      username: '',
+    };
+    const fileAsset = await this.fileService.getReadyFileForUser(
+      fileId,
+      currentUser,
+    );
+
+    if (fileAsset.purpose !== FilePurpose.KNOWLEDGE_DOCUMENT) {
+      throw new BusinessException(
+        '文件用途不是知识库文档',
+        ErrorCode.KnowledgeFileTypeUnsupported,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const buffer = await this.fileService.getFileBufferForInternal(fileId);
+    return { fileAsset, buffer };
+  }
+
+  private extractExtension(filename: string): string {
+    const idx = filename.lastIndexOf('.');
+    if (idx === -1 || idx === filename.length - 1) {
+      throw new BusinessException(
+        'file has no extension',
+        ErrorCode.KnowledgeFileTypeUnsupported,
+      );
+    }
+    return filename.slice(idx + 1).toLowerCase();
   }
 
   private toDocumentResponse(

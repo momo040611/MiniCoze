@@ -33,7 +33,6 @@ model User {
   createdWorkflowVersions   WorkflowVersion[]   @relation("WorkflowVersionCreator")
   workflowRuns              WorkflowRun[]       @relation("WorkflowRunStarter")
   publishRecords            PublishRecord[]     @relation("PublishRecordOperator")
-  uploadStages              KnowledgeUploadStage[]
 }
 
 enum WorkspaceRole {
@@ -704,21 +703,4 @@ model KnowledgeBaseAgentBinding {
   @@index([agentId])
   @@index([knowledgeBaseId])
   @@index([agentId, enabled])
-}
-
-model KnowledgeUploadStage {
-  id            String   @id @default(cuid())
-  fileId        String   @unique
-  uploaderId   String
-  originalName  String
-  fileExtension String
-  fileSize      Int
-  storagePath   String
-  expiresAt     DateTime
-  createdAt     DateTime @default(now())
-
-  uploader User @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
-
-  @@index([uploaderId])
-  @@index([expiresAt])
 }
