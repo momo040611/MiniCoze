@@ -49,4 +49,7 @@ export enum ErrorCode {
 
   // 文档不存在或无访问权限。
   KnowledgeDocumentNotFound = 60107,
+
+  // 切片不存在。
+  KnowledgeChunkNotFound = 60108,
 }

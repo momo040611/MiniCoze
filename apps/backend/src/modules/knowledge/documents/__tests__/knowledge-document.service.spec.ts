@@ -307,38 +307,4 @@ describe('KnowledgeDocumentService', () => {
       include: { file: true },
     });
   });
-
-  it('listChunksByDocument: 文档不存在 → KnowledgeDocumentNotFound', async () => {
-    prisma.knowledgeDocument.findUnique.mockResolvedValueOnce(null);
-    const service = buildService(makeEmbedder([]));
-    try {
-      await service.listChunksByDocument('u1', 'missing');
-      fail('should throw');
-    } catch (e) {
-      expect((e as BusinessException).getErrorCode()).toBe(
-        ErrorCode.KnowledgeDocumentNotFound,
-      );
-    }
-  });
-
-  it('listChunksByDocument: 用当前 schema 字段查 chunks 并映射响应', async () => {
-    prisma.knowledgeDocument.findUnique.mockResolvedValueOnce(buildDoc());
-    prisma.$queryRaw.mockResolvedValueOnce([
-      { id: 'c1', index: 0, content: 'hello' },
-      { id: 'c2', index: 1, content: '你😀好' },
-    ]);
-    const service = buildService(makeEmbedder([]));
-
-    const out = await service.listChunksByDocument('u1', 'doc1');
-    expect(kbService.findOneForUser).toHaveBeenCalledWith('u1', 'kb1');
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(out).toEqual({
-      documentId: 'doc1',
-      totalChunks: 2,
-      list: [
-        { id: 'c1', chunkIndex: 0, content: 'hello', charCount: 5 },
-        { id: 'c2', chunkIndex: 1, content: '你😀好', charCount: 3 },
-      ],
-    });
-  });
 });

@@ -671,6 +671,7 @@ model KnowledgeChunk {
   content         String   @db.Text
   index           Int
   tokenCount      Int      @default(0)
+  enabled         Boolean  @default(true)
   metadata        Json?
   vectorId        String?
   createdAt       DateTime @default(now())

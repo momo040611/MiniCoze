@@ -4,14 +4,21 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
+  Patch,
   Post,
+  Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUserInfo } from '../../../common/decorators/current-user.decorator';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../../shared/types/current-user.type';
 import { ChunkWithFileDto } from '../dto/chunk-with-file.dto';
+import { ToggleChunkDto } from './dto/toggle-chunk.dto';
+import { UpdateChunkDto } from './dto/update-chunk.dto';
 import { KnowledgeDocumentService } from './knowledge-document.service';
 
 @ApiTags('knowledge')
@@ -53,15 +60,63 @@ export class KnowledgeDocumentController {
       .then((list) => ({ list }));
   }
 
-  @Get('documents/:id/chunks')
-  @ApiOperation({
-    summary: '查看某文档的全部切分内容（不含向量）',
-  })
-  listChunks(
+  @Get('documents/:documentId/chunks/page')
+  @ApiOperation({ summary: '分页获取文档切片列表' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number, example: 20 })
+  listChunksPaginated(
     @CurrentUserInfo() currentUser: CurrentUser,
-    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+    @Query() query: PaginationQueryDto,
   ) {
-    return this.service.listChunksByDocument(currentUser.id, id);
+    return this.service.listChunksByDocumentPaginated(
+      currentUser.id,
+      documentId,
+      query.page,
+      query.pageSize,
+    );
+  }
+
+  @Put('documents/:documentId/chunks/:index')
+  @ApiOperation({ summary: '编辑切片内容' })
+  updateChunk(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('documentId') documentId: string,
+    @Param('index', ParseIntPipe) index: number,
+    @Body() dto: UpdateChunkDto,
+  ) {
+    return this.service.updateChunk(
+      currentUser.id,
+      documentId,
+      index,
+      dto.content,
+    );
+  }
+
+  @Delete('documents/:documentId/chunks/:index')
+  @ApiOperation({ summary: '删除切片' })
+  deleteChunk(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('documentId') documentId: string,
+    @Param('index', ParseIntPipe) index: number,
+  ) {
+    return this.service.deleteChunk(currentUser.id, documentId, index);
+  }
+
+  @Patch('documents/:documentId/chunks/:index/enabled')
+  @ApiOperation({ summary: '启用/禁用切片' })
+  toggleChunk(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('documentId') documentId: string,
+    @Param('index', ParseIntPipe) index: number,
+    @Body() dto: ToggleChunkDto,
+  ) {
+    return this.service.toggleChunk(
+      currentUser.id,
+      documentId,
+      index,
+      dto.enabled,
+    );
   }
 
   @Delete('documents/:id')

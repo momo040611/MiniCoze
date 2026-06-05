@@ -14,7 +14,7 @@ import {
   EMBEDDER_TOKEN,
   type Embedder,
 } from '../embedding/embedder.interface';
-import { DocumentChunksResponseDto } from './dto/document-chunks-response.dto';
+import { DocumentChunksPaginatedResponseDto } from './dto/document-chunks-response.dto';
 import {
   UploadDocumentResponseDto,
   UploadedDocumentDto,
@@ -26,6 +26,7 @@ type KnowledgeChunkRow = {
   id: string;
   index: number;
   content: string;
+  enabled: boolean;
 };
 
 @Injectable()
@@ -142,49 +143,6 @@ export class KnowledgeDocumentService {
     return list.map((d) => this.toDocumentResponse(d));
   }
 
-  /**
-   * 列出某文档的所有 chunks（不含 embedding 向量）。
-   * 用于前端"按知识库 id 查看历史文档切分内容"的回放能力。
-   */
-  async listChunksByDocument(
-    userId: string,
-    documentId: string,
-  ): Promise<DocumentChunksResponseDto> {
-    const doc = await this.prisma.knowledgeDocument.findUnique({
-      where: { id: documentId },
-    });
-    if (!doc) {
-      throw new BusinessException(
-        '文档不存在',
-        ErrorCode.KnowledgeDocumentNotFound,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-    // 校验该文档所属 KB 的成员资格
-    await this.knowledgeBaseService.findOneForUser(
-      userId,
-      doc.knowledgeBaseId,
-    );
-
-    const rows = await this.prisma.$queryRaw<KnowledgeChunkRow[]>`
-      SELECT "id", "index", "content"
-      FROM "KnowledgeChunk"
-      WHERE "documentId" = ${documentId}
-      ORDER BY "index" ASC
-    `;
-
-    return {
-      documentId,
-      totalChunks: rows.length,
-      list: rows.map((row) => ({
-        id: row.id,
-        chunkIndex: row.index,
-        content: row.content,
-        charCount: Array.from(row.content).length,
-      })),
-    };
-  }
-
   async remove(
     userId: string,
     documentId: string,
@@ -210,6 +168,139 @@ export class KnowledgeDocumentService {
       include: { file: true },
     });
     return this.toDocumentResponse(removed);
+  }
+
+  async listChunksByDocumentPaginated(
+    userId: string,
+    documentId: string,
+    page: number,
+    pageSize: number,
+  ): Promise<DocumentChunksPaginatedResponseDto> {
+    const doc = await this.prisma.knowledgeDocument.findUnique({
+      where: { id: documentId },
+    });
+    if (!doc) {
+      throw new BusinessException(
+        '文档不存在',
+        ErrorCode.KnowledgeDocumentNotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    await this.knowledgeBaseService.findOneForUser(
+      userId,
+      doc.knowledgeBaseId,
+    );
+
+    const skip = (page - 1) * pageSize;
+
+    const [total, rows] = await Promise.all([
+      this.prisma.knowledgeChunk.count({ where: { documentId } }),
+      this.prisma.knowledgeChunk.findMany({
+        where: { documentId },
+        orderBy: { index: 'asc' },
+        skip,
+        take: pageSize,
+        select: { id: true, index: true, content: true, enabled: true },
+      }),
+    ]);
+
+    return {
+      documentId,
+      total,
+      page,
+      pageSize,
+      list: rows.map((row) => ({
+        id: row.id,
+        chunkIndex: row.index,
+        content: row.content,
+        charCount: Array.from(row.content).length,
+        enabled: row.enabled,
+      })),
+    };
+  }
+
+  async updateChunk(
+    userId: string,
+    documentId: string,
+    index: number,
+    content: string,
+  ) {
+    const chunk = await this.findChunkForUser(userId, documentId, index);
+    const updated = await this.prisma.knowledgeChunk.update({
+      where: { id: chunk.id },
+      data: { content },
+    });
+    return {
+      id: updated.id,
+      chunkIndex: updated.index,
+      content: updated.content,
+      charCount: Array.from(updated.content).length,
+      enabled: updated.enabled,
+    };
+  }
+
+  async deleteChunk(
+    userId: string,
+    documentId: string,
+    index: number,
+  ) {
+    const chunk = await this.findChunkForUser(userId, documentId, index);
+    await this.prisma.knowledgeChunk.delete({ where: { id: chunk.id } });
+    await this.prisma.knowledgeDocument.update({
+      where: { id: documentId },
+      data: { chunkCount: { decrement: 1 } },
+    });
+    return { documentId, index };
+  }
+
+  async toggleChunk(
+    userId: string,
+    documentId: string,
+    index: number,
+    enabled: boolean,
+  ) {
+    const chunk = await this.findChunkForUser(userId, documentId, index);
+    const updated = await this.prisma.knowledgeChunk.update({
+      where: { id: chunk.id },
+      data: { enabled },
+    });
+    return {
+      id: updated.id,
+      chunkIndex: updated.index,
+      content: updated.content,
+      charCount: Array.from(updated.content).length,
+      enabled: updated.enabled,
+    };
+  }
+
+  private async findChunkForUser(
+    userId: string,
+    documentId: string,
+    index: number,
+  ) {
+    const doc = await this.prisma.knowledgeDocument.findUnique({
+      where: { id: documentId },
+    });
+    if (!doc) {
+      throw new BusinessException(
+        '文档不存在',
+        ErrorCode.KnowledgeDocumentNotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    await this.knowledgeBaseService.findOneForUser(userId, doc.knowledgeBaseId);
+
+    const chunk = await this.prisma.knowledgeChunk.findUnique({
+      where: { documentId_index: { documentId, index } },
+    });
+    if (!chunk) {
+      throw new BusinessException(
+        '切片不存在',
+        ErrorCode.KnowledgeChunkNotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return chunk;
   }
 
   private async loadKnowledgeDocumentFile(userId: string, fileId: string) {

@@ -38,8 +38,8 @@ export class OpenAiCompatibleEmbedder implements Embedder {
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
     this.apiKey = config.apiKey;
     this.model = config.model;
-    this.dimensions = config.dimensions;
-    this.batchSize = Math.max(1, config.batchSize);
+    this.dimensions = Number(config.dimensions);
+    this.batchSize = Math.max(1, Number(config.batchSize));
   }
 
   async embed(texts: string[]): Promise<number[][]> {
