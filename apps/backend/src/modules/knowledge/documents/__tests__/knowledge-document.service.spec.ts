@@ -5,6 +5,7 @@ import { PrismaService } from '../../../../database/prisma.service';
 import { FileService } from '../../../file/file.service';
 import { KnowledgeBaseService } from '../../bases/knowledge-base.service';
 import type { Embedder } from '../../embedding/embedder.interface';
+import { RetrievalService } from '../../retrieval/retrieval.service';
 import { KnowledgeDocumentService } from '../knowledge-document.service';
 
 const buildKb = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -79,6 +80,7 @@ describe('KnowledgeDocumentService', () => {
     getReadyFileForUser: jest.Mock;
     getFileBufferForInternal: jest.Mock;
   };
+  let retrievalService: { indexChunks: jest.Mock };
   let txMock: {
     knowledgeDocument: { create: jest.Mock };
     $executeRaw: jest.Mock;
@@ -90,6 +92,7 @@ describe('KnowledgeDocumentService', () => {
       kbService as unknown as KnowledgeBaseService,
       fileService as unknown as FileService,
       embedder,
+      retrievalService as unknown as RetrievalService,
     );
 
   beforeEach(() => {
@@ -116,6 +119,9 @@ describe('KnowledgeDocumentService', () => {
       getFileBufferForInternal: jest
         .fn()
         .mockResolvedValue(Buffer.from('hello world', 'utf8')),
+    };
+    retrievalService = {
+      indexChunks: jest.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -159,6 +165,50 @@ describe('KnowledgeDocumentService', () => {
     expect(insertSql).not.toContain('"chunkIndex"');
     expect(insertSql).not.toContain('"charCount"');
     expect(insertSql).not.toContain('"embedding"');
+
+    // Unit 4: 向量也写入 KnowledgeChunkVector
+    expect(retrievalService.indexChunks).toHaveBeenCalledTimes(1);
+    const [tx, rows, model, dim] = retrievalService.indexChunks.mock.calls[0];
+    expect(tx).toBe(txMock);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].chunkId).toEqual(expect.any(String));
+    expect(rows[0].vector).toHaveLength(1024);
+    expect(model).toBe('mock');
+    expect(dim).toBe(1024);
+  });
+
+  it('Unit 4: indexChunks 收到的 chunkId 与 INSERT SQL 用的 chunkId 一致', async () => {
+    const embedder = makeEmbedder([new Array(1024).fill(0.1)]);
+    const service = buildService(embedder);
+
+    await service.chunkAndIngest('u1', 'kb1', 'f1', { chunkType: 'default' });
+
+    // INSERT SQL 第一参数（${chunkIds[i]}）应等于 indexChunks rows[0].chunkId
+    const insertParams = txMock.$executeRaw.mock.calls[0].slice(1);
+    const insertedChunkId = insertParams[0];
+    const indexedChunkId =
+      retrievalService.indexChunks.mock.calls[0][1][0].chunkId;
+    expect(insertedChunkId).toBe(indexedChunkId);
+  });
+
+  it('Unit 4: indexChunks 抛维度异常 → 事务整体抛错（向量与 chunk 一并回滚）', async () => {
+    const embedder = makeEmbedder([new Array(1024).fill(0.1)]);
+    retrievalService.indexChunks.mockRejectedValueOnce(
+      new BusinessException(
+        'dim mismatch',
+        ErrorCode.KnowledgeVectorDimensionMismatch,
+      ),
+    );
+    const service = buildService(embedder);
+
+    try {
+      await service.chunkAndIngest('u1', 'kb1', 'f1', { chunkType: 'default' });
+      fail('should throw');
+    } catch (e) {
+      expect((e as BusinessException).getErrorCode()).toBe(
+        ErrorCode.KnowledgeVectorDimensionMismatch,
+      );
+    }
   });
 
   it('文件 purpose 非 KNOWLEDGE_DOCUMENT → KnowledgeFileTypeUnsupported', async () => {

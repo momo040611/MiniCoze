@@ -14,6 +14,7 @@ import {
   EMBEDDER_TOKEN,
   type Embedder,
 } from '../embedding/embedder.interface';
+import { RetrievalService } from '../retrieval/retrieval.service';
 import { DocumentChunksPaginatedResponseDto } from './dto/document-chunks-response.dto';
 import {
   UploadDocumentResponseDto,
@@ -36,6 +37,7 @@ export class KnowledgeDocumentService {
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly fileService: FileService,
     @Inject(EMBEDDER_TOKEN) private readonly embedder: Embedder,
+    private readonly retrievalService: RetrievalService,
   ) {}
 
   /**
@@ -98,15 +100,18 @@ export class KnowledgeDocumentService {
         include: { file: true },
       });
 
+      // 在 JS 侧预生成 chunkId，让 chunk 插入与向量 upsert 共享同一组主键。
+      const chunkIds = chunks.map(() => randomUUID());
+
       // chunk insert 使用当前 schema 字段：documentId, knowledgeBaseId, workspaceId, content, index, vectorId, updatedAt
       // tokenCount 使用 DB 默认 0，metadata 省略，createdAt 使用 DB 默认
+      // vectorId 保持 NULL（向量持久化在 KnowledgeChunkVector 表，由下方 indexChunks 写入）
       for (let i = 0; i < chunks.length; i++) {
         const c = chunks[i];
-        const chunkId = randomUUID();
         await tx.$executeRaw`
           INSERT INTO "KnowledgeChunk" ("id", "documentId", "knowledgeBaseId", "workspaceId", "content", "index", "vectorId", "updatedAt")
           VALUES (
-            ${chunkId},
+            ${chunkIds[i]},
             ${doc.id},
             ${kb.id},
             ${kb.workspaceId},
@@ -117,6 +122,14 @@ export class KnowledgeDocumentService {
           )
         `;
       }
+
+      // 把向量写入 KnowledgeChunkVector。维度不一致或 SQL 异常会抛错，整事务回滚。
+      await this.retrievalService.indexChunks(
+        tx,
+        chunks.map((_, i) => ({ chunkId: chunkIds[i], vector: vectors[i] })),
+        this.embedder.model,
+        this.embedder.dimensions,
+      );
 
       return doc;
     });
