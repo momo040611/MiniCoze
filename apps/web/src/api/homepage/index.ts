@@ -86,12 +86,8 @@ export async function getConversation(conversationId: string): Promise<Conversat
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
-  try {
-    const prefix = await getWorkspacePrefix();
-    await http.delete(`${prefix}/${conversationId}`);
-  } catch {
-    console.warn('后端暂不支持删除对话接口，仅清除前端缓存');
-  }
+  const prefix = await getWorkspacePrefix();
+  await http.delete(`${prefix}/${conversationId}`);
 }
 
 export { getCurrentWorkspaceId };

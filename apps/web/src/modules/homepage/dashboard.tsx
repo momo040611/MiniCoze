@@ -1,15 +1,10 @@
+// 工作台 Dashboard — 资源概览、最近智能体/工作流、插件状态、发布状态、运行日志
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton, Result, Tag, Avatar } from 'antd';
 import {
-  PlusOutlined,
-  RobotOutlined,
-  MessageOutlined,
-  BookOutlined,
-  DeploymentUnitOutlined,
-  ApiOutlined,
-  UserOutlined,
-  HomeOutlined,
+  RobotOutlined, MessageOutlined, BookOutlined,
+  DeploymentUnitOutlined, ApiOutlined, UserOutlined, HomeOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import styles from './dashboard.module.css';
@@ -21,8 +16,12 @@ import {
 } from '../../api/dashboard';
 import { getCurrentUser } from '../../api/auth/auth-store';
 import { useWorkspace } from '../workspace/use-workspace';
-
-type PageState = 'loading' | 'data' | 'empty' | 'error';
+import {
+  RecentWorkflowsSection,
+  PluginStatusSection,
+  PublishStatusSection,
+  RunLogSection,
+} from './components/dashboard';
 
 // ══════════════════════════════════════════════
 // 统计数据卡片配置
@@ -40,10 +39,10 @@ interface StatDef {
 function buildStats(d: DashboardSummary): StatDef[] {
   return [
     { key: 'agents', label: '智能体', icon: <RobotOutlined />, accentClass: 'agents', count: d.agentCount, goTo: '/agents' },
-    { key: 'conversations', label: '对话', icon: <MessageOutlined />, accentClass: 'conversations', count: d.conversationCount, goTo: '/workspace/chat' },
-    { key: 'knowledge', label: '知识库', icon: <BookOutlined />, accentClass: 'knowledge', count: d.knowledgeBaseCount, goTo: '/knowledge-bases' },
+    { key: 'knowledge', label: '知识库', icon: <BookOutlined />, accentClass: 'knowledge', count: d.knowledgeBaseCount, goTo: '/knowledge' },
     { key: 'workflows', label: '工作流', icon: <DeploymentUnitOutlined />, accentClass: 'workflows', count: d.workflowCount, goTo: '/workflows' },
     { key: 'plugins', label: '插件', icon: <ApiOutlined />, accentClass: 'plugins', count: d.pluginCount, goTo: '/plugins' },
+    { key: 'publish', label: '待发布', icon: <ThunderboltOutlined />, accentClass: 'conversations', count: d.publishPendingCount, goTo: '/publish' },
   ];
 }
 
@@ -122,7 +121,7 @@ function LoadingSkeleton() {
 }
 
 // ══════════════════════════════════════════════
-// 错误态
+// 错误态（全页）
 // ══════════════════════════════════════════════
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
@@ -143,37 +142,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 }
 
 // ══════════════════════════════════════════════
-// 空数据态
-// ══════════════════════════════════════════════
-
-function EmptyState() {
-  const nav = useNavigate();
-  return (
-    <div className={styles.emptyState}>
-      <div className={styles.emptyIllustration}>
-        <RobotOutlined style={{ fontSize: 56, opacity: 0.6 }} />
-      </div>
-      <h2 className={styles.emptyTitle}>开始搭建你的第一个 AI 智能体</h2>
-      <p className={styles.emptyDesc}>
-        创建智能体、配置知识库、编排工作流，一切从这里开始
-      </p>
-      <div className={styles.emptyActions}>
-        <button className={styles.emptyPrimaryBtn} onClick={() => nav('/agents')}>
-          <PlusOutlined /> 创建智能体
-        </button>
-        <button className={styles.emptySecondaryBtn} onClick={() => nav('/knowledge-bases')}>
-          <BookOutlined /> 创建知识库
-        </button>
-        <button className={styles.emptySecondaryBtn} onClick={() => nav('/workflows')}>
-          <DeploymentUnitOutlined /> 创建工作流
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// 数据态 — Hero Banner
+// Hero Banner
 // ══════════════════════════════════════════════
 
 function HeroBanner({ name, workspace }: { name: string; workspace: string }) {
@@ -197,34 +166,35 @@ function HeroBanner({ name, workspace }: { name: string; workspace: string }) {
 }
 
 // ══════════════════════════════════════════════
-// 数据态 — 统计卡片区
+// 统计卡片区
 // ══════════════════════════════════════════════
 
 function StatsRow({ stats, onGo }: { stats: StatDef[]; onGo: (path: string) => void }) {
   return (
     <div className={styles.statsGrid}>
       {stats.map((s) => (
-        <div
+        <button
           key={s.key}
           className={`${styles.statCard} ${styles[s.accentClass]}`}
           onClick={() => onGo(s.goTo)}
+          aria-label={`${s.label}: ${s.count}个，${s.count > 0 ? '查看详情' : '点击创建'}`}
         >
           <div className={`${styles.statIconGradient} ${styles[s.accentClass]}`}>{s.icon}</div>
           <div className={styles.statBody}>
             <span className={styles.statLabel}>{s.label}</span>
             <span className={styles.statValue}>{s.count}</span>
           </div>
-          <span className={styles.statHint}>
+          <span className={styles.statHint} aria-hidden="true">
             {s.count > 0 ? '查看详情 →' : '点击创建 →'}
           </span>
-        </div>
+        </button>
       ))}
     </div>
   );
 }
 
 // ══════════════════════════════════════════════
-// 数据态 — 快捷操作区
+// 快捷操作区
 // ══════════════════════════════════════════════
 
 function QuickCreate({ onGo }: { onGo: (path: string) => void }) {
@@ -235,28 +205,87 @@ function QuickCreate({ onGo }: { onGo: (path: string) => void }) {
         <div className={styles.sectionLine} />
       </div>
       <div className={styles.quickActions}>
-        <div className={styles.quickActionCard} onClick={() => onGo('/agents')}>
+        <button className={styles.quickActionCard} onClick={() => onGo('/agents')} aria-label="创建智能体">
           <div className={styles.quickActionIcon}><RobotOutlined /></div>
           <span className={styles.quickActionTitle}>创建智能体</span>
           <span className={styles.quickActionDesc}>配置角色、模型与技能</span>
-        </div>
-        <div className={styles.quickActionCard} onClick={() => onGo('/knowledge-bases')}>
+        </button>
+        <button className={styles.quickActionCard} onClick={() => onGo('/knowledge')} aria-label="创建知识库">
           <div className={styles.quickActionIcon}><BookOutlined /></div>
           <span className={styles.quickActionTitle}>创建知识库</span>
           <span className={styles.quickActionDesc}>上传文档、解析与检索</span>
-        </div>
-        <div className={styles.quickActionCard} onClick={() => onGo('/workflows')}>
+        </button>
+        <button className={styles.quickActionCard} onClick={() => onGo('/workflows')} aria-label="创建工作流">
           <div className={styles.quickActionIcon}><DeploymentUnitOutlined /></div>
           <span className={styles.quickActionTitle}>创建工作流</span>
           <span className={styles.quickActionDesc}>编排节点与流程逻辑</span>
-        </div>
+        </button>
       </div>
     </>
   );
 }
 
 // ══════════════════════════════════════════════
-// 数据态 — 最近对话面板
+// 最近智能体面板
+// ══════════════════════════════════════════════
+
+function AgentsPanel({ items, onGo }: { items: DashboardAgentSummary[]; onGo: (path: string) => void }) {
+  return (
+    <div className={styles.sectionPanel}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.sectionHeaderLeft}>
+          <span className={`${styles.sectionDot} ${styles.agents}`} />
+          <span className={styles.sectionTitle}>最近使用的智能体</span>
+          {items.length > 0 && <span className={styles.sectionBadge}>{items.length}</span>}
+        </div>
+        <button className={styles.sectionMore} onClick={() => onGo('/agents')} aria-label="查看全部智能体">
+          查看全部 →
+        </button>
+      </div>
+      <div className={styles.sectionList}>
+        {items.length === 0 ? (
+          <div className={styles.sectionEmpty}>
+            <p style={{ margin: '0 0 12px' }}>暂无智能体</p>
+            <button onClick={() => onGo('/agents')} className={styles.emptyPrimaryBtn} style={{ fontSize: 13, padding: '6px 16px' }}>
+              + 创建第一个智能体
+            </button>
+          </div>
+        ) : (
+          items.map((a) => {
+            const statusCfg = STATUS_MAP[a.status] ?? { label: a.status, color: 'default' };
+            return (
+              <button
+                key={a.id}
+                className={styles.recentItem}
+                onClick={() => onGo(`/agents/${a.id}`)}
+                aria-label={`智能体: ${a.name}，状态: ${statusCfg.label}`}
+              >
+                <Avatar
+                  className={styles.recentItemAvatar}
+                  size={36}
+                  src={a.avatarUrl ?? undefined}
+                  icon={!a.avatarUrl ? <UserOutlined /> : undefined}
+                  style={{ borderRadius: 10, flexShrink: 0 }}
+                />
+                <div className={styles.recentItemInfo}>
+                  <div className={styles.recentItemName}>{a.name}</div>
+                  <div className={styles.recentItemMeta}>
+                    {a.description && <span style={{ marginRight: 4 }}>{a.description}</span>}
+                    <Tag color={statusCfg.color} style={{ margin: 0, fontSize: 11, lineHeight: '18px' }}>{statusCfg.label}</Tag>
+                  </div>
+                </div>
+                <span className={styles.recentItemTime}>{fmtTime(a.updatedAt)}</span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════
+// 最近对话面板
 // ══════════════════════════════════════════════
 
 function ConversationsPanel({ items, onGo }: { items: DashboardConversationSummary[]; onGo: (path: string) => void }) {
@@ -268,94 +297,35 @@ function ConversationsPanel({ items, onGo }: { items: DashboardConversationSumma
           <span className={styles.sectionTitle}>最近对话</span>
           {items.length > 0 && <span className={styles.sectionBadge}>{items.length}</span>}
         </div>
-        <span className={styles.sectionMore} onClick={() => onGo('/workspace/chat')}>查看全部 →</span>
+        <button className={styles.sectionMore} onClick={() => onGo('/workspace/chat')} aria-label="查看全部对话">
+          查看全部 →
+        </button>
       </div>
       <div className={styles.sectionList}>
         {items.length === 0 ? (
-          <div className={styles.sectionEmpty}>暂无对话记录</div>
+          <div className={styles.sectionEmpty}>
+            <p style={{ margin: '0 0 12px' }}>暂无对话记录</p>
+            <button onClick={() => onGo('/workspace/chat')} className={styles.emptyPrimaryBtn} style={{ fontSize: 13, padding: '6px 16px' }}>
+              开始新对话
+            </button>
+          </div>
         ) : (
           items.map((c) => (
-            <div key={c.id} className={styles.recentItem} onClick={() => onGo(`/workspace/chat?conversationId=${c.id}`)}>
+            <button
+              key={c.id}
+              className={styles.recentItem}
+              onClick={() => onGo(`/workspace/chat?agentId=${c.agent.id}&conversationId=${c.id}`)}
+              aria-label={`对话: ${c.title || '未命名对话'}，智能体: ${c.agent?.name ?? '未知智能体'}`}
+            >
               <div className={styles.recentItemIconConv}><MessageOutlined /></div>
               <div className={styles.recentItemInfo}>
                 <div className={styles.recentItemName}>{c.title || '未命名对话'}</div>
                 <div className={styles.recentItemMeta}>{c.agent?.name ?? '未知智能体'}</div>
               </div>
               <span className={styles.recentItemTime}>{fmtTime(c.updatedAt)}</span>
-            </div>
+            </button>
           ))
         )}
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// 数据态 — 最近智能体面板
-// ══════════════════════════════════════════════
-
-function AgentsPanel({ items, onGo }: { items: DashboardAgentSummary[]; onGo: (path: string) => void }) {
-  return (
-    <div className={styles.sectionPanel}>
-      <div className={styles.sectionHeader}>
-        <div className={styles.sectionHeaderLeft}>
-          <span className={`${styles.sectionDot} ${styles.agents}`} />
-          <span className={styles.sectionTitle}>最近智能体</span>
-          {items.length > 0 && <span className={styles.sectionBadge}>{items.length}</span>}
-        </div>
-        <span className={styles.sectionMore} onClick={() => onGo('/agents')}>查看全部 →</span>
-      </div>
-      <div className={styles.sectionList}>
-        {items.length === 0 ? (
-          <div className={styles.sectionEmpty}>暂无智能体</div>
-        ) : (
-          items.map((a) => {
-            const statusCfg = STATUS_MAP[a.status] ?? { label: a.status, color: 'default' };
-            return (
-              <div key={a.id} className={styles.recentItem} onClick={() => onGo(`/agents?id=${a.id}`)}>
-                <Avatar
-                  className={styles.recentItemAvatar}
-                  size={36}
-                  src={a.avatarUrl ?? undefined}
-                  icon={!a.avatarUrl ? <UserOutlined /> : undefined}
-                  style={{ borderRadius: 10, flexShrink: 0 }}
-                />
-                <div className={styles.recentItemInfo}>
-                  <div className={styles.recentItemName}>{a.name}</div>
-                  <div className={styles.recentItemMeta}>
-                    <Tag color={statusCfg.color} style={{ margin: 0, fontSize: 11, lineHeight: '18px' }}>{statusCfg.label}</Tag>
-                  </div>
-                </div>
-                <span className={styles.recentItemTime}>{fmtTime(a.updatedAt)}</span>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════
-// 数据态 — 主视图
-// ══════════════════════════════════════════════
-
-function DataView({ data, onGo }: { data: DashboardSummary; onGo: (path: string) => void }) {
-  const user = getCurrentUser();
-  const { currentWorkspace } = useWorkspace();
-  const stats = useMemo(() => buildStats(data), [data]);
-
-  return (
-    <div className={styles.page}>
-      <HeroBanner
-        name={user?.username ?? '用户'}
-        workspace={currentWorkspace?.name ?? '我的工作空间'}
-      />
-      <StatsRow stats={stats} onGo={onGo} />
-      <QuickCreate onGo={onGo} />
-      <div className={styles.contentPanels}>
-        <ConversationsPanel items={data.recentConversations} onGo={onGo} />
-        <AgentsPanel items={data.recentAgents} onGo={onGo} />
       </div>
     </div>
   );
@@ -367,37 +337,82 @@ function DataView({ data, onGo }: { data: DashboardSummary; onGo: (path: string)
 
 export function DashboardPage() {
   const nav = useNavigate();
-  const [state, setState] = useState<PageState>('loading');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [data, setData] = useState<DashboardSummary | null>(null);
-  const [errMsg, setErrMsg] = useState('');
+  const user = getCurrentUser();
+  const { currentWorkspace } = useWorkspace();
 
-  const fetch = useCallback(async () => {
-    setState('loading');
-    setErrMsg('');
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError('');
     try {
       const d = await getDashboardSummary();
-      const empty =
-        d.agentCount === 0 && d.conversationCount === 0 &&
-        d.workflowCount === 0 && d.pluginCount === 0 &&
-        d.knowledgeBaseCount === 0 &&
-        d.recentAgents.length === 0 && d.recentConversations.length === 0;
       setData(d);
-      setState(empty ? 'empty' : 'data');
     } catch (e) {
-      setErrMsg(e instanceof Error ? e.message : '未知错误');
-      setState('error');
+      setError(e instanceof Error ? e.message : '未知错误');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const go = useCallback((p: string) => nav(p), [nav]);
+  const stats = useMemo(() => data ? buildStats(data) : [], [data]);
 
-  switch (state) {
-    case 'loading': return <LoadingSkeleton />;
-    case 'error': return <ErrorState onRetry={fetch} />;
-    case 'empty': return <EmptyState />;
-    case 'data': return <DataView data={data!} onGo={go} />;
-    default: return null;
-  }
+  // 全页加载态
+  if (loading && !data) return <LoadingSkeleton />;
+
+  // 全页错误态（首次加载失败）
+  if (error && !data) return <ErrorState onRetry={fetchData} />;
+
+  return (
+    <div className={styles.page}>
+      <HeroBanner
+        name={user?.username ?? '用户'}
+        workspace={currentWorkspace?.name ?? '我的工作空间'}
+      />
+      <StatsRow stats={stats} onGo={go} />
+      <QuickCreate onGo={go} />
+
+      {/* 发布状态提示条 */}
+      {data && (
+        <PublishStatusSection
+          publishPendingCount={data.publishPendingCount}
+          onGo={go}
+        />
+      )}
+
+      {/* 双栏：最近智能体 + 最近对话 */}
+      <div className={styles.contentPanels}>
+        <AgentsPanel items={data?.recentAgents ?? []} onGo={go} />
+        <ConversationsPanel items={data?.recentConversations ?? []} onGo={go} />
+      </div>
+
+      {/* 双栏：工作流运行 + 插件状态 */}
+      <div className={styles.contentPanels}>
+        <RecentWorkflowsSection
+          state={loading ? 'loading' : data?.recentWorkflows?.length ? 'data' : 'empty'}
+          items={data?.recentWorkflows ?? []}
+          onGo={go}
+          onRetry={fetchData}
+        />
+        <PluginStatusSection
+          state={loading ? 'loading' : data ? 'data' : 'error'}
+          totalCount={data?.pluginCount ?? 0}
+          enabledCount={data?.pluginEnabledCount ?? 0}
+          updateCount={data?.pluginUpdateCount ?? 0}
+          onGo={go}
+          onRetry={fetchData}
+        />
+      </div>
+
+      {/* 统一运行日志 */}
+      <RunLogSection
+        state={loading ? 'loading' : data?.recentLogs?.length ? 'data' : 'empty'}
+        logs={data?.recentLogs ?? []}
+      />
+    </div>
+  );
 }

@@ -1,6 +1,9 @@
 // Agent Runtime 流式对话 API — 对接后端 /agent-runs/stream SSE 端点
 
 import { API_BASE_URL, getAuthToken } from '../http';
+import { runAgentStreamMock } from './mock-stream';
+
+const useMock = import.meta.env.VITE_USE_AUTH_MOCK === 'true';
 
 // ---- 后端 SSE 事件类型 ----
 
@@ -114,6 +117,8 @@ export interface RunAgentParams {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  knowledgeBaseId?: string;
+  tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters?: Record<string, unknown> } }>;
 }
 
 // ---- 回调 ----
@@ -129,6 +134,11 @@ export async function runAgentStream(
   params: RunAgentParams,
   callbacks: RunAgentCallbacks,
 ): Promise<AbortController> {
+  // Mock 模式下使用模拟流
+  if (useMock) {
+    return runAgentStreamMock(params, callbacks);
+  }
+
   const token = getAuthToken();
   const controller = new AbortController();
 
@@ -149,6 +159,8 @@ export async function runAgentStream(
       systemPrompt: params.systemPrompt,
       temperature: params.temperature,
       maxTokens: params.maxTokens,
+      knowledgeBaseId: params.knowledgeBaseId,
+      tools: params.tools,
     }),
     signal: controller.signal,
   })
@@ -167,6 +179,8 @@ export async function runAgentStream(
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let currentEventType = '';
+      let currentData = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -179,20 +193,32 @@ export async function runAgentStream(
         for (const line of lines) {
           const trimmed = line.trim();
 
-          if (trimmed.startsWith('event:')) {
+          // 空行表示事件结束，处理累积的数据
+          if (trimmed === '') {
+            if (currentData) {
+              try {
+                const event = JSON.parse(currentData) as RuntimeEvent;
+                callbacks.onEvent(event);
+              } catch {
+                // skip unparseable data
+              }
+            }
+            currentEventType = '';
+            currentData = '';
             continue;
           }
 
-          if (trimmed.startsWith('data:')) {
-            const dataStr = trimmed.slice(5).trim();
-            if (!dataStr) continue;
+          // 解析 event 类型
+          if (trimmed.startsWith('event:')) {
+            currentEventType = trimmed.slice(6).trim();
+            continue;
+          }
 
-            try {
-              const event = JSON.parse(dataStr) as RuntimeEvent;
-              callbacks.onEvent(event);
-            } catch {
-              // skip unparseable data
-            }
+          // 累积 data 字段（支持多行 data）
+          if (trimmed.startsWith('data:')) {
+            const dataContent = trimmed.slice(5);
+            currentData = currentData ? currentData + '\n' + dataContent : dataContent;
+            continue;
           }
         }
       }

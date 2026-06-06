@@ -94,7 +94,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   );
 
   useEffect(() => {
-    if (!dirty || saving || isPublished) return;
+    if (!dirty || saving) return;
 
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -109,7 +109,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [dirty, saving, performAutoSave, autoSaveTimerRef, isPublished]);
+  }, [dirty, saving, performAutoSave, autoSaveTimerRef]);
 
   const handlePublish = useCallback(async () => {
     if (publishing) return;

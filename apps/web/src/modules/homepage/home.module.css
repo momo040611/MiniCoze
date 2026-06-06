@@ -1,3 +1,8 @@
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .windowBox{
   height: 100%;
   display: flex;
@@ -81,7 +86,7 @@
 
 .historyItemIcon {
   font-size: 16px;
-  color: #8896a6;
+  color: #6b7280;
   flex-shrink: 0;
 }
 
@@ -103,7 +108,7 @@
 
 .historyItemAgent {
   font-size: 11px;
-  color: #8896a6;
+  color: #6b7280;
 }
 
 .historyItemDelete {
@@ -212,7 +217,20 @@
 .chatMessage {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  margin-bottom: 4px;
+  animation: messageIn 0.3s ease-out;
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .userRow {
@@ -224,23 +242,27 @@
 }
 
 .messageContent {
-  max-width: 70%;
-  padding: 10px 16px;
+  max-width: 72%;
+  padding: 12px 18px;
   word-break: break-word;
-  line-height: 1.5;
+  line-height: 1.6;
   font-size: 14px;
+  position: relative;
 }
 
 .userBubble {
-  background: #565fe2;
+  background: linear-gradient(135deg, #565fe2 0%, #4a54d4 100%);
   color: #fff;
-  border-radius: 18px 18px 4px 18px;
+  border-radius: 20px 20px 6px 20px;
+  box-shadow: 0 2px 8px rgba(86, 95, 226, 0.25);
 }
 
 .agentBubble {
-  background: #f0f2f5;
+  background: #f7f8fa;
   color: #18202f;
-  border-radius: 18px 18px 18px 4px;
+  border-radius: 20px 20px 20px 6px;
+  border: 1px solid rgba(104, 119, 144, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .messageText {
@@ -249,7 +271,7 @@
 
 .messageTime {
   font-size: 11px;
-  color: #8896a6;
+  color: #6b7280;
   padding-right: 4px;
 }
 
@@ -295,12 +317,77 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.centerInputDragOver {
+  border-color: #565fe2 !important;
+  box-shadow: 0 0 0 2px rgba(86, 95, 226, 0.2), 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.dragOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(86, 95, 226, 0.06);
+  border: 2px dashed #565fe2;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 10;
+  font-size: 14px;
+  color: #565fe2;
+  font-weight: 500;
 }
 
 .centerInput:focus-within {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border-color: rgba(104, 119, 144, 0.25);
+}
+
+/* 引用预览条 */
+.quotePreview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(86, 95, 226, 0.04);
+  border: 1px solid rgba(86, 95, 226, 0.15);
+  border-radius: 8px;
+  animation: fadeIn 0.2s ease;
+}
+
+.quoteBar {
+  width: 3px;
+  height: 24px;
+  background: #565fe2;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.quoteContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quoteSender {
+  font-size: 11px;
+  color: #565fe2;
+  font-weight: 600;
+}
+
+.quoteText {
+  font-size: 12px;
+  color: #506070;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 文件预览条 */
@@ -352,7 +439,7 @@
 
 .filePreviewSize {
   font-size: 11px;
-  color: #8896a6;
+  color: #6b7280;
 }
 
 /* 输入行 */
@@ -403,7 +490,7 @@
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  color: #8896a6;
+  color: #6b7280;
 }
 
 /* 消息中的文件展示 */
@@ -438,11 +525,31 @@
   font-weight: 500;
 }
 
-/* 思考中文本 */
+/* 思考中文本 - 三点动画 */
 .thinkingText {
-  color: #8896a6;
-  font-style: italic;
+  color: #6b7280;
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thinkingText::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 12px;
+  background: radial-gradient(circle, #8896a6 2px, transparent 2px);
+  background-size: 6px 6px;
+  background-position: 0 center;
+  animation: thinkingDots 1.5s steps(3) infinite;
+}
+
+@keyframes thinkingDots {
+  0% { background-position: 0 center; }
+  33% { background-position: 6px center; }
+  66% { background-position: 12px center; }
+  100% { background-position: 18px center; }
 }
 
 /* 失败消息 */
@@ -451,14 +558,17 @@
   font-size: 13px;
 }
 
-/* 流式输出光标闪烁 */
+/* 流式输出光标闪烁 - 更自然的打字机效果 */
 .streamingText::after {
-  content: '█';
-  animation: cursorBlink 1s step-end infinite;
+  content: '▋';
+  animation: cursorBlink 0.8s ease-in-out infinite;
   color: #22c55e;
+  margin-left: 1px;
+  font-weight: normal;
 }
 
 @keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 
@@ -467,15 +577,16 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  background: #fff2f0;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fff5f5 0%, #fff2f0 100%);
   border: 1px solid #ffccc7;
-  border-radius: 10px;
+  border-radius: 12px;
   margin: 4px 0;
   font-size: 13px;
   color: #ff4d4f;
   max-width: 80%;
   align-self: flex-start;
+  box-shadow: 0 2px 8px rgba(255, 77, 79, 0.1);
 }
 
 .errorText {
@@ -487,19 +598,44 @@
 /* ── 操作按钮栏 ── */
 .messageActions {
   display: flex;
-  gap: 2px;
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(104, 119, 144, 0.08);
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(104, 119, 144, 0.1);
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.25s ease;
 }
+
+/* 触摸设备始终显示操作栏 */
+@media (hover: none) {
+  .messageActions {
+    opacity: 1;
+  }
+}
+
+/* 键盘焦点时显示操作栏 */
+.messageContent:focus-within .messageActions {
+  opacity: 1;
+}
+
 .agentRow:hover .messageActions {
   opacity: 1;
 }
+
+.messageActions :global(.ant-btn) {
+  border-radius: 6px;
+  font-size: 12px;
+  color: #506070;
+  transition: all 0.2s ease;
+}
+
+.messageActions :global(.ant-btn:hover) {
+  background: rgba(86, 95, 226, 0.08);
+  color: #565fe2;
+}
 .messageActions :global(.ant-btn) {
   font-size: 12px;
-  color: #8896a6;
+  color: #6b7280;
   padding: 2px 8px;
 }
 .messageActions :global(.ant-btn:hover) {
@@ -542,18 +678,53 @@
   justify-content: flex-end;
 }
 
+/* 移动端遮罩层 */
+.historyMask {
+  display: none;
+}
+
 /* ── Responsive: Mobile ── */
 @media (max-width: 768px) {
   .windowBox {
     flex-direction: column;
   }
 
+  .historyPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: 0;
+    min-width: 0;
+    max-height: 50vh;
+    overflow: hidden;
+    transition: width 0.3s ease, min-width 0.3s ease;
+    border-right: none;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+  }
+
   .historyPanelOpen {
     width: 100%;
     min-width: 100%;
-    max-height: 40vh;
+    max-height: 50vh;
     border-right: none;
     border-bottom: 1px solid rgba(104, 119, 144, 0.12);
+  }
+
+  .historyMask {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+
+  .historyMaskVisible {
+    opacity: 1;
+    visibility: visible;
   }
 
   .chatMessageList {
@@ -583,4 +754,180 @@
   .chatMessageList {
     padding: 8px 12px;
   }
+}
+
+/* ── 暗色主题 ── */
+[data-theme='dark'] .windowBox {
+  background: var(--layout-bg);
+}
+
+[data-theme='dark'] .historyPanel {
+  background: var(--sidebar-bg);
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .historyItem {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .historyItem:hover {
+  background: var(--sidebar-hover-bg);
+}
+
+[data-theme='dark'] .historyItemActive {
+  background: var(--color-primary-light);
+  color: #fff;
+}
+
+[data-theme='dark'] .chatPanel {
+  background: var(--bg-primary);
+}
+
+[data-theme='dark'] .chatTopBar {
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .activeAgentLabel {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .userBubble {
+  background: linear-gradient(135deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
+  box-shadow: 0 2px 8px rgba(74, 84, 212, 0.3);
+}
+
+[data-theme='dark'] .agentBubble {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-color-light);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .messageTime {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .thinkingText {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .errorCard {
+  background: var(--color-error-light);
+  border-color: rgba(255, 77, 79, 0.3);
+}
+
+[data-theme='dark'] .chatInputArea {
+  background: var(--sidebar-bg);
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .centerInput {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme='dark'] .inputRow :global(textarea) {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .inputRow :global(textarea::placeholder) {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .agentSelect :global(.ant-select-selector) {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .agentSelect :global(.ant-select-selection-item) {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .filePreviewBar {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .quotePreview {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary-light);
+}
+
+[data-theme='dark'] .quoteSender {
+  color: var(--color-primary);
+}
+
+[data-theme='dark'] .quoteText {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .docIcon {
+  background: var(--layout-bg);
+}
+
+[data-theme='dark'] .filePreviewName {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .filePreviewSize {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .messageActions {
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .messageActions :global(.ant-btn) {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .messageActions :global(.ant-btn:hover) {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+[data-theme='dark'] .historyPanelOpen {
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .historyItemTitle {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .historyItemAgent {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .historyItemIcon {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .toggleBtn {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .chatPlaceholder :global(.ant-empty-description) {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .historyMask {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .historyPanel {
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme='dark'] .newChatBtn {
+  background: var(--color-primary-hover) !important;
+  border-color: var(--color-primary-hover) !important;
+}
+
+[data-theme='dark'] .dragOverlay {
+  background: var(--color-primary-bg);
+}
+
+[data-theme='dark'] .centerInputDragOver {
+  border-color: var(--border-color-focus) !important;
+  box-shadow: 0 0 0 2px var(--color-primary-light), var(--shadow-md) !important;
 }

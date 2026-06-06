@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AgentConfig, RunAgentCommand } from '../../../shared/types/agent';
 import { AgentService } from '../../single-agent/agent.service';
 
-const DEFAULT_MAX_TOKENS = 1024;
+const DEFAULT_MAX_TOKENS = 4096;
 
 @Injectable()
 export class AgentConfigFactory {

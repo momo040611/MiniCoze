@@ -5,7 +5,7 @@ import {
   PaperClipOutlined, SendOutlined, CloseOutlined, PlusOutlined,
   MessageOutlined, DeleteOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
   ExclamationCircleOutlined, CopyOutlined, ReloadOutlined, EditOutlined,
-  DownOutlined,
+  DownOutlined, PauseOutlined,
 } from '@ant-design/icons'
 import styles from './home.module.css'
 import { getConversations, getConversation, deleteConversation } from '../../api/homepage'
@@ -22,6 +22,7 @@ import { ToolCallCard, type ToolCallData } from '../agent-config/components/Tool
 import { DebugInfoPanel } from '../agent-config/components/DebugInfoPanel'
 import { KnowledgeStatus } from '../agent-config/components/KnowledgeStatus'
 import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer'
+import { copyToClipboard } from '../../utils/clipboard'
 
 // ---- 升级后的消息模型 ----
 
@@ -63,6 +64,14 @@ interface AgentSessionState {
 
 const NavPlaceholderText = '请输入指令...'
 
+// 引用消息接口
+interface QuotedMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'agent';
+  agentName?: string;
+}
+
 export const HomepageIndex = () => {
   const [searchParams] = useSearchParams();
 
@@ -72,8 +81,8 @@ export const HomepageIndex = () => {
   const chatListRef = useRef<HTMLDivElement>(null)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
   const [selectedFile, setSelectedFile] = useState<{ file: File; preview: string; isImage: boolean; size: string } | null>(null)
-  const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number }[]>([])
-  const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number } | null>(null)
+  const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number; orchestration: string }[]>([])
+  const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number; orchestration: string } | null>(null)
   const [agentLoadError, setAgentLoadError] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
@@ -93,14 +102,25 @@ export const HomepageIndex = () => {
   const [knowledgeEvent, setKnowledgeEvent] = useState<{ type: string; runId: string; knowledge: { bound: boolean; knowledgeName?: string; retrievedCount?: number } } | null>(null)
   const [knowledgeDismissed, setKnowledgeDismissed] = useState(false)
   const runStartRef = useRef(0)
-  const lastUserMessageRef = useRef('')  
+  const lastUserMessageRef = useRef('')
 
+  // 流式输出渲染节流：使用 rAF 批量更新
+  const flushRafRef = useRef(0)
+  const pendingTextRef = useRef('')
+
+  // 用户是否主动向上滚动（用于控制自动滚动）
+  const userScrolledUpRef = useRef(false)
+  // 上次滚动位置，用于检测滚动方向
+  const lastScrollTopRef = useRef(0)
 
   const agentSessionsRef = useRef<Map<string, AgentSessionState>>(new Map())
 
 
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
+
+  // 引用消息状态
+  const [quotedMessage, setQuotedMessage] = useState<QuotedMessage | null>(null)
 
   const loadConversationMessages = useCallback(async (convId: string) => {
     setConversationId(convId)
@@ -161,14 +181,15 @@ export const HomepageIndex = () => {
   const loadAgents = useCallback(() => {
     setAgentLoadError(false)
     getAgentList().then((list) => {
-      const agents = list.map((a) => ({ id: a.id, name: a.name, icon: a.avatar || '', persona: a.persona, model: a.model || '', temperature: a.temperature ?? 0.7 }))
+      const agents = list.map((a) => ({ id: a.id, name: a.name, icon: a.avatar || '', persona: a.persona, model: a.model || '', temperature: a.temperature ?? 0.7, orchestration: a.orchestration || '' }))
       setAllAgents(agents)
       if (agents.length > 0) {
-        
+        // 优先使用 URL 中的 agentId，确保数据一致性
         const agentIdFromUrl = searchParams.get('agentId')
         const foundAgent = agentIdFromUrl
           ? agents.find((a) => a.id === agentIdFromUrl)
           : null
+        // 如果 URL 中的 agentId 对应的智能体不存在，则使用第一个智能体
         setSelectedAgent(foundAgent ?? agents[0])
       }
     }).catch((err) => {
@@ -185,7 +206,7 @@ export const HomepageIndex = () => {
   useEffect(() => {
     if (!selectedAgent) return
 
-
+    // 检查是否有缓存的会话状态
     const cached = agentSessionsRef.current.get(selectedAgent.id)
     if (cached) {
       setConversationId(cached.conversationId)
@@ -194,15 +215,24 @@ export const HomepageIndex = () => {
       return
     }
 
+    // 从 URL 获取 conversationId，验证是否属于当前智能体
     const conversationIdFromUrl = searchParams.get('conversationId')
     if (conversationIdFromUrl) {
       setConversationId(null)
       setMessages([])
-      loadConversations().then(() => {
-        loadConversationMessages(conversationIdFromUrl).catch(() => {
-          // 如果加载失败（比如对话不存在），则加载最新的
+      // 先加载对话列表，验证 conversationId 是否属于当前智能体
+      loadConversations().then((list) => {
+        const conversationBelongsToAgent = list.some((c) => c.id === conversationIdFromUrl)
+        if (conversationBelongsToAgent) {
+          // 对话属于当前智能体，加载该对话
+          loadConversationMessages(conversationIdFromUrl).catch(() => {
+            // 如果加载失败，则加载最新的
+            loadConversations({ autoOpenLatest: true })
+          })
+        } else {
+          // 对话不属于当前智能体，加载最新的对话
           loadConversations({ autoOpenLatest: true })
-        })
+        }
       })
     } else {
       setConversationId(null)
@@ -222,6 +252,7 @@ export const HomepageIndex = () => {
     setMessages([])
     setSending(false)
     sendingRef.current = false
+    userScrolledUpRef.current = false // 重置滚动标志
     // 重置调试状态
     setCurrentRunId('')
     setCurrentLatency(0)
@@ -306,19 +337,45 @@ export const HomepageIndex = () => {
   }, [selectedFile])
 
   const scrollToBottom = (smooth = true) => {
+    userScrolledUpRef.current = false // 重置滚动标志
     chatEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' })
   }
 
   const handleChatScroll = useCallback(() => {
     const el = chatListRef.current
     if (!el) return
-    // 距离底部超过 100px 时显示"回到底部"按钮
-    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+
+    const currentScrollTop = el.scrollTop
+    const distFromBottom = el.scrollHeight - currentScrollTop - el.clientHeight
+
+    // 检测滚动方向：向上滚动时设置标志
+    if (currentScrollTop < lastScrollTopRef.current && distFromBottom > 120) {
+      userScrolledUpRef.current = true
+    }
+
+    // 如果滚动到底部附近，重置标志
+    if (distFromBottom <= 120) {
+      userScrolledUpRef.current = false
+    }
+
+    lastScrollTopRef.current = currentScrollTop
     setShowScrollBottom(distFromBottom > 120)
   }, [])
 
+  // 使用 requestAnimationFrame 节流滚动，避免流式输出时频繁触发
+  // 只有当用户没有主动向上滚动时才自动滚动到底部
+  const rafRef = useRef<number>(0)
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // 如果用户主动向上滚动，不自动滚动
+    if (userScrolledUpRef.current) return
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    })
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
   }, [messages])
 
   const toolCallStartRef = useRef(new Map<string, number>())
@@ -342,6 +399,14 @@ export const HomepageIndex = () => {
       } else {
         messageText = text + `\n\n[已上传文件: ${fileName} (${selectedFile.size})]`
       }
+    }
+
+    // 添加引用前缀
+    if (quotedMessage) {
+      const quotePrefix = quotedMessage.sender === 'user'
+        ? `> 引用你的消息：${quotedMessage.text}\n\n`
+        : `> 引用${quotedMessage.agentName || 'AI'}的回复：${quotedMessage.text}\n\n`
+      messageText = quotePrefix + messageText
     }
 
     lastUserMessageRef.current = text
@@ -379,6 +444,7 @@ export const HomepageIndex = () => {
     setMessages((prev) => [...prev, userMsg, agentMsg])
     if (!overrideText) setInputValue('')
     handleFileRemove()
+    setQuotedMessage(null) // 清除引用
     setSending(true)
     sendingRef.current = true
     lastContentRef.current = ''
@@ -392,6 +458,32 @@ export const HomepageIndex = () => {
     setKnowledgeDismissed(false)
     runStartRef.current = performance.now()
 
+    // 从 orchestration 配置中提取知识库和工作流
+    let knowledgeBaseId: string | undefined
+    let tools: Array<{ type: 'function'; function: { name: string; description: string } }> | undefined
+    try {
+      const orchestration = JSON.parse(selectedAgent.orchestration || '{}')
+      const planner = orchestration?.planner
+      if (planner) {
+        // 知识库：取第一个绑定的知识库 ID
+        if (Array.isArray(planner.databases) && planner.databases.length > 0) {
+          knowledgeBaseId = planner.databases[0]
+        }
+        // 工作流：将绑定的工作流 ID 转换为 tools 定义
+        if (Array.isArray(planner.workflows) && planner.workflows.length > 0) {
+          tools = planner.workflows.map((wfId: string) => ({
+            type: 'function' as const,
+            function: {
+              name: `workflow_${wfId}`,
+              description: `调用工作流 ${wfId}`,
+            },
+          }))
+        }
+      }
+    } catch {
+      // orchestration JSON 解析失败时忽略，使用默认值
+    }
+
     const abortController = await runAgentStream(
       {
         agentId: selectedAgent.id,
@@ -400,6 +492,9 @@ export const HomepageIndex = () => {
         systemPrompt: selectedAgent.persona || undefined,
         model: selectedAgent.model || undefined,
         temperature: selectedAgent.temperature,
+        maxTokens: 4096,
+        knowledgeBaseId,
+        tools,
       },
       {
         onEvent: (event: RuntimeEvent) => {
@@ -424,14 +519,21 @@ export const HomepageIndex = () => {
             }
 
             case 'message.delta': {
+              // 流式输出渲染节流：累积文本，通过 rAF 批量刷新
               lastContentRef.current += event.content
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.kind === 'message' && m.id === agentMsgId
-                    ? { ...m, text: lastContentRef.current, status: 'streaming' as const, messageId: event.messageId }
-                    : m
+              pendingTextRef.current = lastContentRef.current
+
+              if (flushRafRef.current) cancelAnimationFrame(flushRafRef.current)
+              flushRafRef.current = requestAnimationFrame(() => {
+                const text = pendingTextRef.current
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.kind === 'message' && m.id === agentMsgId
+                      ? { ...m, text, status: 'streaming' as const, messageId: event.messageId }
+                      : m
+                  )
                 )
-              )
+              })
               break
             }
 
@@ -492,14 +594,19 @@ export const HomepageIndex = () => {
               setSending(false)
               sendingRef.current = false
               abortRef.current = null
+              toolCallStartRef.current.clear()
               loadConversations()
               break
 
             case 'stream.done':
-              setSending(false)
-              sendingRef.current = false
-              abortRef.current = null
-              loadConversations()
+              // 仅在 run.completed 未触发时执行（防止重复调用）
+              if (sendingRef.current) {
+                setSending(false)
+                sendingRef.current = false
+                abortRef.current = null
+                toolCallStartRef.current.clear()
+                loadConversations()
+              }
               break
 
             case 'run.failed': {
@@ -561,6 +668,26 @@ export const HomepageIndex = () => {
     }
   }
 
+  // 停止生成
+  const handleStopGeneration = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setSending(false)
+    sendingRef.current = false
+    toolCallStartRef.current.clear()
+    // 标记当前 AI 消息为已完成（保留已生成的内容）
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.kind === 'message' && m.status === 'streaming'
+          ? { ...m, status: 'success' as const }
+          : m
+      )
+    )
+    loadConversations()
+  }, [loadConversations])
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -583,41 +710,85 @@ export const HomepageIndex = () => {
     setSelectedFile(null)
   }
 
-  const copyToClipboard = (text: string) => {
-    // 优先使用现代 Clipboard API
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(() => {
-        message.success('已复制')
-      }).catch(() => {
-        fallbackCopy(text)
-      })
-    } else {
-      fallbackCopy(text)
-    }
-  }
+  // 拖拽上传状态
+  const [isDragging, setIsDragging] = useState(false)
+  const dragCounterRef = useRef(0)
 
-  const fallbackCopy = (text: string) => {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    document.body.appendChild(textarea)
-    textarea.select()
-    try {
-      document.execCommand('copy')
-      message.success('已复制')
-    } catch {
-      message.error('复制失败')
-    } finally {
-      document.body.removeChild(textarea)
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current++
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true)
     }
-  }
+  }, [])
 
-  const handleRegenerate = () => {
-    if (lastUserMessageRef.current) {
-      sendMessage(lastUserMessageRef.current)
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current--
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false)
     }
-  }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    dragCounterRef.current = 0
+
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+
+    // 检查文件类型
+    const allowedTypes = [
+      'image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp',
+      'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ]
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.doc', '.docx', '.txt', '.xlsx', '.pptx']
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
+
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+      message.error('不支持的文件类型')
+      return
+    }
+
+    const isImage = file.type.startsWith('image/')
+    const preview = isImage ? URL.createObjectURL(file) : ''
+    const size = formatFileSize(file.size)
+
+    setSelectedFile({ file, preview, isImage, size })
+  }, [])
+
+  const handleRegenerate = useCallback(() => {
+    if (!lastUserMessageRef.current || sending) return
+
+    // 移除最后一条 AI 回复消息（及其后面的 tool-call 和 error）
+    setMessages((prev) => {
+      const lastUserIdx = [...prev].reverse().findIndex(
+        (m) => m.kind === 'message' && m.sender === 'user'
+      )
+      if (lastUserIdx === -1) return prev
+      const cutIdx = prev.length - 1 - lastUserIdx
+      // 保留用户消息及之前的所有内容，移除之后的 AI 回复、tool-call、error
+      return prev.slice(0, cutIdx + 1)
+    })
+
+    // 用最后一条用户消息重新发送（保留原 conversationId 以延续上下文）
+    const textToResend = lastUserMessageRef.current
+    // 延迟一帧确保 state 更新后再发送
+    setTimeout(() => sendMessage(textToResend), 0)
+  }, [sendMessage, sending])
 
   const handleStartEdit = (msgId: string, text: string) => {
     setEditingMsgId(msgId)
@@ -631,6 +802,21 @@ export const HomepageIndex = () => {
     setEditText('')
     sendMessage(trimmed)
   }
+
+  // 引用消息
+  const handleQuoteMessage = useCallback((msgId: string, text: string, sender: 'user' | 'agent', agentName?: string) => {
+    setQuotedMessage({
+      id: msgId,
+      text: text.length > 100 ? text.slice(0, 100) + '...' : text,
+      sender,
+      agentName,
+    })
+  }, [])
+
+  // 取消引用
+  const handleCancelQuote = useCallback(() => {
+    setQuotedMessage(null)
+  }, [])
 
   // ---- 渲染 ----
 
@@ -727,24 +913,35 @@ export const HomepageIndex = () => {
             </>
           )}
 
-          {/* 操作按钮栏（仅 AI 回复，成功状态） */}
-          {!isUser && item.status === 'success' && !isStreaming && (
+          {/* 操作按钮栏 */}
+          {item.status === 'success' && !isStreaming && (
             <div className={styles.messageActions}>
+              {!isUser && (
+                <>
+                  <Button
+                    icon={<CopyOutlined />}
+                    size="small"
+                    type="text"
+                    onClick={() => copyToClipboard(item.text)}
+                  >
+                    复制
+                  </Button>
+                  <Button
+                    icon={<ReloadOutlined />}
+                    size="small"
+                    type="text"
+                    onClick={handleRegenerate}
+                  >
+                    重新生成
+                  </Button>
+                </>
+              )}
               <Button
-                icon={<CopyOutlined />}
                 size="small"
                 type="text"
-                onClick={() => copyToClipboard(item.text)}
+                onClick={() => handleQuoteMessage(item.id, item.text, item.sender, item.agentName)}
               >
-                复制
-              </Button>
-              <Button
-                icon={<ReloadOutlined />}
-                size="small"
-                type="text"
-                onClick={handleRegenerate}
-              >
-                重新生成
+                引用
               </Button>
             </div>
           )}
@@ -800,6 +997,11 @@ export const HomepageIndex = () => {
           )}
         </div>
       </div>
+      {/* 移动端遮罩层 */}
+      <div
+        className={`${styles.historyMask} ${historyOpen ? styles.historyMaskVisible : ''}`}
+        onClick={() => setHistoryOpen(false)}
+      />
       <div className={styles.chatPanel}>
         <div className={styles.chatTopBar}>
           <Button
@@ -827,7 +1029,13 @@ export const HomepageIndex = () => {
           {messages.length === 0 ? (
             <Empty className={styles.chatPlaceholder} description="准备大干一场吧" />
           ) : (
-            <div className={styles.chatMessageList}>
+            <div
+              className={styles.chatMessageList}
+              role="log"
+              aria-live="polite"
+              aria-label="对话消息"
+              style={{ flex: 1, minHeight: 0, overflow: 'auto' }}
+            >
               {messages.map((item) => renderMessageItem(item))}
               <div ref={chatEndRef} />
             </div>
@@ -880,8 +1088,20 @@ export const HomepageIndex = () => {
               }))}
             />
           </div>
-          <div className={styles.centerInput}>
-            {selectedFile && (
+          <div
+            className={`${styles.centerInput} ${isDragging ? styles.centerInputDragOver : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            {isDragging && (
+              <div className={styles.dragOverlay}>
+                <PaperClipOutlined style={{ fontSize: 24, color: '#565fe2' }} />
+                <span>释放文件以上传</span>
+              </div>
+            )}
+            {selectedFile && !isDragging && (
               <div className={styles.filePreviewBar}>
                 {selectedFile.isImage ? (
                   <img src={selectedFile.preview} alt={selectedFile.file.name} className={styles.filePreviewThumb} />
@@ -899,6 +1119,24 @@ export const HomepageIndex = () => {
                   danger
                   onClick={handleFileRemove}
                   aria-label="删除文件"
+                />
+              </div>
+            )}
+            {quotedMessage && !isDragging && (
+              <div className={styles.quotePreview}>
+                <div className={styles.quoteBar} />
+                <div className={styles.quoteContent}>
+                  <span className={styles.quoteSender}>
+                    {quotedMessage.sender === 'user' ? '你' : (quotedMessage.agentName || 'AI')}
+                  </span>
+                  <span className={styles.quoteText}>{quotedMessage.text}</span>
+                </div>
+                <Button
+                  icon={<CloseOutlined />}
+                  size="small"
+                  type="text"
+                  onClick={handleCancelQuote}
+                  aria-label="取消引用"
                 />
               </div>
             )}
@@ -924,15 +1162,25 @@ export const HomepageIndex = () => {
                 autoSize={{ minRows: 1, maxRows: 3 }}
                 variant="borderless"
               />
-              <Button
-                icon={<SendOutlined />}
-                type="primary"
-                shape="circle"
-                onClick={() => sendMessage()}
-                loading={sending}
-                disabled={sending}
-                aria-label="发送信息"
-              />
+              {sending ? (
+                <Button
+                  icon={<PauseOutlined />}
+                  type="primary"
+                  danger
+                  shape="circle"
+                  onClick={handleStopGeneration}
+                  aria-label="停止生成"
+                />
+              ) : (
+                <Button
+                  icon={<SendOutlined />}
+                  type="primary"
+                  shape="circle"
+                  onClick={() => sendMessage()}
+                  disabled={!inputValue.trim() && !selectedFile}
+                  aria-label="发送信息"
+                />
+              )}
             </div>
           </div>
           {/* B4: 调试信息面板 */}

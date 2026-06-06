@@ -20,14 +20,30 @@ interface Props {
 
 const MAX_ARG_LENGTH = 500;
 
+/** 安全的 JSON.stringify，处理循环引用 */
+function safeStringify(obj: unknown): string {
+  try {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (_key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) return '[循环引用]';
+        seen.add(value);
+      }
+      return value;
+    }, 2);
+  } catch {
+    return String(obj);
+  }
+}
+
 function truncateJson(obj: unknown): string {
-  const str = JSON.stringify(obj, null, 2);
+  const str = safeStringify(obj);
   return str.length > MAX_ARG_LENGTH ? str.slice(0, MAX_ARG_LENGTH) + '\n// ... (截断，展开全部)' : str;
 }
 
 function JsonBlock({ data, label }: { data: unknown; label: string }) {
   const [expanded, setExpanded] = useState(false);
-  const full = JSON.stringify(data, null, 2);
+  const full = safeStringify(data);
   const truncated = truncateJson(data);
   const needsExpand = full.length > MAX_ARG_LENGTH;
 

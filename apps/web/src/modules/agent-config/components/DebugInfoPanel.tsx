@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Collapse, Tooltip, message } from 'antd';
+import { Collapse, Tooltip } from 'antd';
 import {
   CopyOutlined,
   CheckCircleFilled,
@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons';
 import type { TokenUsage } from '../../../api/agent-runtime';
 import type { ToolCallData } from './ToolCallCard';
+import { copyToClipboard } from '../../../utils/clipboard';
 import styles from './DebugPanel.module.css';
 
 interface Props {
@@ -21,32 +22,7 @@ export function DebugInfoPanel({ runId, model, latency, usage, toolCalls }: Prop
   const [open, setOpen] = useState(false);
 
   const handleCopyRunId = () => {
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(runId).then(() => {
-        message.success('Run ID 已复制');
-      }).catch(() => {
-        fallbackCopyRunId();
-      });
-    } else {
-      fallbackCopyRunId();
-    }
-  };
-
-  const fallbackCopyRunId = () => {
-    const textarea = document.createElement('textarea');
-    textarea.value = runId;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand('copy');
-      message.success('Run ID 已复制');
-    } catch {
-      message.error('复制失败');
-    } finally {
-      document.body.removeChild(textarea);
-    }
+    copyToClipboard(runId);
   };
 
   return (

@@ -5,7 +5,9 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
+import rehypeSanitize from 'rehype-sanitize';
 import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
+import { copyToClipboard } from '../../utils/clipboard';
 import styles from './MarkdownRenderer.module.css';
 
 interface Props {
@@ -17,45 +19,19 @@ function extractText(children: ReactNode): string {
   if (typeof children === 'string') return children;
   if (typeof children === 'number') return String(children);
   if (Array.isArray(children)) return children.map(extractText).join('');
-  if (isValidElement(children)) return extractText((children.props as any).children);
+  if (isValidElement(children)) return extractText((children.props as Record<string, unknown>).children as ReactNode);
   return '';
-}
-
-function writeClipboard(text: string, onSuccess: () => void) {
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
-      // Clipboard API 失败时降级
-      fallbackCopy(text, onSuccess);
-    });
-  } else {
-    fallbackCopy(text, onSuccess);
-  }
-}
-
-function fallbackCopy(text: string, onSuccess: () => void) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    document.execCommand('copy');
-    onSuccess();
-  } catch {
-  } finally {
-    document.body.removeChild(textarea);
-  }
 }
 
 function CodeBlock({ language, value }: { language?: string; value: string }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    writeClipboard(value, () => {
+  const handleCopy = async () => {
+    const success = await copyToClipboard(value, false);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }
   };
 
   return (
@@ -101,7 +77,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     <div className={`${styles.mdContent} ${isStreaming ? styles.streaming : ''}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeHighlight, rehypeKatex]}
+        rehypePlugins={[rehypeSanitize, rehypeHighlight, rehypeKatex]}
         components={{
           code({ className, children, ...props }) {
             // 代码块（有语言标记）vs 行内代码（无语言标记）
