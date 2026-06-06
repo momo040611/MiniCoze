@@ -210,6 +210,18 @@ export class WorkflowController {
   }
 
   // 参数：
+  // - path.runId: 运行实例 ID
+  // 作用：请求取消一次正在运行的工作流（运行中的会在下个节点前中断）。
+  @Post('runs/:runId/cancel')
+  @ApiOperation({ summary: '取消工作流运行' })
+  cancelRun(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('runId') runId: string,
+  ) {
+    return this.workflowRunService.requestCancel(currentUser.id, runId);
+  }
+
+  // 参数：
   // - path.workflowId: 工作流 ID
   // - query.page/query.pageSize: 分页参数
   // - query.status: 运行状态筛选（可选）

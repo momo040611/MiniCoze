@@ -7,12 +7,15 @@ import {
   WorkflowNode,
 } from '../../workflow-definition.validator';
 import { WorkflowRunEventBus } from '../execute/workflow-run-event-bus';
+import { WorkflowCanceledError } from '../execute/workflow-cancellation.registry';
 import {
   resolveTemplate,
   resolveValueRef,
   VariableScope,
 } from '../variable/variable-resolver';
+import { CodeNodeExecutor } from '../nodes/code-node.executor';
 import { EndNodeExecutor } from '../nodes/end-node.executor';
+import { HttpNodeExecutor } from '../nodes/http-node.executor';
 import { LlmNodeExecutor } from '../nodes/llm-node.executor';
 import { SelectorNodeExecutor } from '../nodes/selector-node.executor';
 import { StartNodeExecutor } from '../nodes/start-node.executor';
@@ -27,6 +30,8 @@ export interface WorkflowAsyncRunInput {
   definition: WorkflowDefinition;
   input: Record<string, unknown>;
   eventBus: WorkflowRunEventBus;
+  // 取消检查：每个节点执行前调用，返回 true 则中断运行（抛 WorkflowCanceledError）。
+  isCanceled?: () => boolean;
 }
 
 export interface WorkflowAsyncRunOutput {
@@ -48,6 +53,8 @@ const MAX_LOOP_ITEMS = 200;
 // loop 默认并发数；可由节点 inputs.concurrency 覆盖，并被 MAX 限制。
 const DEFAULT_LOOP_CONCURRENCY = 5;
 const MAX_LOOP_CONCURRENCY = 20;
+// 节点默认超时（毫秒）；可由节点 inputs.timeout 覆盖，0 表示关闭超时。
+const DEFAULT_NODE_TIMEOUT_MS = 60000;
 
 @Injectable()
 export class WorkflowAsyncRunner {
@@ -59,12 +66,16 @@ export class WorkflowAsyncRunner {
     llmNodeExecutor: LlmNodeExecutor,
     endNodeExecutor: EndNodeExecutor,
     selectorNodeExecutor: SelectorNodeExecutor,
+    codeNodeExecutor: CodeNodeExecutor,
+    httpNodeExecutor: HttpNodeExecutor,
   ) {
     this.executors = new Map<string, WorkflowNodeExecutor>([
       [startNodeExecutor.type, startNodeExecutor],
       [llmNodeExecutor.type, llmNodeExecutor],
       [endNodeExecutor.type, endNodeExecutor],
       [selectorNodeExecutor.type, selectorNodeExecutor],
+      [codeNodeExecutor.type, codeNodeExecutor],
+      [httpNodeExecutor.type, httpNodeExecutor],
     ]);
   }
 
@@ -94,6 +105,7 @@ export class WorkflowAsyncRunner {
     this.logger.log(`   input.input(原始)=${this.dump(input.input)}`);
     this.logger.log(`   input.definition(原始)=${this.dump(input.definition)}`);
 
+    const isCanceled = input.isCanceled ?? ((): boolean => false);
     const finalOutput = await this.executeGraph(
       input.definition.nodes,
       input.definition.edges,
@@ -102,6 +114,7 @@ export class WorkflowAsyncRunner {
       input.eventBus,
       input.runId,
       undefined,
+      isCanceled,
     );
 
     const output = finalOutput ?? { result: state.currentText };
@@ -122,6 +135,7 @@ export class WorkflowAsyncRunner {
     eventBus: WorkflowRunEventBus,
     runId: string,
     loopScope: Record<string, unknown> | undefined,
+    isCanceled: () => boolean,
   ): Promise<Record<string, unknown>> {
     // nodeMap: 按 id 快速取节点；outgoing: 某节点的所有出口边。
     const nodeMap = new Map(nodes.map((node) => [node.id, node]));
@@ -148,6 +162,11 @@ export class WorkflowAsyncRunner {
     // this.logger.debug(`current(原始)=${this.dump(current)}`);
 
     while (current) {
+      // 每个节点执行前检查取消信号：已取消则立刻中断（抛专用错误）。
+      if (isCanceled()) {
+        throw new WorkflowCanceledError();
+      }
+
       if (visited.has(current.id)) {
         throw new BusinessException(
           '检测到非法回环，循环请使用 loop 节点表达',
@@ -169,6 +188,7 @@ export class WorkflowAsyncRunner {
         eventBus,
         runId,
         loopScope,
+        isCanceled,
       );
       lastOutput = result.output;
 
@@ -219,6 +239,7 @@ export class WorkflowAsyncRunner {
     eventBus: WorkflowRunEventBus,
     runId: string,
     loopScope: Record<string, unknown> | undefined,
+    isCanceled: () => boolean,
   ): Promise<WorkflowNodeExecutionResult> {
     const startedAt = new Date();
     this.logger.log(`  ⏳ 节点开始 [${node.type}] ${node.id}`);
@@ -232,13 +253,18 @@ export class WorkflowAsyncRunner {
     });
 
     try {
-      // 执行节点。节点是loop就执行子图，否则通过node.type找到对应的执行器执行
+      // 执行节点。loop 走子图（自带并发/失败策略），其它节点走执行器并套「超时+重试」护栏。
       const result =
         node.type === LOOP_NODE_TYPE
-          ? await this.executeLoop(node, state, eventBus, runId, loopScope)
-          : await this.resolveExecutor(node).execute(
-              this.buildContext(node, state, loopScope),
-            );
+          ? await this.executeLoop(
+              node,
+              state,
+              eventBus,
+              runId,
+              loopScope,
+              isCanceled,
+            )
+          : await this.runLeafNode(node, state, loopScope);
 
       state.nodeOutputs[node.id] = result.output;
       const durationMs = this.diffMs(startedAt, new Date());
@@ -279,6 +305,7 @@ export class WorkflowAsyncRunner {
     eventBus: WorkflowRunEventBus,
     runId: string,
     parentLoopScope: Record<string, unknown> | undefined,
+    isCanceled: () => boolean,
   ): Promise<WorkflowNodeExecutionResult> {
     // 解析 items：用 resolveValueRef 是为了保留数组原始类型（不能被转成字符串）。
     const scope = this.buildScope(state, parentLoopScope);
@@ -320,8 +347,10 @@ export class WorkflowAsyncRunner {
     );
 
     const concurrency = this.resolveConcurrency(inputs.concurrency);
+    // 失败策略：abort=某轮失败则整体失败（默认）；continue=跳过失败轮、记录错误、继续。
+    const onError = inputs.onError === 'continue' ? 'continue' : 'abort';
     this.logger.log(
-      `  🔁 loop ${node.id} 开始迭代 共 ${items.length} 项 子节点数=${blocks.length} 并发=${concurrency}`,
+      `  🔁 loop ${node.id} 开始迭代 共 ${items.length} 项 子节点数=${blocks.length} 并发=${concurrency} 失败策略=${onError}`,
     );
 
     // 结果按 index 落位，保证输出顺序和输入数组一致（即使并发乱序完成）。
@@ -352,15 +381,33 @@ export class WorkflowAsyncRunner {
       if (entry) {
         // 关键：每轮用独立 state（隔离 nodeOutputs），避免并发时各轮互相覆盖。
         const iterationState = this.forkState(state);
-        iterationOutput = await this.executeGraph(
-          blocks,
-          blockEdges,
-          entry,
-          iterationState,
-          eventBus,
-          runId,
-          loopScope,
-        );
+        try {
+          iterationOutput = await this.executeGraph(
+            blocks,
+            blockEdges,
+            entry,
+            iterationState,
+            eventBus,
+            runId,
+            loopScope,
+            isCanceled,
+          );
+        } catch (error) {
+          // 取消信号不受失败策略影响，直接向上抛出中断整个运行。
+          if (error instanceof WorkflowCanceledError) {
+            throw error;
+          }
+          if (onError === 'abort') {
+            throw error;
+          }
+          // continue 策略：记录错误、跳过该轮，不中断整个 loop。
+          const message =
+            error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `  ⚠️ loop ${node.id} 第 ${index + 1} 轮失败，跳过：${message}`,
+          );
+          iterationOutput = { error: message };
+        }
         this.logger.debug(
           `[executeLoop] iterationOutput(原始)=${this.dump(iterationOutput)}`,
         );
@@ -386,6 +433,82 @@ export class WorkflowAsyncRunner {
 
     // loop 节点的输出 = 迭代次数 + 每轮结果数组，供后续节点引用。
     return { output: { count: items.length, results } };
+  }
+
+  // 执行普通（非 loop）节点，套上「超时 + 重试」护栏。
+  // 配置来自 node.data.inputs：timeout(ms,默认60s,0关闭) / retry(次数) / retryDelay(ms)。
+  private async runLeafNode(
+    node: WorkflowNode,
+    state: WorkflowRuntimeState,
+    loopScope: Record<string, unknown> | undefined,
+  ): Promise<WorkflowNodeExecutionResult> {
+    const inputs = this.asRecord(this.asRecord(node.data).inputs);
+    const timeoutMs = this.readNumber(inputs.timeout, DEFAULT_NODE_TIMEOUT_MS);
+    const retry = Math.max(0, this.readNumber(inputs.retry, 0));
+    const retryDelay = Math.max(0, this.readNumber(inputs.retryDelay, 0));
+    const executor = this.resolveExecutor(node);
+
+    return this.withRetry(
+      () =>
+        this.withTimeout(
+          executor.execute(this.buildContext(node, state, loopScope)),
+          timeoutMs,
+          node.id,
+        ),
+      retry,
+      retryDelay,
+      node.id,
+    );
+  }
+
+  // 超时护栏：超过 ms 未完成则 reject（ms<=0 表示不限制）。
+  // 注意：仅让运行不再阻塞等待，底层请求（如模型调用）不会被真正中止。
+  private withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    if (ms <= 0) {
+      return p;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(`节点 ${label} 执行超时 (${ms}ms)`));
+      }, ms);
+    });
+    return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+  }
+
+  // 重试护栏：失败后最多再试 retry 次，每次间隔 delay 毫秒。
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    retry: number,
+    delay: number,
+    label: string,
+  ): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retry; attempt += 1) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        if (attempt < retry) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `  🔁 节点 ${label} 第 ${attempt + 1} 次失败，准备重试：${message}`,
+          );
+          if (delay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  private readNumber(value: unknown, fallback: number): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    return fallback;
   }
 
   // 解析并发数：默认 5，受 inputs.concurrency 覆盖，并夹在 [1, MAX] 之间。

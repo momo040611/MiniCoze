@@ -11,6 +11,10 @@ import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { WorkflowAsyncRunner } from './internal/compose/workflow-async-runner';
 import {
+  WorkflowCanceledError,
+  WorkflowCancellationRegistry,
+} from './internal/execute/workflow-cancellation.registry';
+import {
   WorkflowRunEvent,
   WorkflowStreamEvent,
 } from './internal/execute/workflow-run-event';
@@ -31,6 +35,7 @@ export class WorkflowRunService {
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly workflowAsyncRunner: WorkflowAsyncRunner,
     private readonly workflowMapper: WorkflowMapper,
+    private readonly cancellationRegistry: WorkflowCancellationRegistry,
   ) {}
 
   // run 支持可选的 onEvent 回调：
@@ -140,6 +145,7 @@ export class WorkflowRunService {
         definition,
         input: dto.input ?? {},
         eventBus,
+        isCanceled: () => this.cancellationRegistry.isCanceled(run.id),
       });
 
       // Step 7) 所有节点执行成功后，更新 run 为 SUCCEEDED 并写最终 output。
@@ -166,15 +172,18 @@ export class WorkflowRunService {
       // Step 8) 返回运行详情（含节点日志），给 API 层直接响应前端。
       return this.workflowMapper.toWorkflowRunResponse(updatedRun, true);
     } catch (error) {
-      // 失败分支：
-      // - 捕获执行异常
-      // - 更新 run 状态为 FAILED，写 errorMessage
-      // - 保留已写入的节点日志用于排障
+      // 失败/取消分支：
+      // - 取消（WorkflowCanceledError）-> 状态 CANCELED
+      // - 其它异常 -> 状态 FAILED
+      // - 都保留已写入的节点日志用于排障
+      const canceled = error instanceof WorkflowCanceledError;
       const message = error instanceof Error ? error.message : String(error);
-      const failedRun = await this.prisma.workflowRun.update({
+      const endedRun = await this.prisma.workflowRun.update({
         where: { id: run.id },
         data: {
-          status: WorkflowRunStatus.FAILED,
+          status: canceled
+            ? WorkflowRunStatus.CANCELED
+            : WorkflowRunStatus.FAILED,
           errorMessage: message,
           endedAt: new Date(),
         },
@@ -186,11 +195,45 @@ export class WorkflowRunService {
       });
 
       onEvent?.({ type: 'run.failed', runId: run.id, error: message });
-      return this.workflowMapper.toWorkflowRunResponse(failedRun, true);
+      return this.workflowMapper.toWorkflowRunResponse(endedRun, true);
     } finally {
+      // 清理取消信号，避免内存泄漏。
+      this.cancellationRegistry.clear(run.id);
       // 无论成功失败，最后都发一个 stream.done，告诉 SSE 客户端可以关闭了。
       onEvent?.({ type: 'stream.done', runId: run.id });
     }
+  }
+
+  // 请求取消某次运行：校验权限后写入取消信号，运行中的 runner 会在下个节点前中断。
+  async requestCancel(
+    userId: string,
+    runId: string,
+  ): Promise<{ runId: string; requested: boolean }> {
+    const run = await this.prisma.workflowRun.findUnique({
+      where: { id: runId },
+      include: { workflow: true },
+    });
+
+    if (!run) {
+      throw new BusinessException(
+        'Workflow Run 不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.workspaceAccessService.ensureMember(
+      userId,
+      run.workflow.workspaceId,
+    );
+
+    // 只有运行中的才需要取消；已结束的直接返回。
+    if (run.status !== WorkflowRunStatus.RUNNING) {
+      return { runId, requested: false };
+    }
+
+    this.cancellationRegistry.request(runId);
+    return { runId, requested: true };
   }
 
   async listRuns(
