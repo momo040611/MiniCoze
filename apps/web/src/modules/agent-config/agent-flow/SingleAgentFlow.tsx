@@ -28,6 +28,7 @@ interface Props {
   onConfigChange: (config: FlowConfig) => void
   openingConfig: OpeningConfig
   onOpeningChange: (config: OpeningConfig) => void
+  isPublished: boolean
 }
 
 function CollapsePanel({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
@@ -61,6 +62,7 @@ export function SingleAgentFlow({
   onConfigChange,
   openingConfig,
   onOpeningChange,
+  isPublished,
 }: Props) {
   const [leftPct, setLeftPct] = useState(DEFAULT_LEFT_PCT)
   const [dragging, setDragging] = useState(false)
@@ -282,6 +284,7 @@ export function SingleAgentFlow({
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
+            isPublished={isPublished}
           />
           <WorkflowSelectModal
             visible={dialogFlow}

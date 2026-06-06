@@ -33,6 +33,7 @@ interface Props {
   onConfigChange: (config: MultiConfig) => void
   openingConfig: OpeningConfig
   onOpeningChange: (config: OpeningConfig) => void
+  isPublished: boolean
 }
 
 function CollapsePanel({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
@@ -237,6 +238,7 @@ export function MultiAgents({
   onTemperatureChange, onContextLimitChange,
   config, onConfigChange,
   openingConfig, onOpeningChange,
+  isPublished,
 }: Props) {
   const [database, setDatabase] = useState(false)
   const [dialogFlow, setDialogFlow] = useState(false)
@@ -467,6 +469,7 @@ export function MultiAgents({
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
+            isPublished={isPublished}
           />
           <WorkflowSelectModal
             visible={dialogFlow}

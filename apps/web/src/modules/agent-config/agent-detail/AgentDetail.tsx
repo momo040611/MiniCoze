@@ -220,6 +220,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
           flowConfig={flowConfig}
           multiConfig={multiConfig}
           openingConfig={openingConfig}
+          isPublished={isPublished}
           onPersonaChange={handlePersonaChange}
           onModelChange={handleModelChange}
           onTemperatureChange={handleTemperatureChange}

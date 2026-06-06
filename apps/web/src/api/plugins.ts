@@ -283,9 +283,23 @@ export async function getPlugins(params: IGetPluginsParams): Promise<IPaginatedP
   };
 }
 
+const pluginDetailCache = new Map<string, Promise<IPluginDetail>>();
+
 export async function getPluginDetail(pluginId: string): Promise<IPluginDetail> {
-  const payload = await http.get<ApiEnvelope<BackendPluginDetail>>(`plugins/${pluginId}`);
-  return mapPlugin(payload.data);
+  const pending = pluginDetailCache.get(pluginId);
+  if (pending) return pending;
+
+  const promise = (async () => {
+    try {
+      const payload = await http.get<ApiEnvelope<BackendPluginDetail>>(`plugins/${pluginId}`);
+      return mapPlugin(payload.data);
+    } finally {
+      pluginDetailCache.delete(pluginId);
+    }
+  })();
+
+  pluginDetailCache.set(pluginId, promise);
+  return promise;
 }
 
 export async function togglePlugin(pluginId: string, enabled: boolean): Promise<IPluginDetail> {
