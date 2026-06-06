@@ -10,6 +10,7 @@ import { createEmbedder } from './embedding/embedder.factory';
 import { EMBEDDER_TOKEN } from './embedding/embedder.interface';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeService } from './knowledge.service';
+import { RetrievalController } from './retrieval/retrieval.controller';
 import { RetrievalService } from './retrieval/retrieval.service';
 
 @Module({
@@ -18,6 +19,7 @@ import { RetrievalService } from './retrieval/retrieval.service';
     KnowledgeController,
     KnowledgeBaseController,
     KnowledgeDocumentController,
+    RetrievalController,
   ],
   providers: [
     KnowledgeService,
