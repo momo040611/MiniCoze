@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import styles from '../agent-detail/agent-detail.module.css'
 import plannerStyles from './SingleAgentPlanner.module.css'
 import type { AgentDetailData, PlannerConfig, OpeningConfig } from '../agent-detail'
+import type { ModelOption } from '../../../api/agent-config/model-options'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
 import { PreviewChat } from '../components/PreviewChat'
 import { KnowledgeSelectModal } from '../components/KnowledgeSelectModal'
@@ -16,6 +17,7 @@ interface Props {
   persona: string
   setPersona: (v: string) => void
   model: string
+  modelOptions: ModelOption[]
   onModelChange: (v: string) => void
   temperature: number
   onTemperatureChange: (v: number) => void
@@ -26,11 +28,6 @@ interface Props {
   openingConfig: OpeningConfig
   onOpeningChange: (config: OpeningConfig) => void
 }
-
-const MODEL_OPTIONS = [
-  { label: 'DeepSeek V4 Flash', value: 'deepseek-v4-flash' },
-  { label: 'DeepSeek V4 Pro', value: 'deepseek-v4-pro' },
-]
 
 function CollapsePanel({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -54,6 +51,7 @@ export function SingleAgentPlanner({
   persona,
   setPersona,
   model,
+  modelOptions,
   onModelChange,
   temperature,
   onTemperatureChange,
@@ -128,7 +126,7 @@ export function SingleAgentPlanner({
                 className={plannerStyles.modelTrigger}
                 onClick={() => setModelOpen((v) => !v)}
               >
-                <span className={plannerStyles.modelName}>{MODEL_OPTIONS.find(m => m.value === model)?.label ?? model}</span>
+                <span className={plannerStyles.modelName}>{modelOptions.find(m => m.value === model)?.label ?? model}</span>
                 <span className={`${plannerStyles.modelArrow} ${modelOpen ? plannerStyles.modelArrowOpen : ''}`}>
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                     <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -137,7 +135,7 @@ export function SingleAgentPlanner({
               </div>
               {modelOpen && (
                 <div className={plannerStyles.modelDropdown}>
-                  {MODEL_OPTIONS.map((m) => (
+                  {modelOptions.map((m) => (
                     <button
                       key={m.value}
                       className={`${plannerStyles.modelOption} ${m.value === model ? plannerStyles.modelOptionActive : ''}`}

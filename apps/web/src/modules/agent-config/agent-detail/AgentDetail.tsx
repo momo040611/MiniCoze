@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './agent-detail.module.css';
 import type { AgentMode, AgentDetailData } from './types';
+import { MODEL_OPTIONS } from '../../../api/agent-config/model-options';
 import { useOrchestrationConfig } from './hooks/useOrchestrationConfig';
 import { useAgentSave } from './hooks/useAgentSave';
 import { nextContentKey } from './constants';
@@ -59,6 +60,8 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
     autoSaveTimerRef,
     saving,
     saved,
+    autoSaveError,
+    clearAutoSaveError,
   } = useAgentSave({ agentId: agent.id, onAgentUpdated, onSaveCompleted: () => setDirty(false) });
 
   saveStateRef.current = {
@@ -194,6 +197,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
         mode={mode}
         saving={saving}
         saved={saved}
+        autoSaveError={autoSaveError}
         dirty={dirty}
         status={status}
         publishing={publishing}
@@ -209,6 +213,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
           agent={agent}
           persona={persona}
           model={model}
+          modelOptions={MODEL_OPTIONS}
           temperature={temperature}
           contextLimit={contextLimit}
           plannerConfig={plannerConfig}

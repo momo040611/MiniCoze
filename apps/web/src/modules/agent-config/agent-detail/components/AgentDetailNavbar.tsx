@@ -11,6 +11,7 @@ interface AgentDetailNavbarProps {
   saving: boolean;
   saved: boolean;
   dirty: boolean;
+  autoSaveError: boolean;
   status: string;
   publishing: boolean;
   onBack: () => void;
@@ -27,6 +28,7 @@ export function AgentDetailNavbar({
   saving,
   saved,
   dirty,
+  autoSaveError,
   status,
   publishing,
   onBack,
@@ -63,8 +65,13 @@ export function AgentDetailNavbar({
       </div>
 
       <div className={styles.navRight}>
+        {autoSaveError && (
+          <span className={styles.errorHint}>
+            自动保存失败
+          </span>
+        )}
         {saved && <span className={styles.savedHint}>已保存</span>}
-        {dirty && !saved && (
+        {dirty && !saved && !autoSaveError && (
           <span className={styles.draftHint}>
             <span className={styles.draftDot} />
             草稿
