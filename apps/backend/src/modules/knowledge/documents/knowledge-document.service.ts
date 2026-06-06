@@ -1,5 +1,10 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { FilePurpose, Prisma, type FileAsset, type KnowledgeDocument } from '@prisma/client';
+import {
+  FilePurpose,
+  Prisma,
+  type FileAsset,
+  type KnowledgeDocument,
+} from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { ErrorCode } from '../../../common/constants/error-code';
 import { BusinessException } from '../../../common/exceptions/business.exception';
@@ -10,10 +15,7 @@ import { KnowledgeBaseService } from '../bases/knowledge-base.service';
 import { chunk } from '../chunking/chunk';
 import type { ChunkConfig } from '../chunking/types';
 import { ChunkConfigDto } from '../dto/chunk-config.dto';
-import {
-  EMBEDDER_TOKEN,
-  type Embedder,
-} from '../embedding/embedder.interface';
+import { EMBEDDER_TOKEN, type Embedder } from '../embedding/embedder.interface';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import { DocumentChunksPaginatedResponseDto } from './dto/document-chunks-response.dto';
 import {
@@ -22,13 +24,6 @@ import {
 } from './dto/upload-document-response.dto';
 
 type KnowledgeDocumentWithFile = KnowledgeDocument & { file: FileAsset };
-
-type KnowledgeChunkRow = {
-  id: string;
-  index: number;
-  content: string;
-  enabled: boolean;
-};
 
 @Injectable()
 export class KnowledgeDocumentService {
@@ -171,10 +166,7 @@ export class KnowledgeDocumentService {
       );
     }
     // 校验该文档所属 KB 的 workspace 成员资格
-    await this.knowledgeBaseService.findOneForUser(
-      userId,
-      doc.knowledgeBaseId,
-    );
+    await this.knowledgeBaseService.findOneForUser(userId, doc.knowledgeBaseId);
 
     const removed = await this.prisma.knowledgeDocument.delete({
       where: { id: documentId },
@@ -199,10 +191,7 @@ export class KnowledgeDocumentService {
         HttpStatus.NOT_FOUND,
       );
     }
-    await this.knowledgeBaseService.findOneForUser(
-      userId,
-      doc.knowledgeBaseId,
-    );
+    await this.knowledgeBaseService.findOneForUser(userId, doc.knowledgeBaseId);
 
     const skip = (page - 1) * pageSize;
 
@@ -270,11 +259,7 @@ export class KnowledgeDocumentService {
     };
   }
 
-  async deleteChunk(
-    userId: string,
-    documentId: string,
-    index: number,
-  ) {
+  async deleteChunk(userId: string, documentId: string, index: number) {
     const chunk = await this.findChunkForUser(userId, documentId, index);
     await this.prisma.knowledgeChunk.delete({ where: { id: chunk.id } });
     await this.prisma.knowledgeDocument.update({
@@ -378,7 +363,10 @@ export class KnowledgeDocumentService {
       fileExtension: doc.file.extension ?? '',
       fileSize: doc.file.size,
       chunkType: doc.chunkType ?? '',
-      chunkConfig: (doc.chunkConfig ?? {}) as unknown as Record<string, unknown>,
+      chunkConfig: (doc.chunkConfig ?? {}) as unknown as Record<
+        string,
+        unknown
+      >,
       totalChunks: doc.chunkCount,
       totalChars: doc.totalChars,
       createdAt: formatShanghaiDateTime(doc.createdAt),
