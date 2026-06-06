@@ -33,12 +33,30 @@ export class UserService {
     userId: string,
     updateCurrentUserDto: UpdateCurrentUserDto,
   ): Promise<UserResponse> {
+    const data: Prisma.UserUpdateInput = {};
+
+    if (updateCurrentUserDto.username !== undefined) {
+      data.username = updateCurrentUserDto.username;
+    }
+    if (updateCurrentUserDto.email !== undefined) {
+      data.email = updateCurrentUserDto.email;
+    }
+    if (updateCurrentUserDto.phone !== undefined) {
+      data.phone = updateCurrentUserDto.phone || null;
+    }
+    if (updateCurrentUserDto.bio !== undefined) {
+      data.bio = updateCurrentUserDto.bio || null;
+    }
+    if (updateCurrentUserDto.avatarUrl !== undefined) {
+      data.avatarUrl = updateCurrentUserDto.avatarUrl || null;
+    }
+
     try {
       const user = await this.prisma.user.update({
         where: {
           id: userId,
         },
-        data: updateCurrentUserDto,
+        data,
       });
 
       return this.toUserResponse(user);
@@ -51,6 +69,14 @@ export class UserService {
         );
       }
 
+      if (this.isUniqueConstraintError(error)) {
+        throw new BusinessException(
+          '邮箱已被使用',
+          ErrorCode.UserAlreadyExists,
+          HttpStatus.CONFLICT,
+        );
+      }
+
       throw error;
     }
   }
@@ -60,6 +86,8 @@ export class UserService {
       id: user.id,
       username: user.username,
       email: user.email,
+      phone: user.phone ?? '',
+      bio: user.bio ?? '',
       avatarUrl: user.avatarUrl,
       status: user.status,
       createdAt: formatShanghaiDateTime(user.createdAt),
@@ -71,6 +99,13 @@ export class UserService {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2025'
+    );
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
     );
   }
 }

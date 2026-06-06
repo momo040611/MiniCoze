@@ -8,6 +8,12 @@ export interface CanvasNode {
   avatar?: string
   width: number
   height: number
+  modelName?: string
+  skills?: string[]
+  useCase?: string
+  prompt?: string
+  suggestions?: string[]
+  hasUserCustomPrompt?: boolean
 }
 
 export interface CanvasConnection {

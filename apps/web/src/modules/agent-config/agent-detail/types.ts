@@ -12,6 +12,8 @@ export interface AgentDetailData {
   temperature: number;
   openingMessage: string;
   contextLimit: number;
+  status: string;
+  publishedAt?: string;
 }
 
 export interface PlannerConfig {
@@ -28,6 +30,7 @@ export interface PlannerConfig {
 
 export interface FlowConfig {
   nodes: Array<{ id: string; type: string; x: number; y: number }>;
+  workflows: string[];
   variables: string[];
   databases: string[];
 }

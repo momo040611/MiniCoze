@@ -45,6 +45,9 @@ export interface WorkflowAsyncRunOutput {
 // - 顶层图本身不允许出现回环（循环必须用 loop 节点表达）
 const LOOP_NODE_TYPE = 'loop';
 const MAX_LOOP_ITEMS = 200;
+// loop 默认并发数；可由节点 inputs.concurrency 覆盖，并被 MAX 限制。
+const DEFAULT_LOOP_CONCURRENCY = 5;
+const MAX_LOOP_CONCURRENCY = 20;
 
 @Injectable()
 export class WorkflowAsyncRunner {
@@ -316,18 +319,25 @@ export class WorkflowAsyncRunner {
       `[executeLoop] blockEdges(原始)=${this.dump(blockEdges)}`,
     );
 
+    const concurrency = this.resolveConcurrency(inputs.concurrency);
     this.logger.log(
-      `  🔁 loop ${node.id} 开始迭代 共 ${items.length} 项 子节点数=${blocks.length}`,
+      `  🔁 loop ${node.id} 开始迭代 共 ${items.length} 项 子节点数=${blocks.length} 并发=${concurrency}`,
     );
 
+    // 结果按 index 落位，保证输出顺序和输入数组一致（即使并发乱序完成）。
     const results: Array<{
       index: number;
       item: unknown;
       output: Record<string, unknown>;
-    }> = [];
+    }> = new Array(items.length) as Array<{
+      index: number;
+      item: unknown;
+      output: Record<string, unknown>;
+    }>;
 
-    // 逐项迭代：每轮把当前项注入 loopScope（item/index），再跑一遍子图。
-    for (let index = 0; index < items.length; index += 1) {
+    // 共享游标：每个 worker 抢一个 index 来跑（JS 单线程，cursor++ 是原子的）。
+    let cursor = 0;
+    const runOneIteration = async (index: number): Promise<void> => {
       const loopScope: Record<string, unknown> = {
         ...(parentLoopScope ?? {}),
         item: items[index],
@@ -340,21 +350,61 @@ export class WorkflowAsyncRunner {
 
       let iterationOutput: Record<string, unknown> = {};
       if (entry) {
+        // 关键：每轮用独立 state（隔离 nodeOutputs），避免并发时各轮互相覆盖。
+        const iterationState = this.forkState(state);
         iterationOutput = await this.executeGraph(
           blocks,
           blockEdges,
           entry,
-          state,
+          iterationState,
           eventBus,
           runId,
           loopScope,
         );
+        this.logger.debug(
+          `[executeLoop] iterationOutput(原始)=${this.dump(iterationOutput)}`,
+        );
       }
-      results.push({ index, item: items[index], output: iterationOutput });
-    }
+      // 并发完成顺序是乱的（item3 可能比 item1 先跑完），但输出要保持原顺序
+      results[index] = { index, item: items[index], output: iterationOutput };
+    };
+
+    const worker = async (): Promise<void> => {
+      for (;;) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= items.length) {
+          return;
+        }
+        await runOneIteration(index);
+      }
+    };
+
+    const workerCount = Math.min(concurrency, items.length);
+    // 并发执行workerCount个worker，每个worker执行runOneIteration
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
     // loop 节点的输出 = 迭代次数 + 每轮结果数组，供后续节点引用。
     return { output: { count: items.length, results } };
+  }
+
+  // 解析并发数：默认 5，受 inputs.concurrency 覆盖，并夹在 [1, MAX] 之间。
+  private resolveConcurrency(value: unknown): number {
+    const n =
+      typeof value === 'number' && Number.isFinite(value)
+        ? Math.floor(value)
+        : DEFAULT_LOOP_CONCURRENCY;
+    return Math.max(1, Math.min(n, MAX_LOOP_CONCURRENCY));
+  }
+
+  // 复制一份运行时状态：nodeOutputs 浅拷贝成新对象，
+  // 这样每个循环迭代的子节点输出互相隔离，可以安全并发执行。
+  private forkState(state: WorkflowRuntimeState): WorkflowRuntimeState {
+    return {
+      originalInput: state.originalInput,
+      currentText: state.currentText,
+      nodeOutputs: { ...state.nodeOutputs },
+    };
   }
 
   // 构建当前节点的执行上下文，注入变量解析能力。

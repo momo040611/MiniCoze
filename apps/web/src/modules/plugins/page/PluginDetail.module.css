@@ -1,42 +1,111 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.headerMain {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  padding: 20px;
-  border: 1px solid #edf1f7;
-  border-radius: 8px;
-  background: #ffffff;
 }
 
-.icon {
-  display: inline-grid;
+.identity {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.identity img,
+.identity > span {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+}
+
+.identity img {
+  object-fit: cover;
+  background: #f8fafc;
+}
+
+.identity > span {
+  display: grid;
   place-items: center;
-  min-width: 42px;
-  height: 42px;
-  padding: 0 10px;
-  border-radius: 8px;
-  background: #eef4ff;
-  color: #1d4ed8;
-  font-weight: 700;
+  color: #0f766e;
+  background: #e6f4f1;
+  font-size: 24px;
 }
 
-.header h1 {
-  margin: 14px 0 8px;
+.titleLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.titleLine h1 {
+  margin: 0;
   color: #111827;
   font-size: 24px;
 }
 
-.header p {
-  margin: 0;
+.identity p {
+  max-width: 760px;
+  margin: 8px 0 0;
   color: #64748b;
   line-height: 1.7;
+}
+
+.headerActions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.infoPanel {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.infoPanel h2 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 16px;
+}
+
+.infoPanel p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.tagLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .toolsBlock {
@@ -58,21 +127,54 @@
   font-size: 18px;
 }
 
-.toolId {
-  margin-top: 4px;
-  color: #94a3b8;
-  font-size: 12px;
+.toolName {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toolName strong {
+  color: #111827;
+}
+
+.toolName span,
+.toolDesc {
+  color: #64748b;
+  font-size: 13px;
 }
 
 .schema {
-  max-width: 360px;
+  max-width: 420px;
   max-height: 180px;
   margin: 0;
   padding: 10px;
+  overflow: auto;
   border-radius: 6px;
   background: #f8fafc;
   color: #334155;
+  font-size: 12px;
+}
+
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.configGrid strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+.wideSchema {
+  max-height: 260px;
+  margin: 0;
+  padding: 12px;
   overflow: auto;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
   font-size: 12px;
 }
 
@@ -80,4 +182,20 @@
   min-height: 260px;
   display: grid;
   place-items: center;
+}
+
+@media (max-width: 860px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .headerActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .infoGrid,
+  .configGrid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ReadStream } from 'fs';
+import type { Readable } from 'stream';
 import { ErrorCode } from '../../../common/constants/error-code';
 import { BusinessException } from '../../../common/exceptions/business.exception';
 import { FileService } from '../../file/file.service';
@@ -411,7 +411,7 @@ export class ImageUnderstandingClient {
     }
   }
 
-  private async readStreamToBuffer(stream: ReadStream): Promise<Buffer> {
+  private async readStreamToBuffer(stream: Readable): Promise<Buffer> {
     const chunks: Buffer[] = [];
     for await (const chunk of stream) {
       const normalizedChunk = Buffer.isBuffer(chunk)

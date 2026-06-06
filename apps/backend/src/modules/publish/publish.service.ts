@@ -17,6 +17,7 @@ import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { OfflineAgentDto } from './dto/offline-agent.dto';
 import { PublishAgentDto } from './dto/publish-agent.dto';
 import { RollbackAgentDto } from './dto/rollback-agent.dto';
+import { PublishChannelService } from './publish-channel.service';
 import {
   AgentPublishSnapshot,
   AgentVersionListItem,
@@ -49,6 +50,7 @@ export class PublishService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly publishChannelService: PublishChannelService,
   ) {}
 
   async checkAgent(
@@ -122,6 +124,11 @@ export class PublishService {
           changelog: dto.changelog,
           operatorId: userId,
         },
+      });
+
+      await this.publishChannelService.ensureDefaultAgentChannels(tx, {
+        id: agentId,
+        workspaceId: agent.workspaceId,
       });
 
       return createdVersion;
@@ -286,14 +293,23 @@ export class PublishService {
     }
 
     const offlineAt = new Date();
-    await this.prisma.$transaction([
-      this.prisma.agent.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.agent.update({
         where: { id: agentId },
         data: {
           status: AgentStatus.DRAFT,
         },
-      }),
-      this.prisma.publishRecord.create({
+      });
+      await tx.publishChannel.updateMany({
+        where: {
+          targetType: PublishTargetType.AGENT,
+          targetId: agentId,
+        },
+        data: {
+          enabled: false,
+        },
+      });
+      await tx.publishRecord.create({
         data: {
           workspaceId: agent.workspaceId,
           targetType: PublishTargetType.AGENT,
@@ -305,8 +321,8 @@ export class PublishService {
           operatorId: userId,
           createdAt: offlineAt,
         },
-      }),
-    ]);
+      });
+    });
 
     return {
       offlineAt: formatShanghaiDateTime(offlineAt),
