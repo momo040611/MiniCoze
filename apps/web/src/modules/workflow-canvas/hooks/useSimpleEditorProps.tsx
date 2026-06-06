@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import {
     WorkflowNodeRenderer,
     useNodeRender,
@@ -27,10 +27,71 @@ import {
 
 import {
     DEFAULT_WORKFLOW_CANVAS_DATA,
+    normalizeWorkflowCanvasData,
     saveWorkflowDraftRemote,
     type WorkflowCanvasData,
 } from '../../../api/workflows'
 import type { NodeValidationError } from '../utils/validateWorkflow'
+
+let validationErrorSnapshot: Record<string, NodeValidationError[]> = {}
+const validationErrorListeners = new Set<() => void>()
+
+function setValidationErrorSnapshot(nextSnapshot: Record<string, NodeValidationError[]> = {}) {
+    validationErrorSnapshot = nextSnapshot
+    validationErrorListeners.forEach((listener) => listener())
+}
+
+function subscribeValidationErrors(listener: () => void) {
+    validationErrorListeners.add(listener)
+    return () => {
+        validationErrorListeners.delete(listener)
+    }
+}
+
+function getValidationErrorSnapshot() {
+    return validationErrorSnapshot
+}
+
+function ErrorAwareNodeRenderer({
+    node,
+    onSelectNode,
+}: {
+    node: WorkflowNodeEntity
+    onSelectNode?: (node: WorkflowNodeEntity) => void
+}) {
+    const { form } = useNodeRender()
+    const errorsByNodeId = useSyncExternalStore(
+        subscribeValidationErrors,
+        getValidationErrorSnapshot,
+        getValidationErrorSnapshot,
+    )
+    const nodeJson = node.toJSON?.() as { id?: string } | undefined
+    const nodeId = nodeJson?.id ?? String((node as unknown as { id?: string }).id ?? '')
+    const nodeErrors = nodeId ? errorsByNodeId[nodeId] : undefined
+    const hasError = Boolean(nodeErrors?.length)
+
+    return (
+        <div
+            onClick={(event) => {
+                event.stopPropagation()
+                onSelectNode?.(node)
+            }}
+            className={styles.nodeShell}
+        >
+            <WorkflowNodeRenderer
+                node={node}
+                className={`${styles.workflowNode} ${hasError ? styles.workflowNodeError : ''}`}
+            >
+                {hasError && (
+                    <div className={styles.errorBadge} title={nodeErrors?.map((item) => item.message).join('\n')}>
+                        !
+                    </div>
+                )}
+                {form?.render()}
+            </WorkflowNodeRenderer>
+        </div>
+    )
+}
 
 // 节点注册配置
 const nodeRegistries: WorkflowNodeRegistry[] = [
@@ -94,6 +155,10 @@ type UseSimpleEditorPropsParams = {
     canvasData?: WorkflowCanvasData
     onSelectNode?: (node: WorkflowNodeEntity) => void
     onCanvasChange?: (canvasData: WorkflowCanvasData) => void
+    onDirty?: () => void
+    onSaveStart?: () => void
+    onSaveSuccess?: (workflow: Awaited<ReturnType<typeof saveWorkflowDraftRemote>>) => void
+    onSaveError?: (error: unknown) => void
     validationErrorsByNodeId?: Record<string, NodeValidationError[]>
 }
 
@@ -102,9 +167,28 @@ export const useSimpleEditorProps = ({
     canvasData,
     onSelectNode,
     onCanvasChange,
+    onDirty,
+    onSaveStart,
+    onSaveSuccess,
+    onSaveError,
     validationErrorsByNodeId,
 }: UseSimpleEditorPropsParams) => {
     const saveTimerRef = useRef<number | null>(null)
+    const safeCanvasData = useMemo(
+        () => normalizeWorkflowCanvasData(canvasData),
+        [canvasData],
+    )
+
+    useEffect(() => {
+        setValidationErrorSnapshot(validationErrorsByNodeId)
+    }, [validationErrorsByNodeId])
+
+    useEffect(() => () => {
+        if (saveTimerRef.current) {
+            window.clearTimeout(saveTimerRef.current)
+        }
+        setValidationErrorSnapshot({})
+    }, [])
 
     return useMemo<FreeLayoutProps>(
         () => ({
@@ -112,8 +196,8 @@ export const useSimpleEditorProps = ({
             readonly: false,
 
             initialData:
-                canvasData && canvasData.nodes.length > 0
-                    ? (canvasData as WorkflowJSON)
+                safeCanvasData.nodes.length > 0
+                    ? (safeCanvasData as WorkflowJSON)
                     : (DEFAULT_WORKFLOW_CANVAS_DATA as WorkflowJSON),
 
             nodeRegistries,
@@ -163,33 +247,7 @@ export const useSimpleEditorProps = ({
 
             materials: {
                 renderDefaultNode: (props: WorkflowNodeProps) => {
-                    const { form } = useNodeRender()
-                    const nodeJson = props.node.toJSON?.() as { id?: string } | undefined
-                    const nodeId = nodeJson?.id ?? String((props.node as unknown as { id?: string }).id ?? '')
-                    const nodeErrors = nodeId ? validationErrorsByNodeId?.[nodeId] : undefined
-                    const hasError = Boolean(nodeErrors?.length)
-
-                    return (
-                        <div
-                            onClick={(event) => {
-                                event.stopPropagation()
-                                onSelectNode?.(props.node)
-                            }}
-                            className={styles.nodeShell}
-                        >
-                            <WorkflowNodeRenderer
-                                node={props.node}
-                                className={`${styles.workflowNode} ${hasError ? styles.workflowNodeError : ''}`}
-                            >
-                                {hasError && (
-                                    <div className={styles.errorBadge} title={nodeErrors?.map((item) => item.message).join('\n')}>
-                                        !
-                                    </div>
-                                )}
-                                {form?.render()}
-                            </WorkflowNodeRenderer>
-                        </div>
-                    )
+                    return <ErrorAwareNodeRenderer node={props.node} onSelectNode={onSelectNode} />
                 },
             },
 
@@ -205,6 +263,7 @@ export const useSimpleEditorProps = ({
             onContentChange(ctx) {
                 const nextCanvasData = ctx.document.toJSON() as WorkflowCanvasData
                 onCanvasChange?.(nextCanvasData)
+                onDirty?.()
 
                 if (!workflowId) {
                     return
@@ -215,14 +274,26 @@ export const useSimpleEditorProps = ({
                 }
 
                 saveTimerRef.current = window.setTimeout(() => {
-                    saveWorkflowDraftRemote(workflowId, nextCanvasData).catch((error) => {
-                        console.error(error)
-                    })
-
-                    console.log('画布已自动保存：', nextCanvasData)
+                    onSaveStart?.()
+                    saveWorkflowDraftRemote(workflowId, nextCanvasData)
+                        .then((savedWorkflow) => {
+                            onSaveSuccess?.(savedWorkflow)
+                        })
+                        .catch((error) => {
+                            onSaveError?.(error)
+                        })
                 }, 500)
             },
         }),
-        [workflowId, canvasData, onSelectNode, onCanvasChange, validationErrorsByNodeId],
+        [
+            workflowId,
+            safeCanvasData,
+            onSelectNode,
+            onCanvasChange,
+            onDirty,
+            onSaveStart,
+            onSaveSuccess,
+            onSaveError,
+        ],
     )
 }

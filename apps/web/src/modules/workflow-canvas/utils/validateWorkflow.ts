@@ -67,7 +67,7 @@ function validateVariables(
   node: WorkflowJsonNode,
   fieldName: 'inputs' | 'outputs',
 ) {
-  const variables = node.data?.[fieldName] ?? [];
+  const variables = Array.isArray(node.data?.[fieldName]) ? node.data[fieldName] : [];
   const usedNames = new Set<string>();
   const label = fieldName === 'inputs' ? '输入变量' : '输出变量';
 

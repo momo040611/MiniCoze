@@ -2,7 +2,7 @@ import Header from './page/Header'
 import Toolbar from './page/Toolbar'
 import styles from './index.module.css'
 import { useParams } from 'react-router-dom'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   EditorRenderer,
   FreeLayoutEditorProvider,
@@ -13,12 +13,40 @@ import { message } from 'antd'
 
 import { getWorkflowByIdRemote, type Workflow } from '../../api'
 import NodeConfigPanel from './page/NodeConfigPanel'
+import RunTestPanel from './page/RunTestPanel'
 import { useSimpleEditorProps } from './hooks/useSimpleEditorProps'
 import {
   groupValidationErrorsByNodeId,
   validateWorkflow,
   type NodeValidationError,
 } from './utils/validateWorkflow'
+
+class WorkflowCanvasErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('Workflow canvas render failed:', error)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className={styles.loading}>
+          Workflow canvas render failed: {this.state.error.message}
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
 
 function getEntityNodeId(node: WorkflowNodeEntity | null) {
   const nodeJson = node?.toJSON?.() as { id?: string } | undefined
@@ -31,6 +59,9 @@ function WorkflowCanvasPage() {
   const [loading, setLoading] = useState(true)
   const [selectedNode, setSelectedNode] = useState<WorkflowNodeEntity | null>(null)
   const [validationErrors, setValidationErrors] = useState<NodeValidationError[]>([])
+  const [runPanelOpen, setRunPanelOpen] = useState(false)
+  const [runCanvasData, setRunCanvasData] = useState<Workflow['canvasData'] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const validationErrorsByNodeId = useMemo(
     () => groupValidationErrorsByNodeId(validationErrors),
@@ -49,13 +80,18 @@ function WorkflowCanvasPage() {
   const handleRunTest = useCallback((canvasData: Workflow['canvasData']) => {
     const errors = validateWorkflow(canvasData)
     setValidationErrors(errors)
+    setSelectedNode(null)
+    setRunCanvasData(canvasData)
+    setRunPanelOpen(true)
 
     if (errors.length > 0) {
       const firstError = errors[0]
-      message.error(`${firstError.nodeTitle}：${firstError.message}`)
+      message.error(`${firstError.nodeTitle}: ${firstError.message}`)
       return false
     }
 
+    setRunCanvasData(canvasData)
+    setRunPanelOpen(true)
     return true
   }, [])
 
@@ -66,6 +102,7 @@ function WorkflowCanvasPage() {
     }
 
     setLoading(true)
+    setLoadError(null)
 
     getWorkflowByIdRemote(workflowId)
       .then((res) => {
@@ -73,8 +110,11 @@ function WorkflowCanvasPage() {
         setValidationErrors(validateWorkflow(res?.canvasData))
       })
       .catch((error) => {
-        console.error(error)
+        const messageText = error instanceof Error ? error.message : String(error)
+        console.error('Load workflow failed:', error)
         setWorkflow(null)
+        setLoadError(messageText)
+        message.error(messageText || 'Workflow load failed')
       })
       .finally(() => {
         setLoading(false)
@@ -90,15 +130,16 @@ function WorkflowCanvasPage() {
   })
 
   if (loading) {
-    return <div className={styles.loading}>工作流加载中...</div>
+    return <div className={styles.loading}>Workflow loading...</div>
   }
 
   if (!workflow) {
-    return <div className={styles.loading}>工作流不存在</div>
+    return <div className={styles.loading}>{loadError || 'Workflow not found'}</div>
   }
 
   return (
-    <FreeLayoutEditorProvider {...editorProps}>
+    <WorkflowCanvasErrorBoundary key={workflow.id}>
+      <FreeLayoutEditorProvider key={workflow.id} {...editorProps}>
       <div className={styles.workflowPage}>
         <Header workflow={workflow} />
 
@@ -109,13 +150,23 @@ function WorkflowCanvasPage() {
         <NodeConfigPanel
           selectedNode={selectedNode}
           validationErrors={selectedNodeErrors}
+          onNodeDataChange={handleCanvasChange}
           onClose={() => setSelectedNode(null)}
         />
 
         <Toolbar onRunTest={handleRunTest} />
+
+        <RunTestPanel
+          open={runPanelOpen}
+          workflowId={workflow.id}
+          canvasData={runCanvasData ?? workflow.canvasData}
+          onClose={() => setRunPanelOpen(false)}
+        />
       </div>
-    </FreeLayoutEditorProvider>
+      </FreeLayoutEditorProvider>
+    </WorkflowCanvasErrorBoundary>
   )
 }
 
 export { WorkflowCanvasPage }
+

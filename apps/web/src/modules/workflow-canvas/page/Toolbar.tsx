@@ -38,6 +38,8 @@ const scaleItems: MenuProps['items'] = [
   { key: '200', label: '缩放到 200%' },
 ];
 
+const RASTER_EXPORT_TIMEOUT = 10000;
+
 interface ToolbarProps {
   onAddNode?: (type: string) => void;
   onRunTest?: (canvasData: WorkflowCanvasData) => boolean;
@@ -76,7 +78,7 @@ function getDefaultNodeData(type: string) {
         model: 'deepseek-chat',
         temperature: 0.7,
         systemPrompt: '你是一个简洁、可靠的助手。',
-        prompt: '请根据输入生成回答。',
+        prompt: '请回答用户问题：{{input.query}}',
       },
     };
   }
@@ -164,6 +166,7 @@ function inlineComputedStyles(source: Element, target: Element) {
 
 function getCanvasExportTarget() {
   return (
+    document.querySelector<HTMLElement>('[data-workflow-export-target="true"]') ??
     document.querySelector<HTMLElement>('.gedit-playground') ??
     document.querySelector<HTMLElement>('[class*="canvasArea"]')
   );
@@ -196,6 +199,28 @@ function svgToRasterBlob(svg: string, width: number, height: number, type: 'imag
     const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(svgBlob);
     const image = new Image();
+    let settled = false;
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      URL.revokeObjectURL(url);
+    };
+
+    const finish = (callback: () => void) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      callback();
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      finish(() => {
+        reject(new Error('图片导出超时，请尝试导出 SVG 或缩小画布后重试'));
+      });
+    }, RASTER_EXPORT_TIMEOUT);
 
     image.onload = () => {
       const canvas = document.createElement('canvas');
@@ -207,8 +232,9 @@ function svgToRasterBlob(svg: string, width: number, height: number, type: 'imag
       const context = canvas.getContext('2d');
 
       if (!context) {
-        URL.revokeObjectURL(url);
-        reject(new Error('无法创建导出画布'));
+        finish(() => {
+          reject(new Error('无法创建导出画布'));
+        });
         return;
       }
 
@@ -216,14 +242,17 @@ function svgToRasterBlob(svg: string, width: number, height: number, type: 'imag
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.scale(pixelRatio, pixelRatio);
       context.drawImage(image, 0, 0, width, height);
-      URL.revokeObjectURL(url);
 
       canvas.toBlob(
         (blob) => {
           if (blob) {
-            resolve(blob);
+            finish(() => {
+              resolve(blob);
+            });
           } else {
-            reject(new Error('图片生成失败'));
+            finish(() => {
+              reject(new Error('图片生成失败'));
+            });
           }
         },
         type,
@@ -232,8 +261,9 @@ function svgToRasterBlob(svg: string, width: number, height: number, type: 'imag
     };
 
     image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('图片渲染失败'));
+      finish(() => {
+        reject(new Error('图片渲染失败，请尝试导出 SVG'));
+      });
     };
 
     image.src = url;
@@ -250,13 +280,14 @@ async function exportCanvasImage(format: 'png' | 'jpeg' | 'svg') {
 
   const { svg, width, height } = buildSvgFromElement(target);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  message.loading({ content: '正在导出图片...', key: 'workflow-export', duration: 0 });
 
   if (format === 'svg') {
     downloadBlob(
       new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }),
       `workflow-canvas-${timestamp}.svg`,
     );
-    message.success('SVG 导出成功');
+    message.success({ content: 'SVG 导出成功', key: 'workflow-export' });
     return;
   }
 
@@ -264,7 +295,7 @@ async function exportCanvasImage(format: 'png' | 'jpeg' | 'svg') {
   const blob = await svgToRasterBlob(svg, width, height, mimeType);
 
   downloadBlob(blob, `workflow-canvas-${timestamp}.${format}`);
-  message.success(`${format.toUpperCase()} 导出成功`);
+  message.success({ content: `${format.toUpperCase()} 导出成功`, key: 'workflow-export' });
 }
 
 function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
@@ -287,7 +318,10 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
       await exportCanvasImage(key as 'png' | 'jpeg' | 'svg');
     } catch (error) {
       console.error(error);
-      message.error('导出失败，请稍后重试');
+      message.error({
+        content: error instanceof Error ? error.message : '导出失败，请稍后重试',
+        key: 'workflow-export',
+      });
     }
   }
 
@@ -377,16 +411,11 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
           trigger={['click']}
           placement="topLeft"
           align={{ offset: [0, -8] }}
+          overlayClassName={styles.exportDropdown}
         >
-          <div>
-            <Tooltip text="导出图片" position="top">
-              <div>
-                <button className={styles.buttonStyles}>
-                  <PictureOutlined style={{ fontSize: 16 }} />
-                </button>
-              </div>
-            </Tooltip>
-          </div>
+          <button className={styles.buttonStyles} type="button" title="导出图片">
+            <PictureOutlined style={{ fontSize: 16 }} />
+          </button>
         </Dropdown>
 
         <Tooltip text="缩略图" position="top">
@@ -422,7 +451,7 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
         </Tooltip>
 
         <div className={styles.RunTest}>
-          <button onClick={handleRunTest}>
+          <button type="button" onClick={handleRunTest}>
             <PlayCircleOutlined style={{ fontSize: 14 }} />
             <span>试运行</span>
           </button>
