@@ -33,31 +33,34 @@ export class AgentRuntime {
   async *run(command: RunAgentCommand): AsyncIterable<RuntimeEvent> {
     // 这里生成本次运行的最小上下文，后续循环逻辑交给执行策略。
     const runId = randomUUID();
-    const conversationId = command.conversationId ?? randomUUID();
+    const conversationId =
+      command.conversationId ??
+      `${command.publicAccess?.conversationIdPrefix ?? ''}${randomUUID()}`;
     const input: ChatMessage = {
       role: 'user',
       content: command.message,
     };
 
     const agentConfig = await this.configFactory.build(command);
-    const history = await this.repository.getConversationHistory(
-      conversationId,
-      agentConfig.contextLimit,
-    );
-
     const context: RuntimeContext = {
       runId,
       conversationId,
       agentId: command.agentId,
       userId: command.userId,
+      publicAccess: command.publicAccess,
       status: 'created',
       isPreview: command.preview ?? false,
       input,
-      history,
+      history: [],
       agentConfig,
     };
 
     await this.repository.saveRun(context);
+    const history = await this.repository.getConversationHistory(
+      conversationId,
+      agentConfig.contextLimit,
+    );
+    context.history = history;
     yield { type: 'run.created', runId, conversationId };
 
     try {

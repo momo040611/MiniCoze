@@ -13,6 +13,7 @@ import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
+import type { ToolDefinition } from '../../shared/types/agent';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { OfflineAgentDto } from './dto/offline-agent.dto';
 import { PublishAgentDto } from './dto/publish-agent.dto';
@@ -39,7 +40,18 @@ type PublishAgent = Prisma.AgentGetPayload<{
     };
     pluginBindings: {
       include: {
-        plugin: true;
+        plugin: {
+          include: {
+            tools: {
+              where: {
+                status: 'ACTIVE';
+              };
+              orderBy: {
+                createdAt: 'asc';
+              };
+            };
+          };
+        };
       };
     };
   };
@@ -360,7 +372,18 @@ export class PublishService {
         },
         pluginBindings: {
           include: {
-            plugin: true,
+            plugin: {
+              include: {
+                tools: {
+                  where: {
+                    status: 'ACTIVE',
+                  },
+                  orderBy: {
+                    createdAt: 'asc',
+                  },
+                },
+              },
+            },
           },
           orderBy: { sortOrder: 'asc' },
         },
@@ -497,6 +520,7 @@ export class PublishService {
         autoInvoke: binding.autoInvoke,
         sortOrder: binding.sortOrder,
         config: binding.config,
+        tools: this.buildPluginToolSnapshot(binding),
       })),
       channels: [
         {
@@ -515,5 +539,41 @@ export class PublishService {
 
   private toInputJsonValue(value: AgentPublishSnapshot): Prisma.InputJsonValue {
     return value as unknown as Prisma.InputJsonValue;
+  }
+
+  private buildPluginToolSnapshot(
+    binding: PublishAgent['pluginBindings'][number],
+  ): ToolDefinition[] {
+    if (
+      binding.status !== AgentPluginBindingStatus.ACTIVE ||
+      binding.plugin.status !== PluginStatus.ACTIVE ||
+      !binding.plugin.invocationEnabled
+    ) {
+      return [];
+    }
+
+    const disabledTools = this.getDisabledTools(binding.config);
+
+    return binding.plugin.tools
+      .filter((tool) => !disabledTools.includes(tool.code))
+      .map((tool) => ({
+        type: 'function',
+        function: {
+          name: `${binding.plugin.code}__${tool.code}`,
+          description: tool.description,
+          parameters: (tool.inputSchema ?? {}) as Record<string, unknown>,
+        },
+      }));
+  }
+
+  private getDisabledTools(config: Prisma.JsonValue): string[] {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+      return [];
+    }
+
+    const disabledTools = config.disabledTools;
+    return Array.isArray(disabledTools)
+      ? disabledTools.filter((item): item is string => typeof item === 'string')
+      : [];
   }
 }

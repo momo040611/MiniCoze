@@ -2,7 +2,7 @@
 
 MiniCoze Backend 是 MiniCoze 可视化 AI Agent 搭建平台的后端服务，基于 NestJS、TypeScript、Prisma 和 PostgreSQL 构建。
 
-当前后端已包含用户认证、当前用户资料、工作空间、Agent 配置、普通会话、Agent Runtime 流式运行、AI Gateway、工作流运行、文件上传等能力；`knowledge`、`publish` 目前仍是模块占位或待完善能力。
+当前后端已包含用户认证、当前用户资料、工作空间、Agent 配置、普通会话、Agent Runtime 流式运行、公开 Agent 运行、Agent 发布与渠道管理、AI Gateway、工作流运行、文件上传等能力；`knowledge` 目前仍是模块占位或待完善能力。
 
 ## 技术栈
 
@@ -110,6 +110,9 @@ apps/backend/prisma/schema.prisma
 - `Workspace`：工作空间，是 Agent、Workflow、File 等资源的归属边界。
 - `WorkspaceMember`：用户与工作空间的成员关系，角色包含 `OWNER`、`ADMIN`、`MEMBER`。
 - `Agent`：单 Agent 配置，包含提示词、模型、温度、开场白、上下文条数和状态。
+- `AgentVersion`：Agent 发布版本，保存发布时的快照配置，公开运行会基于当前发布版本执行。
+- `PublishChannel`：Agent 发布渠道配置，包含 Web、API 等渠道的启用状态、slug、API Key hash 和过期时间等信息。
+- `PublishRecord`：Agent 发布、下线、回滚和渠道变更记录。
 - `Conversation` / `Message`：会话和消息，保存用户输入、助手回复、模型信息、token 使用和错误信息。
 - `FileAsset`：上传文件元数据，包含用途、可见性、状态、软删除时间、存储 key、URL、MIME 类型和大小。
 - `Workflow` / `WorkflowVersion`：工作流草稿、当前版本和发布版本。
@@ -267,6 +270,101 @@ run.failed
 stream.done
 ```
 
+Runtime 当前支持两类配置来源：
+
+- 普通运行：根据 `agentId` 和当前登录用户读取可运行的 Agent 配置，并从插件注册表加载可调用工具。
+- 公开运行：由 Public Agent 模块传入 `AgentVersion.snapshot`，直接使用发布快照中的 Agent 配置和工具定义，避免受草稿配置变更影响。
+
+SSE 响应会跳过全局响应包装，输出格式为：
+
+```text
+event: <runtime-event-type>
+data: <runtime-event-json>
+```
+
+### Public Agent 公开运行
+
+公开 Agent 运行用于已发布 Agent 的 Web 公开聊天和 API 调用。相关接口均不使用登录态 JWT，而是通过发布渠道配置进行访问控制。
+
+```text
+GET  /api/public/agents/:slug
+POST /api/public/agents/:slug/chat/stream
+POST /api/public/agent-runs/stream
+```
+
+`GET /api/public/agents/:slug` 返回公开 Agent 的基础展示信息：
+
+```json
+{
+  "name": "客服助手",
+  "description": "用于回答产品和售后问题",
+  "avatarUrl": "https://example.com/avatar.png",
+  "openingMessage": "你好，我可以帮你解答产品和售后问题。"
+}
+```
+
+`POST /api/public/agents/:slug/chat/stream` 是 Web 公开聊天入口。后端会根据 `PublishChannelType.WEB` 和 `config.slug` 查询已启用渠道，并校验目标 Agent 已发布且存在当前版本。
+
+最小请求体：
+
+```json
+{
+  "message": "你好"
+}
+```
+
+继续同一公开会话时需要传入 `conversationId` 和稳定的 `visitorId`：
+
+```json
+{
+  "message": "继续刚才的问题",
+  "conversationId": "public:agent-id:visitor-hash:conversation-id",
+  "visitorId": "browser-visitor-id"
+}
+```
+
+`POST /api/public/agent-runs/stream` 是 API 公开运行入口。请求需要携带发布渠道生成的 API Key：
+
+```text
+Authorization: Bearer <api-key>
+```
+
+后端会对 API Key 执行 sha256 后匹配 `PublishChannel.config.apiKeyHash`，并校验渠道是否启用、是否过期。请求体与 Web 入口一致，也支持使用 `inputs` 作为结构化输入：
+
+```json
+{
+  "inputs": {
+    "question": "请总结这段文本"
+  }
+}
+```
+
+公开运行链路：
+
+```text
+校验 Web slug 或 API Key
+读取启用的 Agent 发布渠道
+校验 Agent 为 ACTIVE 且 currentVersion 存在
+解析 AgentVersion.snapshot
+使用发布快照构造 Runtime 配置
+创建或续接公开 Conversation
+调用 Agent Runtime 流式执行
+通过 SSE 返回 RuntimeEvent
+```
+
+公开会话隔离规则：
+
+- 新公开会话的 `conversationId` 会带有 `public:<agentId>:<visitorHash>:` 前缀。
+- Web 入口的 `visitorHash` 来源于渠道 ID 和 `visitorId`。
+- API 入口的 `visitorHash` 来源于渠道 ID 和 API Key hash。
+- 续接公开会话时，后端会校验 `conversationId` 是否匹配当前公开访问前缀，避免不同渠道、访客或 Agent 之间串用会话。
+
+常见错误：
+
+- `404 Not Found`：公开 Agent 不存在、渠道未启用、Agent 未发布或当前发布版本不存在。
+- `401 Unauthorized`：API Key 缺失、无效、渠道禁用或已过期。
+- `400 Bad Request`：发布快照无效，或请求体缺少 `message` 和 `inputs`。
+
 ### Workflow
 
 ```text
@@ -338,7 +436,6 @@ src/modules/ai-gateway/ai-gateway.service.ts
 以下模块当前主要是占位或待继续完善：
 
 - `knowledge`
-- `publish`
 
 ## 启动
 

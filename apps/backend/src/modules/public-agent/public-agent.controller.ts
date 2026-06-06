@@ -10,6 +10,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.decorator';
+import { writeRuntimeEventStream } from '../agent-runtime/runtime-event-stream.writer';
 import { PublicAgentChatDto } from './dto/public-agent-chat.dto';
 import { PublicAgentService } from './public-agent.service';
 
@@ -32,19 +33,22 @@ export class PublicAgentController {
     @Body() dto: PublicAgentChatDto,
     @Res() res: Response,
   ) {
-    await this.publicAgentService.createWebChatStream(slug, dto.message);
-    res.end();
+    const events = await this.publicAgentService.createWebChatStream(slug, dto);
+    await writeRuntimeEventStream(res, events);
   }
 
   @Post('agent-runs/stream')
   @SkipResponseWrap()
   @ApiOperation({ summary: '公开 API Agent 流式运行入口（预留）' })
-  streamApiRun(
+  async streamApiRun(
     @Headers('authorization') authorization: string | undefined,
-    @Body() _dto: PublicAgentChatDto,
+    @Body() dto: PublicAgentChatDto,
     @Res() res: Response,
   ) {
-    this.publicAgentService.createApiRunStream(authorization);
-    res.end();
+    const events = await this.publicAgentService.createApiRunStream(
+      authorization,
+      dto,
+    );
+    await writeRuntimeEventStream(res, events);
   }
 }

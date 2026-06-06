@@ -14,6 +14,9 @@ export interface RuntimeContext {
   conversationId: string;
   agentId: string;
   userId: string;
+  publicAccess?: {
+    conversationIdPrefix: string;
+  };
   status: RuntimeRunStatus;
   isPreview?: boolean;
   input: ChatMessage;
