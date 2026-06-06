@@ -13,6 +13,21 @@ export class AgentConfigFactory {
   ) {}
 
   async build(command: RunAgentCommand): Promise<AgentConfig> {
+    if (command.publishedSnapshot) {
+      const snapshotAgent = command.publishedSnapshot.agent;
+
+      return {
+        id: snapshotAgent.id,
+        name: snapshotAgent.name,
+        systemPrompt: snapshotAgent.systemPrompt,
+        model: snapshotAgent.model,
+        temperature: snapshotAgent.temperature,
+        maxTokens: command.maxTokens ?? DEFAULT_MAX_TOKENS,
+        contextLimit: snapshotAgent.contextLimit,
+        tools: command.publishedSnapshot.tools ?? [],
+      };
+    }
+
     const agent = await this.agentService.findRunnableAgentForUser(
       command.userId,
       command.agentId,

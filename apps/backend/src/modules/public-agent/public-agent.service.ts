@@ -1,10 +1,20 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { AgentStatus, Prisma, PublishChannelType } from '@prisma/client';
+import {
+  AgentStatus,
+  Prisma,
+  PublishChannel,
+  PublishChannelType,
+  PublishTargetType,
+} from '@prisma/client';
+import { createHash, randomUUID } from 'node:crypto';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { PrismaService } from '../../database/prisma.service';
+import type { RuntimeEvent } from '../../shared/types/agent';
+import { AgentRuntimeService } from '../agent-runtime/agent-runtime.service';
 import { parseAgentPublishSnapshot } from '../publish/agent-publish-snapshot.util';
 import type { AgentPublishSnapshot } from '../publish/types/publish.types';
+import { PublicAgentChatDto } from './dto/public-agent-chat.dto';
 
 export interface PublicAgentInfo {
   name: string;
@@ -13,94 +23,71 @@ export interface PublicAgentInfo {
   openingMessage: string | null;
 }
 
+interface PublishedAgentRunTarget {
+  creatorId: string;
+  channelId: string;
+  apiKeyHash?: string;
+  snapshot: AgentPublishSnapshot;
+}
+
 @Injectable()
 export class PublicAgentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly agentRuntimeService: AgentRuntimeService,
+  ) {}
 
   async getPublicAgentBySlug(slug: string): Promise<PublicAgentInfo> {
-    const channel = await this.prisma.publishChannel.findFirst({
-      where: {
-        channel: PublishChannelType.WEB,
-        enabled: true,
-        config: {
-          path: ['slug'],
-          equals: slug,
-        },
-      },
-    });
-
-    if (!channel) {
-      throw new BusinessException(
-        '公开 Agent 不存在或已关闭',
-        ErrorCode.NotFound,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    const agent = await this.prisma.agent.findFirst({
-      where: {
-        id: channel.targetId,
-        status: AgentStatus.ACTIVE,
-        currentVersionId: { not: null },
-      },
-      include: {
-        currentVersion: true,
-      },
-    });
-
-    if (!agent?.currentVersion) {
-      throw new BusinessException(
-        '公开 Agent 不存在或已关闭',
-        ErrorCode.NotFound,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    const snapshot = agent.currentVersion.snapshot as Prisma.JsonObject;
-    const snapshotAgent = this.isJsonObject(snapshot.agent)
-      ? snapshot.agent
-      : {};
+    const target = await this.findPublicAgentTargetBySlug(slug);
 
     return {
-      name: this.getString(snapshotAgent.name, agent.name),
-      description: this.getNullableString(snapshotAgent.description),
-      avatarUrl: this.getNullableString(snapshotAgent.avatarUrl),
-      openingMessage: this.getNullableString(snapshotAgent.openingMessage),
+      name: target.snapshot.agent.name,
+      description: target.snapshot.agent.description,
+      avatarUrl: target.snapshot.agent.avatarUrl,
+      openingMessage: target.snapshot.agent.openingMessage,
     };
   }
 
-  async createWebChatStream(slug: string, message?: string): Promise<never> {
-    void message;
-    const snapshot = await this.findPublicAgentSnapshotBySlug(slug);
-    void snapshot;
-
-    throw new BusinessException(
-      '公开聊天运行能力尚未接入',
-      ErrorCode.BusinessError,
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  createApiRunStream(apiKey: string | undefined): never {
-    void apiKey;
-    // TODO: 后续根据 Bearer mc_live_xxx 的 sha256 hash 查询 API PublishChannel，
-    // 校验渠道启用、Agent ACTIVE、currentVersionId 存在后，再用 AgentVersion.snapshot 运行。
-    throw new BusinessException(
-      '公开 API 运行能力尚未接入',
-      ErrorCode.BusinessError,
-      HttpStatus.NOT_IMPLEMENTED,
-    );
-  }
-
-  private isJsonObject(value: unknown): value is Prisma.JsonObject {
-    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-  }
-
-  private async findPublicAgentSnapshotBySlug(
+  async createWebChatStream(
     slug: string,
-  ): Promise<AgentPublishSnapshot> {
+    dto: PublicAgentChatDto,
+  ): Promise<AsyncIterable<RuntimeEvent>> {
+    const target = await this.findPublicAgentTargetBySlug(slug);
+
+    return this.runPublishedTarget(target, dto);
+  }
+
+  async createApiRunStream(
+    authorization: string | undefined,
+    dto: PublicAgentChatDto,
+  ): Promise<AsyncIterable<RuntimeEvent>> {
+    const target = await this.findPublicAgentTargetByApiKey(authorization);
+
+    return this.runPublishedTarget(target, dto);
+  }
+
+  private runPublishedTarget(
+    target: PublishedAgentRunTarget,
+    dto: PublicAgentChatDto,
+  ): AsyncIterable<RuntimeEvent> {
+    return this.agentRuntimeService.runPublishedSnapshot({
+      agentId: target.snapshot.agent.id,
+      userId: target.creatorId,
+      message: this.resolveMessage(dto),
+      conversationId: dto.conversationId,
+      publicAccess: {
+        conversationIdPrefix: this.getPublicConversationIdPrefix(target, dto),
+      },
+      snapshot: target.snapshot,
+    });
+  }
+
+  private async findPublicAgentTargetBySlug(
+    slug: string,
+  ): Promise<PublishedAgentRunTarget> {
     const channel = await this.prisma.publishChannel.findFirst({
       where: {
+        targetType: PublishTargetType.AGENT,
         channel: PublishChannelType.WEB,
         enabled: true,
         config: {
@@ -112,12 +99,49 @@ export class PublicAgentService {
 
     if (!channel) {
       throw new BusinessException(
-        '公开 Agent 不存在或已关闭',
+        'Public agent does not exist or is disabled',
         ErrorCode.NotFound,
         HttpStatus.NOT_FOUND,
       );
     }
 
+    return this.findPublishedAgentTarget(channel);
+  }
+
+  private async findPublicAgentTargetByApiKey(
+    authorization: string | undefined,
+  ): Promise<PublishedAgentRunTarget> {
+    const apiKey = this.parseBearerKey(authorization);
+    const apiKeyHash = createHash('sha256').update(apiKey).digest('hex');
+    const channel = await this.prisma.publishChannel.findFirst({
+      where: {
+        targetType: PublishTargetType.AGENT,
+        channel: PublishChannelType.API,
+        enabled: true,
+        config: {
+          path: ['apiKeyHash'],
+          equals: apiKeyHash,
+        },
+      },
+    });
+
+    if (!channel) {
+      throw new BusinessException(
+        'Invalid API key or disabled API channel',
+        ErrorCode.Unauthorized,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    this.assertApiChannelNotExpired(channel);
+
+    return this.findPublishedAgentTarget(channel, apiKeyHash);
+  }
+
+  private async findPublishedAgentTarget(
+    channel: PublishChannel,
+    apiKeyHash?: string,
+  ): Promise<PublishedAgentRunTarget> {
     const agent = await this.prisma.agent.findFirst({
       where: {
         id: channel.targetId,
@@ -131,7 +155,7 @@ export class PublicAgentService {
 
     if (!agent?.currentVersion) {
       throw new BusinessException(
-        '公开 Agent 不存在或已关闭',
+        'Public agent does not exist or is disabled',
         ErrorCode.NotFound,
         HttpStatus.NOT_FOUND,
       );
@@ -140,20 +164,98 @@ export class PublicAgentService {
     const snapshot = parseAgentPublishSnapshot(agent.currentVersion.snapshot);
     if (!snapshot) {
       throw new BusinessException(
-        'Agent 发布快照无效',
+        'Agent publish snapshot is invalid',
         ErrorCode.BadRequest,
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    return snapshot;
+    return {
+      creatorId: agent.creatorId,
+      channelId: channel.id,
+      apiKeyHash,
+      snapshot,
+    };
   }
 
-  private getString(value: unknown, fallback: string): string {
-    return typeof value === 'string' && value.length > 0 ? value : fallback;
+  private getPublicConversationIdPrefix(
+    target: PublishedAgentRunTarget,
+    dto: PublicAgentChatDto,
+  ): string {
+    const visitorKey = target.apiKeyHash
+      ? `api:${target.channelId}:${target.apiKeyHash}`
+      : `web:${target.channelId}:${this.resolveWebVisitorId(dto)}`;
+    const visitorHash = createHash('sha256').update(visitorKey).digest('hex');
+
+    return `public:${target.snapshot.agent.id}:${visitorHash}:`;
+  }
+
+  private resolveWebVisitorId(dto: PublicAgentChatDto): string {
+    const visitorId = dto.visitorId?.trim();
+    if (visitorId) {
+      return visitorId;
+    }
+
+    if (dto.conversationId) {
+      throw new BusinessException(
+        'visitorId is required when continuing a public conversation',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return randomUUID();
+  }
+
+  private resolveMessage(dto: PublicAgentChatDto): string {
+    if (dto.message?.trim()) {
+      return dto.message.trim();
+    }
+
+    if (dto.inputs && Object.keys(dto.inputs).length > 0) {
+      return JSON.stringify(dto.inputs);
+    }
+
+    throw new BusinessException(
+      'message or inputs is required',
+      ErrorCode.BadRequest,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+
+  private parseBearerKey(authorization: string | undefined): string {
+    const match = authorization?.match(/^Bearer\s+(.+)$/i);
+    const apiKey = match?.[1]?.trim();
+
+    if (!apiKey) {
+      throw new BusinessException(
+        'Bearer API key is required',
+        ErrorCode.Unauthorized,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    return apiKey;
+  }
+
+  private assertApiChannelNotExpired(channel: PublishChannel): void {
+    const config = this.isJsonObject(channel.config) ? channel.config : {};
+    const expiresAt = this.getNullableString(config.expiresAt);
+
+    if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+      throw new BusinessException(
+        'API key has expired',
+        ErrorCode.Unauthorized,
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  private isJsonObject(value: unknown): value is Prisma.JsonObject {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
   }
 
   private getNullableString(value: unknown): string | null {
-    return typeof value === 'string' ? value : null;
+    return typeof value === 'string' && value.length > 0 ? value : null;
   }
 }

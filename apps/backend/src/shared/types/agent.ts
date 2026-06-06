@@ -130,10 +130,24 @@ export interface RunAgentCommand {
   userId: string;
   message: string;
   conversationId?: string;
+  publicAccess?: {
+    conversationIdPrefix: string;
+  };
   preview?: boolean;
   model?: string;
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
   tools?: ToolDefinition[];
+  publishedSnapshot?: {
+    agent: {
+      id: string;
+      name: string;
+      systemPrompt: string;
+      model: string;
+      temperature: number;
+      contextLimit: number;
+    };
+    tools?: ToolDefinition[];
+  };
 }

@@ -3,6 +3,7 @@ import {
   PublishActionStatus,
   PublishChannelType,
 } from '@prisma/client';
+import type { ToolDefinition } from '../../../shared/types/agent';
 
 export interface PublishCheckItem {
   key: string;
@@ -85,6 +86,7 @@ export interface AgentPublishSnapshot {
     autoInvoke: boolean;
     sortOrder: number;
     config: unknown;
+    tools?: ToolDefinition[];
   }>;
   channels: Array<{
     channel: PublishChannelType;
