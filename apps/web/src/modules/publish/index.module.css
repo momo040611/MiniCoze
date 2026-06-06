@@ -20,43 +20,62 @@
 .header h1 {
   margin: 0;
   font-size: 26px;
-  color: #111827;
+  color: #18202f;
 }
 
-.header p,
-.panel p {
+.header p {
   margin: 0;
-  color: #64748b;
+  color: #8896a6;
   line-height: 1.7;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+.tabs {
+  margin-top: 4px;
 }
 
-.panel {
-  min-height: 180px;
-  padding: 22px;
-  border: 1px solid #e8edf5;
+/* 面板通用样式 */
+.panelDesc {
+  color: #8896a6;
+  font-size: 12px;
+}
+
+.panelEmpty {
+  padding: 40px;
+  text-align: center;
+  color: #a0aec0;
+  background: #f9fafb;
   border-radius: 8px;
-  background: #ffffff;
 }
 
-.icon {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  color: #1d4ed8;
-  background: #eef4ff;
-  font-size: 20px;
+.statusDraft {
+  color: #506070;
 }
 
-.panel h2 {
-  margin: 18px 0 8px;
-  font-size: 17px;
-  color: #111827;
+.statusActive {
+  color: #16a34a;
+}
+
+/* 浅蓝色按钮 */
+.btnPrimary {
+  background: #e6f4ff !important;
+  border-color: #91caff !important;
+  color: #1677ff !important;
+}
+
+.btnPrimary:hover {
+  background: #bae0ff !important;
+  border-color: #69b1ff !important;
+  color: #1677ff !important;
+}
+
+.btnOutline {
+  background: #fff !important;
+  border-color: #91caff !important;
+  color: #1677ff !important;
+}
+
+.btnOutline:hover {
+  background: #e6f4ff !important;
+  border-color: #69b1ff !important;
+  color: #1677ff !important;
 }

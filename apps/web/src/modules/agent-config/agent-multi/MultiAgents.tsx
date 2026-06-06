@@ -9,6 +9,8 @@ import { KnowledgeSelectModal } from '../components/KnowledgeSelectModal'
 import { DatabaseTags } from '../components/DatabaseTags'
 import { WorkflowSelectModal } from '../components/WorkflowSelectModal'
 import { WorkflowTags } from '../components/WorkflowTags'
+import { AddPluginModal } from '../components/AddPluginModal'
+import type { IPlugin } from '../../../api/plugins'
 import { useCanvas } from './hooks/useCanvas'
 import { calculateBezierPath, getPortPosition } from './utils'
 import { MIN_SCALE, MAX_SCALE } from './constants'
@@ -61,6 +63,7 @@ function ConfigPanel({
   config, onConfigChange,
   openingConfig, onOpeningChange,
   agent, setDialogFlow, setDatabase,
+  setPluginModalOpen,
 }: {
   persona: string; setPersona: (v: string) => void
   model: string; onModelChange: (v: string) => void
@@ -71,6 +74,7 @@ function ConfigPanel({
   openingConfig: OpeningConfig; onOpeningChange: (config: OpeningConfig) => void
   agent: AgentDetailData
   setDialogFlow: (v: boolean) => void; setDatabase: (v: boolean) => void
+  setPluginModalOpen: (v: boolean) => void
 }) {
   return (
     <div className={styles.col} style={{ flex: '0 0 320px', minWidth: 280 }}>
@@ -157,8 +161,20 @@ function ConfigPanel({
 
         <CollapsePanel title="技能">
           <div className={styles.configRow}>
-            <div className={styles.configRowInfo}><div className={styles.configRowText}><span className={styles.configRowName}>插件</span></div></div>
-            <div className={styles.configRowRight}><button className={styles.addBtn}><span>+</span></button></div>
+            <div className={styles.configRowInfo}>
+              <div className={styles.configRowText}>
+                <span className={styles.configRowName}>插件</span>
+                <span className={styles.configRowDesc}>添加 AI 能力插件</span>
+              </div>
+            </div>
+            <div className={styles.configRowRight}>
+              {config.plugins.length > 0 && (
+                <span className={styles.configRowCount}>{config.plugins.length} 个插件</span>
+              )}
+              <button className={styles.addBtn} onClick={() => setPluginModalOpen(true)}>
+                <span>+</span>
+              </button>
+            </div>
           </div>
           <div className={styles.configRow}>
             <div className={styles.configRowInfo}><div className={styles.configRowText}><span className={styles.configRowName}>工作流</span></div></div>
@@ -227,6 +243,7 @@ export function MultiAgents({
 }: Props) {
   const [database, setDatabase] = useState(false)
   const [dialogFlow, setDialogFlow] = useState(false)
+  const [pluginModalOpen, setPluginModalOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
 
   const canvas = useCanvas({ agent, subAgents: config.subAgents })
@@ -262,6 +279,7 @@ export function MultiAgents({
         openingConfig={openingConfig} onOpeningChange={onOpeningChange}
         agent={agent}
         setDialogFlow={setDialogFlow} setDatabase={setDatabase}
+        setPluginModalOpen={setPluginModalOpen}
       />
 
       <div className={styles.col} style={{ flex: 1, minWidth: 400 }}>
@@ -456,6 +474,8 @@ export function MultiAgents({
           <WorkflowSelectModal
             visible={dialogFlow}
             onClose={() => setDialogFlow(false)}
+            selectedIds={config.workflows}
+            onRemove={(id) => onConfigChange({ ...config, workflows: config.workflows.filter(w => w !== id) })}
             onSelect={(wf) => {
               if (!config.workflows.includes(wf.id)) {
                 onConfigChange({ ...config, workflows: [...config.workflows, wf.id] })
@@ -465,10 +485,20 @@ export function MultiAgents({
           <KnowledgeSelectModal
             visible={database}
             onClose={() => setDatabase(false)}
+            selectedIds={config.databases}
+            onRemove={(id) => onConfigChange({ ...config, databases: config.databases.filter(d => d !== id) })}
             onSelect={(kb) => {
               if (!config.databases.includes(kb.id)) {
                 onConfigChange({ ...config, databases: [...config.databases, kb.id] })
               }
+            }}
+          />
+          <AddPluginModal
+            visible={pluginModalOpen}
+            onClose={() => setPluginModalOpen(false)}
+            selectedIds={config.plugins}
+            onSelect={(selectedPlugins: IPlugin[]) => {
+              onConfigChange({ ...config, plugins: selectedPlugins.map((p) => p.id) })
             }}
           />
         </div>

@@ -288,6 +288,8 @@ export function SingleAgentFlow({
           <WorkflowSelectModal
             visible={dialogFlow}
             onClose={() => setdialogFlow(false)}
+            selectedIds={config.workflows}
+            onRemove={(id) => onConfigChange({ ...config, workflows: config.workflows.filter(w => w !== id) })}
             onSelect={(wf) => {
               if (!config.workflows.includes(wf.id)) {
                 onConfigChange({ ...config, workflows: [...config.workflows, wf.id] })
@@ -297,6 +299,8 @@ export function SingleAgentFlow({
           <KnowledgeSelectModal
             visible={dialogDatabase}
             onClose={() => setdialogDatabase(false)}
+            selectedIds={config.databases}
+            onRemove={(id) => onConfigChange({ ...config, databases: config.databases.filter(d => d !== id) })}
             onSelect={(kb) => {
               if (!config.databases.includes(kb.id)) {
                 onConfigChange({ ...config, databases: [...config.databases, kb.id] })
