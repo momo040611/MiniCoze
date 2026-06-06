@@ -13,6 +13,7 @@ import { message } from 'antd'
 
 import { getWorkflowByIdRemote, type Workflow } from '../../api'
 import NodeConfigPanel from './page/NodeConfigPanel'
+import RunTestPanel from './page/RunTestPanel'
 import { useSimpleEditorProps } from './hooks/useSimpleEditorProps'
 import {
   groupValidationErrorsByNodeId,
@@ -31,6 +32,8 @@ function WorkflowCanvasPage() {
   const [loading, setLoading] = useState(true)
   const [selectedNode, setSelectedNode] = useState<WorkflowNodeEntity | null>(null)
   const [validationErrors, setValidationErrors] = useState<NodeValidationError[]>([])
+  const [runPanelOpen, setRunPanelOpen] = useState(false)
+  const [runCanvasData, setRunCanvasData] = useState<Workflow['canvasData'] | null>(null)
 
   const validationErrorsByNodeId = useMemo(
     () => groupValidationErrorsByNodeId(validationErrors),
@@ -49,6 +52,9 @@ function WorkflowCanvasPage() {
   const handleRunTest = useCallback((canvasData: Workflow['canvasData']) => {
     const errors = validateWorkflow(canvasData)
     setValidationErrors(errors)
+    setSelectedNode(null)
+    setRunCanvasData(canvasData)
+    setRunPanelOpen(true)
 
     if (errors.length > 0) {
       const firstError = errors[0]
@@ -56,6 +62,8 @@ function WorkflowCanvasPage() {
       return false
     }
 
+    setRunCanvasData(canvasData)
+    setRunPanelOpen(true)
     return true
   }, [])
 
@@ -71,10 +79,6 @@ function WorkflowCanvasPage() {
       .then((res) => {
         setWorkflow(res)
         setValidationErrors(validateWorkflow(res?.canvasData))
-      })
-      .catch((error) => {
-        console.error(error)
-        setWorkflow(null)
       })
       .finally(() => {
         setLoading(false)
@@ -109,10 +113,18 @@ function WorkflowCanvasPage() {
         <NodeConfigPanel
           selectedNode={selectedNode}
           validationErrors={selectedNodeErrors}
+          onNodeDataChange={handleCanvasChange}
           onClose={() => setSelectedNode(null)}
         />
 
         <Toolbar onRunTest={handleRunTest} />
+
+        <RunTestPanel
+          open={runPanelOpen}
+          workflowId={workflow.id}
+          canvasData={runCanvasData ?? workflow.canvasData}
+          onClose={() => setRunPanelOpen(false)}
+        />
       </div>
     </FreeLayoutEditorProvider>
   )

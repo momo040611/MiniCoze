@@ -105,6 +105,30 @@
 .saveTime {
     font-size: 10px;
     background-color: #eef1f7;
+    border-radius: 4px;
+    color: #64748b;
+    line-height: 14px;
+    padding: 0 6px;
+}
+
+.saveStatus-dirty {
+    background-color: #fff7ed;
+    color: #c2410c;
+}
+
+.saveStatus-saving {
+    background-color: #eef2ff;
+    color: #4338ca;
+}
+
+.saveStatus-saved {
+    background-color: #ecfdf5;
+    color: #047857;
+}
+
+.saveStatus-failed {
+    background-color: #fef2f2;
+    color: #b91c1c;
 }
 
 .check,

@@ -6,6 +6,7 @@ import {
   getNodeForm,
   type WorkflowNodeEntity,
 } from '@flowgram.ai/free-layout-editor';
+import type { WorkflowCanvasData } from '../../../api/workflows';
 import type { EndConfig, LLMConfig, NodeMeta, VariableInfo } from '../nodeRenders/types';
 import type { NodeValidationError } from '../utils/validateWorkflow';
 import styles from './NodeConfigPanel.module.css';
@@ -23,6 +24,7 @@ type NodeConfigPanelProps = {
   selectedNode: WorkflowNodeEntity | null;
   validationErrors?: NodeValidationError[];
   onClose: () => void;
+  onNodeDataChange?: (canvasData: WorkflowCanvasData) => void;
 };
 
 const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -451,7 +453,12 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
   return null;
 }
 
-function NodeConfigPanel({ selectedNode, validationErrors = [], onClose }: NodeConfigPanelProps) {
+function NodeConfigPanel({
+  selectedNode,
+  validationErrors = [],
+  onClose,
+  onNodeDataChange,
+}: NodeConfigPanelProps) {
   const [form] = Form.useForm<NodeData>();
   const [panelTitle, setPanelTitle] = useState('节点配置');
   const nodeType = String(selectedNode?.flowNodeType ?? '');
@@ -483,6 +490,17 @@ function NodeConfigPanel({ selectedNode, validationErrors = [], onClose }: NodeC
 
     setPanelTitle(`${nextData.nodeMeta?.title ?? '节点'} 配置`);
     syncFlowGramForm(selectedNode, nextData);
+
+    const nodeAny = selectedNode as unknown as {
+      document?: {
+        toJSON?: () => WorkflowCanvasData;
+      };
+    };
+    const nextCanvasData = nodeAny.document?.toJSON?.();
+
+    if (nextCanvasData) {
+      onNodeDataChange?.(nextCanvasData);
+    }
   }
 
   return (

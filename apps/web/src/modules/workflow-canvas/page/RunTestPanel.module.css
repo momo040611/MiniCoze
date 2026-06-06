@@ -1,0 +1,145 @@
+.drawerRoot {
+  pointer-events: none;
+}
+
+.drawer {
+  pointer-events: auto;
+}
+
+.drawerRoot :global(.ant-drawer-content-wrapper) {
+  top: 64px;
+  height: calc(100vh - 64px);
+}
+
+.drawer :global(.ant-drawer-header) {
+  padding: 16px 20px;
+}
+
+.drawer :global(.ant-drawer-body) {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 20px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  color: #1f2329;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sectionTitle {
+  color: #1f2329;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.fieldMeta {
+  margin-top: 4px;
+  color: #8f959e;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.jsonInput {
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+}
+
+.result {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 82px;
+}
+
+.resultBlock {
+  margin-top: 12px;
+}
+
+.pre {
+  max-height: 220px;
+  margin: 8px 0 0;
+  padding: 12px;
+  overflow: auto;
+  color: #1f2329;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f7f8fa;
+  border: 1px solid #eff0f3;
+  border-radius: 8px;
+}
+
+.nodeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.nodeItem {
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #eff0f3;
+  border-radius: 8px;
+}
+
+.nodeTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nodeName {
+  min-width: 0;
+  overflow: hidden;
+  color: #1f2329;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodeMeta {
+  margin-top: 4px;
+  color: #8f959e;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.footer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 14px 20px 18px;
+  background: #ffffff;
+  border-top: 1px solid #eff0f3;
+}
+
+.runButton {
+  width: 100%;
+  height: 40px;
+  font-weight: 700;
+}

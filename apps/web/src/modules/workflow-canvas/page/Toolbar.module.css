@@ -27,6 +27,10 @@
     cursor: pointer;
 }
 
+.exportDropdown {
+    z-index: 10000;
+}
+
 .MouseModeSwitch {
     height: 100%;
     display: flex;
@@ -75,6 +79,7 @@
     position: fixed;
     bottom: 10px;
     left: 54%;
+    z-index: 9999;
     border-radius: 8px;
     /* transform: translateX(-50%); */
     height: 40px;
@@ -101,7 +106,9 @@
     padding: 0 5px;
     background-color: #00B42A;
     color: #fff;
+    border: none;
     border-radius: 5px;
+    cursor: pointer;
 }
 
 .RunTest span {
