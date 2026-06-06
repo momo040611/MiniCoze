@@ -3,8 +3,7 @@
 
 import { http, type ApiEnvelope } from '../http';
 import { getCurrentWorkspaceId } from '../workspace';
-
-const DEFAULT_AGENT_MODEL = 'deepseek-v4-flash';
+import { DEFAULT_AGENT_MODEL } from './model-options';
 
 // ---- 类型定义 ----
 /** 后端 Agent 模型字段 */
@@ -40,13 +39,13 @@ export interface AgentConfig {
   persona: string;
   orchestration: string;
   createdAt: string;
-  /** 后端独有字段，前端可选择性使用 */
-  model?: string;
-  temperature?: number;
-  openingMessage?: string;
-  contextLimit?: number;
-  status?: string;
-  workspaceId?: string;
+  /** 后端字段 */
+  model: string;
+  temperature: number;
+  openingMessage: string;
+  contextLimit: number;
+  status: string;
+  workspaceId: string;
 }
 
 // ---- 本地扩展字段存储（mode / orchestration，后端暂无） ----

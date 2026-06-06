@@ -40,8 +40,8 @@ export function useOrchestrationConfig({
   const openingConfig = useMemo(
     () => ({
       ...defaultOpeningConfig(),
-      ...parsedConfig.opening,
       openingMessage: agentOpeningMessage,
+      ...parsedConfig.opening,
     }),
     [agentOpeningMessage, parsedConfig.opening],
   );
