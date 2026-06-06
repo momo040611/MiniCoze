@@ -1,0 +1,19 @@
+apps/backend/src/app.module.ts
+  s_d0fcfddce60f72::t_fa3b8a35d4ead4 20,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ffaf687e2b8b14868b11efca24d71e8dbf150ce1",
+  "prompts": {},
+  "sessions": {
+    "s_d0fcfddce60f72": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9cef-a82c-73d3-a882-7f12dfbc0326",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    }
+  }
+}
