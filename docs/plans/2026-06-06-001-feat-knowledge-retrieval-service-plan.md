@@ -178,7 +178,7 @@ apps/backend/prisma/migrations/20260606xxxxxx_add_knowledge_chunk_vector/
 
 ---
 
-- [ ] **Unit 2: `RetrievalService` 核心 + 模块装配**
+- [x] **Unit 2: `RetrievalService` 核心 + 模块装配**
 
 **Goal:** 提供 `indexChunks`、`indexSingleChunk`、`search`、`reindexKnowledgeBase` 四个方法，纯 service 层，可被 controller 与未来 workflow 节点共享。
 

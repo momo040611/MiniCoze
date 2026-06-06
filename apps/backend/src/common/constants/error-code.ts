@@ -55,4 +55,10 @@ export enum ErrorCode {
 
   // 知识库当前状态不允许该操作（例如对 ARCHIVED 知识库切换 enabled）。
   KnowledgeBaseInvalidStatus = 60109,
+
+  // 知识库检索 SQL 查询失败（向量索引或数据库异常）。
+  KnowledgeRetrievalQueryFailed = 60110,
+
+  // 写入或检索时向量维度与 KB 配置不一致。
+  KnowledgeVectorDimensionMismatch = 60111,
 }

@@ -10,6 +10,7 @@ import { createEmbedder } from './embedding/embedder.factory';
 import { EMBEDDER_TOKEN } from './embedding/embedder.interface';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeService } from './knowledge.service';
+import { RetrievalService } from './retrieval/retrieval.service';
 
 @Module({
   imports: [ConfigModule, WorkspaceModule, FileModule],
@@ -22,11 +23,13 @@ import { KnowledgeService } from './knowledge.service';
     KnowledgeService,
     KnowledgeBaseService,
     KnowledgeDocumentService,
+    RetrievalService,
     {
       provide: EMBEDDER_TOKEN,
       useFactory: createEmbedder,
       inject: [ConfigService],
     },
   ],
+  exports: [RetrievalService],
 })
 export class KnowledgeModule {}
