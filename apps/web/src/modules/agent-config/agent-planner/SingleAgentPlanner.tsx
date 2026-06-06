@@ -27,7 +27,6 @@ interface Props {
   onConfigChange: (config: PlannerConfig) => void
   openingConfig: OpeningConfig
   onOpeningChange: (config: OpeningConfig) => void
-  isPublished: boolean
 }
 
 function CollapsePanel({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
@@ -62,7 +61,6 @@ export function SingleAgentPlanner({
   onConfigChange,
   openingConfig,
   onOpeningChange,
-  isPublished,
 }: Props) {
   const [modelOpen, setModelOpen] = useState(false)
   const [knowledgeModalOpen, setKnowledgeModalOpen] = useState(false)
@@ -371,7 +369,6 @@ export function SingleAgentPlanner({
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
-            isPublished={isPublished}
           />
         </div>
       </div>

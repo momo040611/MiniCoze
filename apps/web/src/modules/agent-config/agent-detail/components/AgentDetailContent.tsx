@@ -16,7 +16,6 @@ interface AgentDetailContentProps {
   flowConfig: FlowConfig;
   multiConfig: MultiConfig;
   openingConfig: OpeningConfig;
-  isPublished: boolean;
   onPersonaChange: (value: string) => void;
   onModelChange: (model: string) => void;
   onTemperatureChange: (value: number) => void;
@@ -39,7 +38,6 @@ export function AgentDetailContent({
   flowConfig,
   multiConfig,
   openingConfig,
-  isPublished,
   onPersonaChange,
   onModelChange,
   onTemperatureChange,
@@ -62,7 +60,6 @@ export function AgentDetailContent({
     onContextLimitChange,
     openingConfig,
     onOpeningChange,
-    isPublished,
   };
 
   const modeContent = (() => {
@@ -91,7 +88,6 @@ export function AgentDetailContent({
           onConfigChange={onFlowConfigChange}
           openingConfig={openingConfig}
           onOpeningChange={onOpeningChange}
-          isPublished={isPublished}
         />
       );
     case 'multi':

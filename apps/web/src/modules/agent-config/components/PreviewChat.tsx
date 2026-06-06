@@ -26,11 +26,9 @@ interface Props {
   model: string
   temperature: number
   openingConfig: OpeningConfig
-  /** 智能体是否已发布，DRAFT 状态下不可运行 */
-  isPublished?: boolean
 }
 
-export function PreviewChat({ agentId, avatar, persona, model, temperature, openingConfig, isPublished }: Props) {
+export function PreviewChat({ agentId, avatar, persona, model, temperature, openingConfig }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState('')
   const [sending, setSending] = useState(false)
@@ -295,21 +293,6 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
     setSelectedFile(null)
   }
 
-  const draftPlaceholder = (
-    <div className={styles.previewChat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center', color: '#8899aa' }}>
-        <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.4 }}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </div>
-        <div style={{ fontSize: 14, marginBottom: 4 }}>智能体尚未发布</div>
-        <div style={{ fontSize: 12, opacity: 0.7 }}>请先保存并发布智能体后再进行预览调试</div>
-      </div>
-    </div>
-  )
-
   return (
     <div className={styles.previewBox}>
       <div className={styles.previewToolbar}>
@@ -323,70 +306,66 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
           清除
         </button>
       </div>
-      {isPublished === false ? (
-        draftPlaceholder
-      ) : (
-        <div className={styles.previewChat}>
-          {openingConfig.openingMessage && messages.length === 0 && (
-            <div className={styles.previewBubble}>
-              <img src={avatar} alt="" className={styles.previewAvatarSmall} />
-              <div>
-                <div className={styles.previewMsg}>{openingConfig.openingMessage}</div>
-              </div>
+      <div className={styles.previewChat}>
+        {openingConfig.openingMessage && messages.length === 0 && (
+          <div className={styles.previewBubble}>
+            <img src={avatar} alt="" className={styles.previewAvatarSmall} />
+            <div>
+              <div className={styles.previewMsg}>{openingConfig.openingMessage}</div>
+            </div>
+          </div>
+        )}
+
+        {openingConfig.openingQuestionsEnabled &&
+          (openingConfig.openingQuestions?.length ?? 0) > 0 &&
+          messages.length === 0 && (
+            <div className={styles.openingQuestions}>
+              {(openingConfig.openingQuestions ?? []).map((q, i) => (
+                <span
+                  key={i}
+                  onClick={() => doSend(q)}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 14,
+                    border: '1px solid rgba(104,119,144,0.15)',
+                    fontSize: 12,
+                    color: '#506070',
+                    cursor: 'pointer',
+                    background: '#fff',
+                  }}
+                >
+                  {q}
+                </span>
+              ))}
             </div>
           )}
 
-          {openingConfig.openingQuestionsEnabled &&
-            (openingConfig.openingQuestions?.length ?? 0) > 0 &&
-            messages.length === 0 && (
-              <div className={styles.openingQuestions}>
-                {(openingConfig.openingQuestions ?? []).map((q, i) => (
-                  <span
-                    key={i}
-                    onClick={() => doSend(q)}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 14,
-                      border: '1px solid rgba(104,119,144,0.15)',
-                      fontSize: 12,
-                      color: '#506070',
-                      cursor: 'pointer',
-                      background: '#fff',
-                    }}
-                  >
-                    {q}
-                  </span>
-                ))}
+        {messages.map((msg) =>
+          msg.sender === 'user' ? (
+            <div key={msg.id} className={`${styles.previewBubble} ${styles.previewBubbleUser}`}>
+              <div style={{ maxWidth: '75%', minWidth: 0 }}>
+                <div className={styles.previewMsg}>{msg.text}</div>
+                <div className={styles.previewMeta}><span>{msg.time}</span></div>
               </div>
-            )}
-
-          {messages.map((msg) =>
-            msg.sender === 'user' ? (
-              <div key={msg.id} className={`${styles.previewBubble} ${styles.previewBubbleUser}`}>
-                <div style={{ maxWidth: '75%', minWidth: 0 }}>
-                  <div className={styles.previewMsg}>{msg.text}</div>
-                  <div className={styles.previewMeta}><span>{msg.time}</span></div>
-                </div>
+            </div>
+          ) : (
+            <div key={msg.id} className={styles.previewBubble}>
+              <img src={avatar} alt="" className={styles.previewAvatarSmall} />
+              <div style={{ maxWidth: '75%', minWidth: 0 }}>
+                {msg.toolCall ? (
+                  <ToolCallCard record={msg.toolCall} />
+                ) : (
+                  <div className={styles.previewMsg}>
+                  {msg.text || (sending ? '思考中...' : '无法获取回复')}
+                  </div>
+                )}
+                <div className={styles.previewMeta}><span>{msg.time}</span></div>
               </div>
-            ) : (
-              <div key={msg.id} className={styles.previewBubble}>
-                <img src={avatar} alt="" className={styles.previewAvatarSmall} />
-                <div style={{ maxWidth: '75%', minWidth: 0 }}>
-                  {msg.toolCall ? (
-                    <ToolCallCard record={msg.toolCall} />
-                  ) : (
-                    <div className={styles.previewMsg}>
-                    {msg.text || (sending ? '思考中...' : '无法获取回复')}
-                    </div>
-                  )}
-                  <div className={styles.previewMeta}><span>{msg.time}</span></div>
-                </div>
-              </div>
-            )
-          )}
-          <div ref={chatEndRef} />
-        </div>
-      )}
+            </div>
+          )
+        )}
+        <div ref={chatEndRef} />
+      </div>
 
       {selectedFile && (
         <div className={styles.filePreviewBar}>
@@ -423,21 +402,20 @@ export function PreviewChat({ agentId, avatar, persona, model, temperature, open
           onClick={() => fileInputRef.current?.click()}
           aria-label="文件上传"
           className={styles.previewAttachBtn}
-          disabled={isPublished === false}
         />
         <input
           className={styles.previewInput}
-          placeholder={isPublished === false ? '请先发布智能体' : '输入消息...'}
+          placeholder="输入消息..."
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={sending || isPublished === false}
+          disabled={sending}
         />
         <button
           className={styles.previewSendBtn}
           onClick={handleSend}
-          disabled={sending || isPublished === false}
-          style={{ opacity: sending || isPublished === false ? 0.5 : 1, cursor: sending || isPublished === false ? 'not-allowed' : 'pointer' }}
+          disabled={sending}
+          style={{ opacity: sending ? 0.5 : 1, cursor: sending ? 'not-allowed' : 'pointer' }}
         >
           {sending ? '等待...' : '发送'}
         </button>
