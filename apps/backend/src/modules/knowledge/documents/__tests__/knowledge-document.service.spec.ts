@@ -72,6 +72,10 @@ describe('KnowledgeDocumentService', () => {
       findMany: jest.Mock;
       delete: jest.Mock;
     };
+    knowledgeChunk: {
+      findUnique: jest.Mock;
+      update: jest.Mock;
+    };
     $transaction: jest.Mock;
     $queryRaw: jest.Mock;
   };
@@ -80,7 +84,10 @@ describe('KnowledgeDocumentService', () => {
     getReadyFileForUser: jest.Mock;
     getFileBufferForInternal: jest.Mock;
   };
-  let retrievalService: { indexChunks: jest.Mock };
+  let retrievalService: {
+    indexChunks: jest.Mock;
+    indexSingleChunk: jest.Mock;
+  };
   let txMock: {
     knowledgeDocument: { create: jest.Mock };
     $executeRaw: jest.Mock;
@@ -106,6 +113,10 @@ describe('KnowledgeDocumentService', () => {
         findMany: jest.fn(),
         delete: jest.fn(),
       },
+      knowledgeChunk: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
       $transaction: jest.fn(async (cb: (tx: typeof txMock) => unknown) => {
         return cb(txMock);
       }),
@@ -122,6 +133,7 @@ describe('KnowledgeDocumentService', () => {
     };
     retrievalService = {
       indexChunks: jest.fn().mockResolvedValue(undefined),
+      indexSingleChunk: jest.fn().mockResolvedValue(undefined),
     };
   });
 
@@ -355,6 +367,84 @@ describe('KnowledgeDocumentService', () => {
     expect(prisma.knowledgeDocument.delete).toHaveBeenCalledWith({
       where: { id: 'doc1' },
       include: { file: true },
+    });
+  });
+
+  describe('updateChunk', () => {
+    const existing = {
+      id: 'chunk1',
+      documentId: 'doc1',
+      knowledgeBaseId: 'kb1',
+      workspaceId: 'ws1',
+      content: 'old content',
+      index: 0,
+      tokenCount: 0,
+      enabled: true,
+      metadata: null,
+      vectorId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    beforeEach(() => {
+      prisma.knowledgeDocument.findUnique.mockResolvedValue(buildDoc());
+      prisma.knowledgeChunk.findUnique.mockResolvedValue(existing);
+    });
+
+    it('内容变化 → update DB + 调 indexSingleChunk(新内容)', async () => {
+      prisma.knowledgeChunk.update.mockResolvedValueOnce({
+        ...existing,
+        content: 'new content',
+      });
+      const service = buildService(makeEmbedder([]));
+
+      const out = await service.updateChunk('u1', 'doc1', 0, 'new content');
+
+      expect(prisma.knowledgeChunk.update).toHaveBeenCalledWith({
+        where: { id: 'chunk1' },
+        data: { content: 'new content' },
+      });
+      expect(retrievalService.indexSingleChunk).toHaveBeenCalledWith(
+        'chunk1',
+        'new content',
+      );
+      expect(out.content).toBe('new content');
+    });
+
+    it('内容相同 → 不调 update、不调 indexSingleChunk，直接返原数据', async () => {
+      const service = buildService(makeEmbedder([]));
+
+      const out = await service.updateChunk('u1', 'doc1', 0, 'old content');
+
+      expect(prisma.knowledgeChunk.update).not.toHaveBeenCalled();
+      expect(retrievalService.indexSingleChunk).not.toHaveBeenCalled();
+      expect(out.content).toBe('old content');
+      expect(out.id).toBe('chunk1');
+    });
+
+    it('indexSingleChunk 抛 KnowledgeEmbeddingFailed → 透传，但 chunk 已写（不回滚）', async () => {
+      prisma.knowledgeChunk.update.mockResolvedValueOnce({
+        ...existing,
+        content: 'new content',
+      });
+      retrievalService.indexSingleChunk.mockRejectedValueOnce(
+        new BusinessException(
+          'embed down',
+          ErrorCode.KnowledgeEmbeddingFailed,
+        ),
+      );
+      const service = buildService(makeEmbedder([]));
+
+      try {
+        await service.updateChunk('u1', 'doc1', 0, 'new content');
+        fail('should throw');
+      } catch (e) {
+        expect((e as BusinessException).getErrorCode()).toBe(
+          ErrorCode.KnowledgeEmbeddingFailed,
+        );
+      }
+      // chunk update 已发生（不回滚 — 已记录折中）
+      expect(prisma.knowledgeChunk.update).toHaveBeenCalledTimes(1);
     });
   });
 });

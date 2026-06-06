@@ -239,10 +239,28 @@ export class KnowledgeDocumentService {
     content: string,
   ) {
     const chunk = await this.findChunkForUser(userId, documentId, index);
+
+    // 内容未变 → 不动 DB、不调 embedder（节省一次外部 API 往返）
+    if (chunk.content === content) {
+      return {
+        id: chunk.id,
+        chunkIndex: chunk.index,
+        content: chunk.content,
+        charCount: Array.from(chunk.content).length,
+        enabled: chunk.enabled,
+      };
+    }
+
     const updated = await this.prisma.knowledgeChunk.update({
       where: { id: chunk.id },
       data: { content },
     });
+
+    // 注意：chunk.update 与 indexSingleChunk 不在同一事务（embedding 是外部 HTTP 调用）。
+    // 若 embedding 失败：chunk 内容已落 DB，但向量仍指向旧文本 → 抛错让调用方决定重试。
+    // 这是已记录的折中（plan Unit 5 §Approach）；未来切异步队列后可收敛。
+    await this.retrievalService.indexSingleChunk(updated.id, content);
+
     return {
       id: updated.id,
       chunkIndex: updated.index,
