@@ -166,7 +166,7 @@ function getTypeDefaults(type?: string): Pick<NodeData, 'inputs' | 'outputs' | '
         model: 'deepseek-chat',
         temperature: 0.7,
         systemPrompt: '你是一个简洁、可靠的助手。',
-        prompt: '请根据输入生成回答。',
+        prompt: '请回答用户问题：{{input.query}}',
       },
     };
   }

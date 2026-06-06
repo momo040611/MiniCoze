@@ -27,6 +27,7 @@ import {
 
 import {
     DEFAULT_WORKFLOW_CANVAS_DATA,
+    normalizeWorkflowCanvasData,
     saveWorkflowDraftRemote,
     type WorkflowCanvasData,
 } from '../../../api/workflows'
@@ -173,6 +174,10 @@ export const useSimpleEditorProps = ({
     validationErrorsByNodeId,
 }: UseSimpleEditorPropsParams) => {
     const saveTimerRef = useRef<number | null>(null)
+    const safeCanvasData = useMemo(
+        () => normalizeWorkflowCanvasData(canvasData),
+        [canvasData],
+    )
 
     useEffect(() => {
         setValidationErrorSnapshot(validationErrorsByNodeId)
@@ -191,8 +196,8 @@ export const useSimpleEditorProps = ({
             readonly: false,
 
             initialData:
-                canvasData && canvasData.nodes.length > 0
-                    ? (canvasData as WorkflowJSON)
+                safeCanvasData.nodes.length > 0
+                    ? (safeCanvasData as WorkflowJSON)
                     : (DEFAULT_WORKFLOW_CANVAS_DATA as WorkflowJSON),
 
             nodeRegistries,
@@ -282,7 +287,7 @@ export const useSimpleEditorProps = ({
         }),
         [
             workflowId,
-            canvasData,
+            safeCanvasData,
             onSelectNode,
             onCanvasChange,
             onDirty,

@@ -19,6 +19,7 @@
     font-weight: 500;
     line-height: 1.5;
     white-space: nowrap;
+    user-select: none;
 
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
@@ -33,6 +34,10 @@
         visibility 0.16s ease;
 
     z-index: 9999;
+}
+
+.tooltip::selection {
+    background: transparent;
 }
 
 .tooltipVisible {

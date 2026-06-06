@@ -320,6 +320,9 @@ function RunTestPanel({ open, workflowId, canvasData, onClose }: RunTestPanelPro
       setRunError(error instanceof Error ? error.message : '试运行失败');
       message.error(error instanceof Error ? error.message : '试运行失败，请稍后重试');
     } finally {
+      await saveWorkflowDraftRemote(workflowId, canvasData).catch((error) => {
+        console.error('Restore workflow canvas draft failed:', error);
+      });
       setRunning(false);
     }
   }

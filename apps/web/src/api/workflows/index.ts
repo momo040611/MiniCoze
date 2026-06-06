@@ -205,7 +205,7 @@ export const DEFAULT_WORKFLOW_CANVAS_DATA: WorkflowCanvasData = {
 export function toWorkflowDefinition(
   canvasData?: WorkflowCanvasData,
 ): WorkflowDefinition {
-  return canvasData ?? structuredClone(DEFAULT_WORKFLOW_CANVAS_DATA);
+  return normalizeWorkflowCanvasData(canvasData);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -214,6 +214,125 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function toRecordOrEmpty(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
+}
+
+function normalizeWorkflowEdge(edge: unknown) {
+  const record = toRecordOrEmpty(edge);
+  const sourceNodeID = record.sourceNodeID ?? record.source;
+  const targetNodeID = record.targetNodeID ?? record.target;
+
+  return {
+    ...record,
+    sourceNodeID,
+    targetNodeID,
+    source: record.source ?? sourceNodeID,
+    target: record.target ?? targetNodeID,
+  };
+}
+
+function getDefaultNodeData(type: string, index: number) {
+  if (type === 'start') {
+    return {
+      nodeMeta: { title: '开始节点' },
+      outputs: [{ label: '输出', type: 'string', name: 'query' }],
+    };
+  }
+
+  if (type === 'end') {
+    return {
+      nodeMeta: { title: '结束节点' },
+      inputs: [{ label: '输入', type: 'string', name: 'content' }],
+      config: { outputMode: '返回变量' },
+    };
+  }
+
+  if (type === 'llm') {
+    return {
+      nodeMeta: { title: '大模型节点' },
+      inputs: [{ label: '输入', type: 'string', name: 'query' }],
+      outputs: [{ label: '输出', type: 'string', name: 'content' }],
+      config: {
+        model: 'deepseek-chat',
+        temperature: 0.7,
+        systemPrompt: '你是一个简洁、可靠的助手。',
+        prompt: '请回答用户问题：{{input.query}}',
+      },
+    };
+  }
+
+  return {
+    nodeMeta: { title: `${type || '节点'}_${index + 1}` },
+  };
+}
+
+function normalizeWorkflowNode(node: unknown, index: number) {
+  const record = toRecordOrEmpty(node);
+  const type = typeof record.type === 'string' && record.type ? record.type : 'llm';
+  const id = typeof record.id === 'string' && record.id ? record.id : `${type}_${index + 1}`;
+  const meta = toRecordOrEmpty(record.meta);
+  const data = toRecordOrEmpty(record.data);
+  const defaultData = getDefaultNodeData(type, index);
+  const dataInputs = Array.isArray(data.inputs) ? data.inputs : undefined;
+  const dataOutputs = Array.isArray(data.outputs) ? data.outputs : undefined;
+  const runnableInputs = Array.isArray(data.inputs) ? {} : toRecordOrEmpty(data.inputs);
+
+  return {
+    ...record,
+    id,
+    type,
+    meta: {
+      ...meta,
+      position: isRecord(meta.position)
+        ? meta.position
+        : { x: 120 + index * 360, y: 230 },
+    },
+    data: {
+      ...defaultData,
+      ...data,
+      inputs: dataInputs ?? defaultData.inputs ?? [],
+      outputs: dataOutputs ?? defaultData.outputs ?? [],
+      nodeMeta: {
+        ...toRecordOrEmpty(defaultData.nodeMeta),
+        ...toRecordOrEmpty(data.nodeMeta),
+      },
+      config: {
+        ...toRecordOrEmpty(defaultData.config),
+        ...runnableInputs,
+        ...toRecordOrEmpty(data.config),
+      },
+    },
+  };
+}
+
+export function normalizeWorkflowCanvasData(
+  canvasData?: WorkflowCanvasData | null,
+): WorkflowCanvasData {
+  if (!canvasData || !Array.isArray(canvasData.nodes)) {
+    return structuredClone(DEFAULT_WORKFLOW_CANVAS_DATA);
+  }
+
+  return {
+    ...canvasData,
+    nodes: canvasData.nodes.length
+      ? canvasData.nodes.map(normalizeWorkflowNode)
+      : structuredClone(DEFAULT_WORKFLOW_CANVAS_DATA.nodes),
+    edges: Array.isArray(canvasData.edges)
+      ? canvasData.edges.map(normalizeWorkflowEdge)
+      : [],
+    viewport: canvasData.viewport,
+  };
+}
+
+function normalizeLlmPrompt(prompt: unknown) {
+  if (typeof prompt !== 'string' || prompt.trim().length === 0) {
+    return '请回答用户问题：{{input.query}}';
+  }
+
+  if (prompt.trim() === '请根据输入生成回答。') {
+    return '请回答用户问题：{{input.query}}';
+  }
+
+  return prompt;
 }
 
 export function toRunnableWorkflowDefinition(
@@ -243,7 +362,7 @@ export function toRunnableWorkflowDefinition(
             ...toRecordOrEmpty(data.inputs),
             systemPrompt: config.systemPrompt,
             model: config.model,
-            prompt: config.prompt,
+            prompt: normalizeLlmPrompt(config.prompt),
             temperature: config.temperature,
             maxTokens: config.maxTokens,
           },
@@ -256,10 +375,9 @@ export function toRunnableWorkflowDefinition(
 export function fromWorkflowResponse(response: WorkflowResponseLike): Workflow {
   return {
     ...response,
-    canvasData:
-      response.canvasData ??
-      response.draftDefinition ??
-      structuredClone(DEFAULT_WORKFLOW_CANVAS_DATA),
+    canvasData: normalizeWorkflowCanvasData(
+      response.canvasData ?? response.draftDefinition,
+    ),
   };
 }
 export interface CreateWorkflowRequest {
