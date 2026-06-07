@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AimOutlined,
   AppstoreOutlined,
@@ -13,6 +13,7 @@ import {
 import { Dropdown, Popover, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
+  useAutoLayout,
   useClientContext,
   usePlaygroundTools,
 } from '@flowgram.ai/free-layout-editor';
@@ -122,6 +123,18 @@ function getDefaultNodeData(type: string) {
         query: '',
         readonly: true,
       },
+    };
+  }
+
+  if (type === 'annotation') {
+    return {
+      nodeMeta: {
+        title: '注释',
+        description: '',
+      },
+      inputs: [],
+      outputs: [],
+      config: {},
     };
   }
 
@@ -300,6 +313,8 @@ async function exportCanvasImage(format: 'png' | 'jpeg' | 'svg') {
 
 function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
   const ctx = useClientContext();
+  const autoLayout = useAutoLayout();
+  const [isLayouting, setIsLayouting] = useState(false);
   const playgroundTools = usePlaygroundTools({
     minZoom: 0.5,
     maxZoom: 2,
@@ -359,6 +374,48 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
     );
   }
 
+  function handleAddAnnotation() {
+    handleAddNode('annotation');
+  }
+
+  async function handleOptimizeLayout() {
+    if (isLayouting) {
+      return;
+    }
+
+    const canvasData = ctx.document.toJSON() as WorkflowCanvasData;
+
+    if ((canvasData.nodes?.length ?? 0) <= 1) {
+      message.info('No nodes need layout optimization');
+      return;
+    }
+
+    setIsLayouting(true);
+    message.loading({ content: 'Optimizing workflow layout...', key: 'workflow-layout', duration: 0 });
+
+    try {
+      await autoLayout({
+        enableAnimation: true,
+        animationDuration: 300,
+        alignTopEdge: true,
+        layoutConfig: {
+          rankdir: 'LR',
+          nodesep: 80,
+          ranksep: 140,
+        },
+      });
+      message.success({ content: 'Workflow layout optimized', key: 'workflow-layout' });
+    } catch (error) {
+      console.error(error);
+      message.error({
+        content: error instanceof Error ? error.message : 'Layout optimization failed',
+        key: 'workflow-layout',
+      });
+    } finally {
+      setIsLayouting(false);
+    }
+  }
+
   function handleRunTest() {
     const canvasData = ctx.document.toJSON() as WorkflowCanvasData;
     const canRun = onRunTest?.(canvasData) ?? true;
@@ -392,7 +449,7 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
 
         <Tooltip text="注释" position="top">
           <div>
-            <button className={styles.buttonStyles}>
+            <button className={styles.buttonStyles} type="button" onClick={handleAddAnnotation}>
               <MessageOutlined style={{ fontSize: 16 }} />
             </button>
           </div>
@@ -400,7 +457,12 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
 
         <Tooltip text="布局优化" position="top">
           <div>
-            <button className={styles.buttonStyles}>
+            <button
+              className={styles.buttonStyles}
+              type="button"
+              disabled={isLayouting}
+              onClick={handleOptimizeLayout}
+            >
               <AppstoreOutlined style={{ fontSize: 16 }} />
             </button>
           </div>
