@@ -55,6 +55,8 @@ export class FileService {
   private readonly documentMimeTypes = new Set([
     'application/pdf',
     'text/plain',
+    'text/markdown',
+    'text/x-markdown',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
@@ -203,8 +205,31 @@ export class FileService {
     return this.toFileResponse(fileAsset);
   }
 
+  async getReadyFileForUser(
+    fileId: string,
+    currentUser: CurrentUser,
+  ): Promise<FileAsset> {
+    const fileAsset = await this.findReadyFileOrThrow(fileId);
+    await this.ensureReadPermission(fileAsset, currentUser);
+    return fileAsset;
+  }
+
   async getReadyFileForInternal(fileId: string): Promise<FileAsset> {
     return this.findReadyFileOrThrow(fileId);
+  }
+
+  async getFileBufferForInternal(fileId: string): Promise<Buffer> {
+    const stream = await this.getFileStreamForInternal(fileId);
+    const chunks: Buffer[] = [];
+
+    for await (const chunk of stream) {
+      const normalizedChunk = Buffer.isBuffer(chunk)
+        ? Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength)
+        : Buffer.from(typeof chunk === 'string' ? chunk : String(chunk));
+      chunks.push(normalizedChunk);
+    }
+
+    return Buffer.concat(chunks);
   }
 
   async getFileStreamForInternal(fileId: string): Promise<Readable> {
