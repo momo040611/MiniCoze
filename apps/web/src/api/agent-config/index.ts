@@ -1,12 +1,7 @@
-// 智能体配置模块 API — 对接后端 NestJS 接口
-// 后端目前没有 mode / orchestration 字段，这两个字段前端本地暂存
-
 import { http, type ApiEnvelope } from '../http';
 import { getCurrentWorkspaceId } from '../workspace';
 import { DEFAULT_AGENT_MODEL } from './model-options';
 
-// ---- 类型定义 ----
-/** 后端 Agent 模型字段 */
 interface BackendAgent {
   id: string;
   name: string;
@@ -16,20 +11,21 @@ interface BackendAgent {
   model: string;
   temperature: number;
   openingMessage: string | null;
+  orchestration: string | null;
   contextLimit: number;
   status: string;
   workspaceId: string;
   createdAt: string;
   updatedAt: string;
 }
-/** 后端分页响应 */
+
 interface PaginatedAgents {
   list: BackendAgent[];
   total: number;
   page: number;
   pageSize: number;
 }
-/** 前端使用的 Agent 类型（含本地扩展字段） */
+
 export interface AgentConfig {
   id: string;
   name: string;
@@ -39,7 +35,6 @@ export interface AgentConfig {
   persona: string;
   orchestration: string;
   createdAt: string;
-  /** 后端字段 */
   model: string;
   temperature: number;
   openingMessage: string;
@@ -48,8 +43,8 @@ export interface AgentConfig {
   workspaceId: string;
 }
 
-// ---- 本地扩展字段存储（mode / orchestration，后端暂无） ----
 const EXTRA_STORAGE_KEY = 'miniCoze_agent_extras';
+
 interface AgentExtras {
   mode: 'chat' | 'single' | 'multi';
   orchestration: string;
@@ -67,9 +62,7 @@ function loadExtras(): Record<string, AgentExtras> {
 function saveExtras(extras: Record<string, AgentExtras>) {
   try {
     localStorage.setItem(EXTRA_STORAGE_KEY, JSON.stringify(extras));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 function getDefaultExtras(): AgentExtras {
@@ -103,12 +96,13 @@ function mergeBackendOpening(orchestration: string, openingMessage: string | nul
   }
 }
 
-// ---- 字段映射工具 ----
-/** 后端 Agent → 前端 AgentConfig（合并本地扩展字段） */
 function toAgentConfig(backend: BackendAgent): AgentConfig {
   const extras = loadExtras()[backend.id] ?? getDefaultExtras();
-  const orchestration = mergeBackendOpening(
-    extras.orchestration,
+
+  const backendOrchestration = backend.orchestration;
+  const localOrchestration = extras.orchestration;
+  const orchestration = backendOrchestration || mergeBackendOpening(
+    localOrchestration,
     backend.openingMessage,
   );
 
@@ -130,8 +124,6 @@ function toAgentConfig(backend: BackendAgent): AgentConfig {
   };
 }
 
-// ---- API 方法 ----
-/** 创建智能体 */
 export async function createAgent(params: {
   name: string;
   avatar: string;
@@ -154,7 +146,6 @@ export async function createAgent(params: {
 
   const backend = res.data;
 
-  // 保存本地扩展字段
   const extras = loadExtras();
   extras[backend.id] = {
     mode: params.mode ?? 'chat',
@@ -165,7 +156,6 @@ export async function createAgent(params: {
   return toAgentConfig(backend);
 }
 
-/** 获取智能体列表 */
 export async function getAgentList(params?: {
   keyword?: string;
   status?: string;
@@ -174,7 +164,6 @@ export async function getAgentList(params?: {
   try {
     workspaceId = await getCurrentWorkspaceId();
   } catch {
-    // 工作空间获取失败（未登录/token过期），返回空列表
     return [];
   }
 
@@ -191,7 +180,6 @@ export async function getAgentList(params?: {
   return res.data.list.map(toAgentConfig);
 }
 
-/** 获取单个智能体详情 */
 export async function getAgentDetail(id: string): Promise<AgentConfig | null> {
   try {
     const res = await http.get<ApiEnvelope<BackendAgent>>(`agents/${id}`);
@@ -204,20 +192,17 @@ export async function getAgentDetail(id: string): Promise<AgentConfig | null> {
   }
 }
 
-/** 删除智能体 */
 export async function deleteAgent(id: string): Promise<void> {
   await http.delete(`agents/${id}`);
-  // 清理本地扩展字段
   const extras = loadExtras();
   delete extras[id];
   saveExtras(extras);
 }
-/** 更新智能体配置 */
+
 export async function updateAgent(
   id: string,
   patch: Partial<Pick<AgentConfig, 'name' | 'avatar' | 'description' | 'mode' | 'persona' | 'orchestration' | 'model' | 'temperature' | 'openingMessage' | 'contextLimit'>>,
 ): Promise<AgentConfig | null> {
-  // 分离后端字段和本地扩展字段
   const backendPatch: Record<string, unknown> = {};
   if (patch.name !== undefined) backendPatch.name = patch.name;
   if (patch.description !== undefined) backendPatch.description = patch.description;
@@ -226,18 +211,17 @@ export async function updateAgent(
   if (patch.model !== undefined) backendPatch.model = patch.model;
   if (patch.temperature !== undefined) backendPatch.temperature = patch.temperature;
   if (patch.openingMessage !== undefined) backendPatch.openingMessage = patch.openingMessage;
+  if (patch.orchestration !== undefined) backendPatch.orchestration = patch.orchestration;
   if (patch.contextLimit !== undefined) backendPatch.contextLimit = patch.contextLimit;
 
-  // 更新后端
   const res = await http.patch<ApiEnvelope<BackendAgent>>(`agents/${id}`, backendPatch);
 
-  // 更新本地扩展字段
-  if (patch.mode !== undefined || patch.orchestration !== undefined) {
+  if (patch.mode !== undefined) {
     const extras = loadExtras();
     const current = extras[id] ?? getDefaultExtras();
     extras[id] = {
       mode: patch.mode ?? current.mode,
-      orchestration: patch.orchestration ?? current.orchestration,
+      orchestration: '',
     };
     saveExtras(extras);
   }

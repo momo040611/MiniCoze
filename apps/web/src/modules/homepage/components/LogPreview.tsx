@@ -1,4 +1,4 @@
-// 日志预览 — 侧面板子组件（精简视图，点击展开 Drawer）
+
 import { Skeleton } from 'antd';
 import {
   ToolOutlined,

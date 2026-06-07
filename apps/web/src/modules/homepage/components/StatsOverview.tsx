@@ -1,4 +1,4 @@
-// ② 统计概览 — 数据展示 + 快捷操作
+
 import { useCallback } from 'react';
 import { Skeleton } from 'antd';
 import { StatCard } from './shared/StatCard';

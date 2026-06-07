@@ -1,11 +1,11 @@
-// Agent Runtime 流式对话 API — 对接后端 /agent-runs/stream SSE 端点
+
 
 import { API_BASE_URL, getAuthToken } from '../http';
 import { runAgentStreamMock } from './mock-stream';
 
 const useMock = import.meta.env.VITE_USE_AUTH_MOCK === 'true';
 
-// ---- 后端 SSE 事件类型 ----
+
 
 export interface TokenUsage {
   inputTokens: number;
@@ -106,7 +106,7 @@ export type RuntimeEvent =
   | RunFailedEvent
   | StreamDoneEvent;
 
-// ---- 请求参数 ----
+
 
 export interface RunAgentParams {
   agentId: string;
@@ -121,14 +121,14 @@ export interface RunAgentParams {
   tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>;
 }
 
-// ---- 回调 ----
+
 
 export interface RunAgentCallbacks {
   onEvent: (event: RuntimeEvent) => void;
   onError: (error: Error) => void;
 }
 
-// ---- SSE 流式函数 ----
+
 
 export async function runAgentStream(
   params: RunAgentParams,

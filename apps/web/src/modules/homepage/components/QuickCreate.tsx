@@ -1,4 +1,4 @@
-// 快捷创建 — 侧面板子组件
+
 import { useCallback } from 'react';
 import type { QuickAction } from '../../../api/dashboard';
 import styles from './SidePanel.module.css';

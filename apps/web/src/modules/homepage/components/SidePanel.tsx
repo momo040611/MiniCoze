@@ -1,4 +1,3 @@
-// ④ 侧面板容器 — 系统状态 + 日志预览
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { SystemStatus } from './SystemStatus';
 import { LogPreview } from './LogPreview';
@@ -26,7 +25,6 @@ export function SidePanel({
 }: Props) {
   return (
     <>
-      {/* 折叠切换按钮 */}
       <button
         className={styles.toggleBtn}
         onClick={onToggle}
@@ -36,7 +34,6 @@ export function SidePanel({
         {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
       </button>
 
-      {/* 面板内容（带折叠动画） */}
       <div className={`${styles.panel} ${collapsed ? styles.panelCollapsed : ''}`}>
         <div className={styles.inner}>
           {systemStatus && <SystemStatus data={systemStatus} />}

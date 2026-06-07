@@ -1,6 +1,3 @@
-// 知识库 API — 对接后端真实接口
-// 后端：/api/knowledge/bases, /api/knowledge/bases/:id/documents, /api/knowledge/retrieval
-
 import { http, type ApiEnvelope } from '../http';
 import { getCurrentWorkspaceId } from '../workspace';
 import type {
@@ -25,8 +22,6 @@ import {
 } from './types';
 
 export * from './types';
-
-// ── 后端响应类型 ──
 
 interface BackendKnowledgeBase {
   id: string;
@@ -68,8 +63,6 @@ interface BackendRetrievedChunk {
   content: string;
   score: number;
 }
-
-// ── 映射函数：后端 → 前端类型 ──
 
 function mapKnowledgeBase(kb: BackendKnowledgeBase): KnowledgeBase {
   return {
@@ -140,22 +133,11 @@ function mapChunk(
   };
 }
 
-// ── API 实现 ──
-
-async function getWorkspacePrefix(): Promise<string> {
-  const workspaceId = await getCurrentWorkspaceId();
-  return `knowledge/bases`;
-}
-
-// ── 包装响应格式（与 mock 保持一致） ──
-
 function ok<T>(data: T): { code: number; message: string; data: T } {
   return { code: 0, message: 'ok', data };
 }
 
 export const knowledgeApi = {
-  // ═══ 知识库 CRUD ═══
-
   async getKnowledgeBases(params?: ListParams) {
     const workspaceId = await getCurrentWorkspaceId();
     const res = await http.get<ApiEnvelope<BackendKnowledgeBase[]>>(
@@ -197,7 +179,6 @@ export const knowledgeApi = {
   },
 
   async updateKnowledgeBase(id: string, payload: UpdateKnowledgeBasePayload) {
-    // 后端暂无 update 接口，返回当前数据
     const res = await this.getKnowledgeBaseById(id);
     if (!res.data) throw new Error('知识库不存在');
     return ok(res.data);
@@ -207,15 +188,11 @@ export const knowledgeApi = {
     await http.delete(`knowledge/bases/${id}`);
   },
 
-  async updateKnowledgeBaseOrder(_payload: { ids: string[] }): Promise<void> {
-    // 后端暂不支持排序
-  },
+  async updateKnowledgeBaseOrder(_payload: { ids: string[] }): Promise<void> {},
 
   async updateKnowledgeSettings(id: string, payload: UpdateKnowledgeBasePayload) {
     return this.updateKnowledgeBase(id, payload);
   },
-
-  // ═══ 文档管理 ═══
 
   async getDocuments(knowledgeBaseId: string, params?: DocumentListParams) {
     const res = await http.get<ApiEnvelope<{ list: BackendDocument[] }>>(
@@ -226,7 +203,6 @@ export const knowledgeApi = {
   },
 
   async uploadDocument(knowledgeBaseId: string, file: File, parseConfig?: ParseConfig) {
-    // 第一步：上传文件
     const formData = new FormData();
     formData.append('file', file);
     formData.append('purpose', 'KNOWLEDGE_DOCUMENT');
@@ -239,7 +215,6 @@ export const knowledgeApi = {
 
     const fileId = uploadRes.data.id;
 
-    // 第二步：调用文档入库接口
     const res = await http.post<ApiEnvelope<{ documents: BackendDocument[] }>>(
       `knowledge/bases/${knowledgeBaseId}/documents`,
       {
@@ -260,30 +235,13 @@ export const knowledgeApi = {
     await http.delete(`knowledge/documents/${documentId}`);
   },
 
-  async reparseDocument(documentId: string): Promise<void> {
-    // 后端暂不支持重新解析
-  },
-
-  async retryDocument(documentId: string): Promise<void> {
-    // 后端暂不支持重试
-  },
-
-  async cancelUpload(taskId: string): Promise<void> {
-    // 后端暂不支持取消上传
-  },
-
-  async getUploadTasks(knowledgeBaseId?: string): Promise<unknown[]> {
-    return [];
-  },
-
-  async updateDocumentStatus(documentId: string, enabled: boolean): Promise<void> {
-    // 后端暂不支持文档状态切换
-  },
-
-  // ═══ 切片管理 ═══
+  async reparseDocument(documentId: string): Promise<void> {},
+  async retryDocument(documentId: string): Promise<void> {},
+  async cancelUpload(taskId: string): Promise<void> {},
+  async getUploadTasks(knowledgeBaseId?: string): Promise<unknown[]> { return []; },
+  async updateDocumentStatus(documentId: string, enabled: boolean): Promise<void> {},
 
   async getChunks(knowledgeBaseId: string, params?: ChunkListParams) {
-    // 需要先获取文档列表，再获取每个文档的切片
     const docsRes = await this.getDocuments(knowledgeBaseId);
     const docs = docsRes.data.list;
     if (docs.length === 0) return ok({ list: [] as KnowledgeChunk[], total: 0 });
@@ -307,22 +265,9 @@ export const knowledgeApi = {
     throw new Error('暂不支持手动创建切片');
   },
 
-  async updateChunk(chunkId: string, payload: UpdateChunkPayload): Promise<void> {
-    // chunkId 格式：documentId:index
-    // 后端使用 documentId + index 来定位切片
-    // 这里需要从调用方传入正确的参数
-    // 暂不实现
-  },
-
-  async deleteChunk(chunkId: string): Promise<void> {
-    // 暂不实现
-  },
-
-  async updateChunkStatus(chunkId: string, enabled: boolean): Promise<void> {
-    // 暂不实现
-  },
-
-  // ═══ 检索测试 ═══
+  async updateChunk(chunkId: string, payload: UpdateChunkPayload): Promise<void> {},
+  async deleteChunk(chunkId: string): Promise<void> {},
+  async updateChunkStatus(chunkId: string, enabled: boolean): Promise<void> {},
 
   async testRetrieve(knowledgeBaseId: string, payload: RetrieveTestPayload) {
     const res = await http.post<ApiEnvelope<{ results: BackendRetrievedChunk[] }>>(
@@ -334,7 +279,6 @@ export const knowledgeApi = {
         minScore: payload.scoreThreshold ?? 0.3,
       },
     );
-    // 映射后端结果为前端 RetrievalResult 格式
     const results = (res.data?.results ?? []).map((r, i) => ({
       rank: i + 1,
       score: r.score,
@@ -354,8 +298,6 @@ export const knowledgeApi = {
     return ok([]);
   },
 
-  // ═══ 元数据字段（后端暂不支持） ═══
-
   async getMetadataFields(knowledgeBaseId: string) {
     return ok([]);
   },
@@ -371,8 +313,6 @@ export const knowledgeApi = {
   async deleteMetadataField(fieldId: string): Promise<void> {
     throw new Error('暂不支持');
   },
-
-  // ═══ 流水线任务（后端暂不支持） ═══
 
   async getPipelineTasks(knowledgeBaseId: string): Promise<unknown[]> {
     return [];
