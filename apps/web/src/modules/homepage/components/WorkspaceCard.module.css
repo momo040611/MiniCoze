@@ -1,0 +1,216 @@
+/* 工作区信息卡 — 简约高尚设计 */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 28px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--card-border, rgba(104, 119, 144, 0.08));
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary, #565fe2), var(--color-success, #22c55e));
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.greeting {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary, #18202f);
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.3px;
+}
+
+.date {
+  font-size: 13px;
+  color: var(--text-tertiary, #6b7280);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-color, rgba(104, 119, 144, 0.15));
+  border-radius: 8px;
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-secondary, #506070);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font: inherit;
+}
+
+.actionBtn:hover {
+  border-color: var(--color-primary, #565fe2);
+  color: var(--color-primary, #565fe2);
+  background: rgba(86, 95, 226, 0.04);
+  transform: translateY(-1px);
+}
+
+.actionBtn:active {
+  transform: scale(0.98);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, rgba(104, 119, 144, 0.08));
+}
+
+.workspaceInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.workspaceName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #18202f);
+}
+
+.workspaceDesc {
+  font-size: 13px;
+  color: var(--text-tertiary, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+}
+
+.stats {
+  display: flex;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary, #506070);
+}
+
+.statItem svg {
+  font-size: 14px;
+  color: var(--text-tertiary, #6b7280);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .card {
+    padding: 16px 20px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actionBtn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .workspaceDesc {
+    max-width: 100%;
+  }
+
+  .stats {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* 暗色主题 */
+[data-theme='dark'] .card {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.08);
+}
+
+[data-theme='dark'] .greeting {
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .date {
+  color: #64748b;
+}
+
+[data-theme='dark'] .actionBtn {
+  background: #252640;
+  border-color: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .actionBtn:hover {
+  border-color: var(--color-primary, #6b73ff);
+  color: var(--color-primary, #6b73ff);
+  background: rgba(107, 115, 255, 0.08);
+}
+
+[data-theme='dark'] .meta {
+  border-color: rgba(148, 163, 184, 0.08);
+}
+
+[data-theme='dark'] .workspaceName {
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .workspaceDesc {
+  color: #64748b;
+}
+
+[data-theme='dark'] .statItem {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .statItem svg {
+  color: #64748b;
+}
