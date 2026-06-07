@@ -60,6 +60,8 @@ export interface PublishAgentResponse {
 }
 
 export interface OfflineAgentResponse {
+  versionId: string | null;
+  version: number | null;
   offlineAt: string;
 }
 
@@ -78,10 +80,21 @@ export interface AgentVersionItem {
 
 export interface PublishRecordItem {
   id: string;
-  action: 'PUBLISH' | 'OFFLINE' | 'ROLLBACK';
+  action:
+    | 'PUBLISH'
+    | 'OFFLINE'
+    | 'ROLLBACK'
+    | 'ENABLE_CHANNEL'
+    | 'DISABLE_CHANNEL'
+    | 'UPDATE_CHANNEL'
+    | 'ROTATE_API_KEY';
   versionId: string | null;
   version: number | null;
+  versionNumber: number | null;
   reason: string | null;
+  changelog: string | null;
+  status: 'SUCCESS' | 'FAILED';
+  errorMessage: string | null;
   operatorId: string;
   operatorName: string;
   createdAt: string;
@@ -89,6 +102,7 @@ export interface PublishRecordItem {
 
 export interface RollbackAgentResponse {
   currentVersionId: string;
+  version: number;
   rolledBackAt: string;
 }
 

@@ -41,8 +41,13 @@ export interface PublishRecordListItem {
   action: PublishAction;
   status: PublishActionStatus;
   versionId: string | null;
+  version: number | null;
+  versionNumber: number | null;
+  reason: string | null;
   changelog: string | null;
   errorMessage: string | null;
+  operatorId: string;
+  operatorName: string;
   createdAt: string;
   operator: {
     id: string;
@@ -52,10 +57,13 @@ export interface PublishRecordListItem {
 
 export interface RollbackAgentResponse {
   currentVersionId: string;
+  version: number;
   rolledBackAt: string;
 }
 
 export interface OfflineAgentResponse {
+  versionId: string | null;
+  version: number | null;
   offlineAt: string;
 }
 
