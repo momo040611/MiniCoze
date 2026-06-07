@@ -1,4 +1,4 @@
-// 工作区信息卡 — 展示当前工作区信息 + 快捷操作
+
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TeamOutlined, SettingOutlined, SwapOutlined, CrownOutlined } from '@ant-design/icons';

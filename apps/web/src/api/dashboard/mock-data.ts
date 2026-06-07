@@ -1,9 +1,5 @@
-// 工作台 Dashboard Mock 数据 — 开发环境使用，生产环境由后端接口提供
-// 对应接口：GET /api/workspaces/:workspaceId/dashboard
-
 import type { DashboardSummary } from './index';
 
-// 生成相对时间的辅助函数
 function hoursAgo(h: number): string {
   return new Date(Date.now() - h * 3600000).toISOString();
 }

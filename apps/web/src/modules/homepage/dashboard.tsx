@@ -1,5 +1,3 @@
-// 工作台 Dashboard — 简约高尚设计
-// 区块：① WorkspaceCard ② StatsOverview ③ ActivityTimeline ④ SidePanel（可折叠）
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Drawer, Result, Skeleton } from 'antd';
@@ -12,10 +10,6 @@ import { SidePanel } from './components/SidePanel';
 import type { DashboardRunLog } from '../../api/dashboard';
 import styles from './dashboard.module.css';
 
-// ══════════════════════════════════════════════
-// 日志类型配置（用于 Drawer 内全量日志）
-// ══════════════════════════════════════════════
-
 const LOG_TYPE_CFG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   tool_call: { label: '工具调用', icon: <ToolOutlined />, color: '#3b82f6' },
   knowledge_retrieval: { label: '知识库召回', icon: <BookOutlined />, color: '#a855f7' },
@@ -25,10 +19,6 @@ const LOG_TYPE_CFG: Record<string, { label: string; icon: React.ReactNode; color
 function fmtLogTime(d: string): string {
   return new Date(d).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
-
-// ══════════════════════════════════════════════
-// 全量日志 Drawer 内容
-// ══════════════════════════════════════════════
 
 function FullLogContent({ logs }: { logs: DashboardRunLog[] }) {
   if (logs.length === 0) {
@@ -84,10 +74,6 @@ function FullLogContent({ logs }: { logs: DashboardRunLog[] }) {
   );
 }
 
-// ══════════════════════════════════════════════
-// 全页加载骨架
-// ══════════════════════════════════════════════
-
 function LoadingSkeleton() {
   return (
     <div className={styles.page}>
@@ -105,10 +91,6 @@ function LoadingSkeleton() {
   );
 }
 
-// ══════════════════════════════════════════════
-// 全页错误态
-// ══════════════════════════════════════════════
-
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className={styles.errorState}>
@@ -125,10 +107,6 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
     </div>
   );
 }
-
-// ══════════════════════════════════════════════
-// 主组件
-// ══════════════════════════════════════════════
 
 export function DashboardPage() {
   const nav = useNavigate();
@@ -166,19 +144,16 @@ export function DashboardPage() {
     setSwitcherOpen(true);
   }, []);
 
-  // 全页加载态
   if (statsState === 'loading' && !data) {
     return <LoadingSkeleton />;
   }
 
-  // 全页错误态（首次加载失败且无缓存数据）
   if (statsState === 'error' && !data) {
     return <ErrorState onRetry={refresh} />;
   }
 
   return (
     <div className={styles.page}>
-      {/* ① 工作区信息卡 */}
       <WorkspaceCard
         greeting={greeting}
         userName={userName}
@@ -190,14 +165,12 @@ export function DashboardPage() {
         onSwitchWorkspace={handleSwitchWorkspace}
       />
 
-      {/* ② 统计概览 */}
       <StatsOverview
         stats={stats}
         loading={statsState === 'loading'}
         onClick={go}
       />
 
-      {/* ③ + ④ 主内容区域：活动时间线 + 侧面板 */}
       <div className={styles.mainRow}>
         <div className={`${styles.timelineWrap} ${sidePanelCollapsed ? styles.timelineFull : ''}`}>
           <ActivityTimeline
@@ -224,7 +197,6 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* 日志 Drawer */}
       <Drawer
         title="AgentRun 统一运行日志"
         placement="right"

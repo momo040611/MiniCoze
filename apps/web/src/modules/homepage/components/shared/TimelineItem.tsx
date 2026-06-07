@@ -1,4 +1,4 @@
-// 通用时间线条目 — 用于 ActivityTimeline 和 LogPreview
+
 import { useCallback } from 'react';
 import styles from './TimelineItem.module.css';
 

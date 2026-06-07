@@ -1,4 +1,3 @@
-// 工作台核心数据 Hook — 封装数据获取、状态管理、派生计算
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getDashboardSummary,
@@ -17,10 +16,6 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 
-// ══════════════════════════════════════════════
-// 常量配置
-// ══════════════════════════════════════════════
-
 const PAGE_SIZE = 10;
 
 const STAT_DEFS: Omit<StatItem, 'value'>[] = [
@@ -30,10 +25,6 @@ const STAT_DEFS: Omit<StatItem, 'value'>[] = [
   { key: 'plugins', label: '插件', icon: <ApiOutlined />, accentColor: '#ec4899', targetPath: '/plugins' },
   { key: 'publish', label: '待发布', icon: <ThunderboltOutlined />, accentColor: '#3b82f6', targetPath: '/publish' },
 ];
-
-// ══════════════════════════════════════════════
-// 工具函数
-// ══════════════════════════════════════════════
 
 function fmtRelativeTime(d: string): string {
   const diff = Date.now() - new Date(d).getTime();
@@ -77,10 +68,6 @@ const WORKFLOW_STATUS_MAP: Record<string, { label: string; color: string }> = {
   failed: { label: '失败', color: '#ef4444' },
 };
 
-// ══════════════════════════════════════════════
-// 派生数据构建
-// ══════════════════════════════════════════════
-
 function buildStats(d: DashboardSummary): StatItem[] {
   const countMap: Record<string, number> = {
     agents: d.agentCount ?? 0,
@@ -95,7 +82,6 @@ function buildStats(d: DashboardSummary): StatItem[] {
 function buildActivities(d: DashboardSummary): ActivityItem[] {
   const items: ActivityItem[] = [];
 
-  // 智能体
   for (const a of d.recentAgents ?? []) {
     const st = STATUS_MAP[a.status] ?? { label: a.status, color: '#6b7280' };
     items.push({
@@ -111,7 +97,6 @@ function buildActivities(d: DashboardSummary): ActivityItem[] {
     });
   }
 
-  // 对话
   for (const c of d.recentConversations ?? []) {
     items.push({
       id: `conv-${c.id}`,
@@ -124,7 +109,6 @@ function buildActivities(d: DashboardSummary): ActivityItem[] {
     });
   }
 
-  // 工作流运行
   for (const w of d.recentWorkflows ?? []) {
     const st = WORKFLOW_STATUS_MAP[w.status] ?? { label: w.status, color: '#6b7280' };
     items.push({
@@ -140,7 +124,6 @@ function buildActivities(d: DashboardSummary): ActivityItem[] {
     });
   }
 
-  // 按时间倒序排列
   items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   return items;
 }
@@ -163,33 +146,23 @@ function buildSystemStatus(d: DashboardSummary): SystemStatusData {
   };
 }
 
-// ══════════════════════════════════════════════
-// Hook 主体
-// ══════════════════════════════════════════════
-
 export interface UseDashboardReturn {
-  // 原始数据
   data: DashboardSummary | null;
-  // 分段状态
   statsState: 'loading' | 'data' | 'error';
   activityState: 'loading' | 'data' | 'empty' | 'error';
   systemState: 'loading' | 'data' | 'error';
   logsState: 'loading' | 'data' | 'empty' | 'error';
-  // 操作
   refresh: () => Promise<void>;
   loadMoreActivities: () => void;
-  // 面板状态
   sidePanelCollapsed: boolean;
   toggleSidePanel: () => void;
   logDrawerOpen: boolean;
   openLogDrawer: () => void;
   closeLogDrawer: () => void;
-  // 派生数据
   stats: StatItem[];
   activities: ActivityItem[];
   hasMoreActivities: boolean;
   systemStatus: SystemStatusData | null;
-  // 用户信息
   userName: string;
   workspaceName: string;
   workspaceDescription: string | null;
@@ -209,7 +182,6 @@ export function useDashboard(): UseDashboardReturn {
   const user = getCurrentUser();
   const { currentWorkspace } = useWorkspace();
 
-  // 防止 StrictMode 双重调用
   const fetchingRef = useRef(false);
 
   const fetchData = useCallback(async () => {
@@ -232,12 +204,9 @@ export function useDashboard(): UseDashboardReturn {
     fetchData();
   }, [fetchData]);
 
-  // 重置分页当数据变化时
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
   }, [data]);
-
-  // ═══ 派生数据 ═══
 
   const allActivities = useMemo(() => (data ? buildActivities(data) : []), [data]);
   const activities = useMemo(() => allActivities.slice(0, displayCount), [allActivities, displayCount]);
@@ -245,8 +214,6 @@ export function useDashboard(): UseDashboardReturn {
 
   const stats = useMemo(() => (data ? buildStats(data) : []), [data]);
   const systemStatus = useMemo(() => (data ? buildSystemStatus(data) : null), [data]);
-
-  // ═══ 状态判断 ═══
 
   const statsState: UseDashboardReturn['statsState'] = loading ? 'loading' : error ? 'error' : 'data';
   const activityState: UseDashboardReturn['activityState'] = loading
@@ -265,8 +232,6 @@ export function useDashboard(): UseDashboardReturn {
         ? 'empty'
         : 'data';
 
-  // ═══ 操作 ═══
-
   const loadMoreActivities = useCallback(() => {
     setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, allActivities.length));
   }, [allActivities.length]);
@@ -277,8 +242,6 @@ export function useDashboard(): UseDashboardReturn {
 
   const openLogDrawer = useCallback(() => setLogDrawerOpen(true), []);
   const closeLogDrawer = useCallback(() => setLogDrawerOpen(false), []);
-
-  // ═══ 用户信息 ═══
 
   const userName = user?.username ?? '用户';
   const workspaceName = currentWorkspace?.name ?? '我的工作空间';
