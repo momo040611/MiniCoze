@@ -643,8 +643,11 @@ model KnowledgeDocument {
   errorMessage    String?                 @db.Text
   chunkCount      Int                     @default(0)
   tokenCount      Int                     @default(0)
+  chunkType       String?
+  chunkConfig     Json?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
+  totalChars      Int                     @default(0)
 
   knowledgeBase KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -668,20 +671,34 @@ model KnowledgeChunk {
   content         String   @db.Text
   index           Int
   tokenCount      Int      @default(0)
+  enabled         Boolean  @default(true)
   metadata        Json?
   vectorId        String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  document      KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  knowledgeBase KnowledgeBase     @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  document      KnowledgeDocument     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase         @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  workspace     Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  vectorRecord  KnowledgeChunkVector?
 
   @@unique([documentId, index])
   @@index([documentId])
   @@index([knowledgeBaseId])
   @@index([workspaceId])
   @@index([vectorId])
+}
+
+model KnowledgeChunkVector {
+  id            String                      @id @default(cuid())
+  chunkId       String                      @unique
+  embedderModel String
+  dim           Int
+  vector        Unsupported("vector(1024)")
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  chunk KnowledgeChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
 }
 
 model KnowledgeBaseAgentBinding {

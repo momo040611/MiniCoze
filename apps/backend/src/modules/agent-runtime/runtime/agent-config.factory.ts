@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AgentConfig, RunAgentCommand } from '../../../shared/types/agent';
 import { PluginRegistryService } from '../../plugins/plugin-registry.service';
 import { AgentService } from '../../single-agent/agent.service';
+import type { Agent } from '@prisma/client';
 
 const DEFAULT_MAX_TOKENS = 1024;
 
@@ -28,10 +29,18 @@ export class AgentConfigFactory {
       };
     }
 
-    const agent = await this.agentService.findRunnableAgentForUser(
-      command.userId,
-      command.agentId,
-    );
+    let agent: Agent;
+    if (command.preview) {
+      agent = await this.agentService.findPreviewAgentForUser(
+        command.userId,
+        command.agentId,
+      );
+    } else {
+      agent = await this.agentService.findRunnableAgentForUser(
+        command.userId,
+        command.agentId,
+      );
+    }
 
     const tools =
       command.preview && command.tools?.length
