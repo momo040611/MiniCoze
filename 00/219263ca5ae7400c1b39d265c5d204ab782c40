@@ -1,0 +1,38 @@
+apps/backend/src/modules/dashboard/dashboard.service.ts
+  s_c8b7dfaf4b484e::t_7651b6f6f41e27 1-428
+apps/backend/src/modules/dashboard/types/dashboard-summary.type.ts
+  s_c8b7dfaf4b484e::t_28aec3fa3bd816 1-53
+apps/backend/src/modules/dashboard/dashboard.service.spec.ts
+  s_c8b7dfaf4b484e::t_b0303dde03e09d 1-269
+apps/backend/src/app.module.ts
+  s_d0fcfddce60f72::t_fa3b8a35d4ead4 20,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "00219263ca5ae7400c1b39d265c5d204ab782c40",
+  "prompts": {},
+  "humans": {
+    "h_3b0c6c013044cc": {
+      "author": "xuxi <2072548160@qq.com>"
+    }
+  },
+  "sessions": {
+    "s_c8b7dfaf4b484e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea202-2349-7f42-b46f-c2d30cd82785",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    },
+    "s_d0fcfddce60f72": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9cef-a82c-73d3-a882-7f12dfbc0326",
+        "model": "gpt-5.4"
+      },
+      "human_author": null
+    }
+  }
+}
