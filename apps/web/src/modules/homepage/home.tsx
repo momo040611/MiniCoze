@@ -72,7 +72,7 @@ interface QuotedMessage {
   agentName?: string;
 }
 
-export const HomepageIndex = () => {
+export function HomepageIndex() {
   const [searchParams] = useSearchParams();
 
   const [messages, setMessages] = useState<ChatItem[]>([])
@@ -226,18 +226,21 @@ export const HomepageIndex = () => {
         if (conversationBelongsToAgent) {
           // 对话属于当前智能体，加载该对话
           loadConversationMessages(conversationIdFromUrl).catch(() => {
-            // 如果加载失败，则加载最新的
-            loadConversations({ autoOpenLatest: true })
+            // 如果加载失败，显示新对话
+            setConversationId(null)
+            setMessages([])
           })
         } else {
-          // 对话不属于当前智能体，加载最新的对话
-          loadConversations({ autoOpenLatest: true })
+          // 对话不属于当前智能体，显示新对话
+          setConversationId(null)
+          setMessages([])
         }
       })
     } else {
+      // 默认显示新对话，不自动加载最近对话
       setConversationId(null)
       setMessages([])
-      loadConversations({ autoOpenLatest: true })
+      loadConversations()
     }
 
   }, [loadConversations, loadConversationMessages, selectedAgent, searchParams])
@@ -1027,7 +1030,27 @@ export const HomepageIndex = () => {
             />
           )}
           {messages.length === 0 ? (
-            <Empty className={styles.chatPlaceholder} description="准备大干一场吧" />
+            <div className={styles.welcomeState}>
+              <div className={styles.welcomeIcon}>✨</div>
+              <h2 className={styles.welcomeTitle}>开始新的对话</h2>
+              <p className={styles.welcomeDesc}>
+                选择一个智能体，输入你的问题开始探索
+              </p>
+              <div className={styles.welcomeHints}>
+                <div className={styles.hintCard} onClick={() => setInputValue('帮我分析一下这个数据')}>
+                  <span className={styles.hintIcon}>📊</span>
+                  <span>数据分析</span>
+                </div>
+                <div className={styles.hintCard} onClick={() => setInputValue('帮我写一段代码')}>
+                  <span className={styles.hintIcon}>💻</span>
+                  <span>代码编写</span>
+                </div>
+                <div className={styles.hintCard} onClick={() => setInputValue('帮我总结这篇文章')}>
+                  <span className={styles.hintIcon}>📝</span>
+                  <span>内容总结</span>
+                </div>
+              </div>
+            </div>
           ) : (
             <div
               className={styles.chatMessageList}

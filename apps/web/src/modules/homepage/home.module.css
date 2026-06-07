@@ -31,19 +31,22 @@
 
 .newChatBtn {
   margin: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   height: 40px;
   font-size: 14px;
   font-weight: 600;
-  background: #22c55e !important;
-  border-color: #22c55e !important;
+  background: var(--color-primary, #565fe2) !important;
+  border-color: var(--color-primary, #565fe2) !important;
   color: #fff !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .newChatBtn:hover {
-  background: #16a34a !important;
-  border-color: #16a34a !important;
+  background: var(--color-primary-hover, #4a54d4) !important;
+  border-color: var(--color-primary-hover, #4a54d4) !important;
   color: #fff !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .newChatBtn:active {
@@ -176,6 +179,74 @@
   font-size: 15px;
 }
 
+/* 欢迎状态 */
+.welcomeState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.welcomeIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.welcomeTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary, #18202f);
+  margin: 0 0 8px 0;
+}
+
+.welcomeDesc {
+  font-size: 14px;
+  color: var(--text-tertiary, #6b7280);
+  margin: 0 0 32px 0;
+  max-width: 300px;
+}
+
+.welcomeHints {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hintCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, rgba(104, 119, 144, 0.15));
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  color: var(--text-secondary, #506070);
+}
+
+.hintCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary, #565fe2);
+  color: var(--color-primary, #565fe2);
+}
+
+.hintIcon {
+  font-size: 18px;
+}
+
 .chatMessageList {
   padding: 20px 24px;
   display: flex;
@@ -254,15 +325,15 @@
   background: linear-gradient(135deg, #565fe2 0%, #4a54d4 100%);
   color: #fff;
   border-radius: 20px 20px 6px 20px;
-  box-shadow: 0 2px 8px rgba(86, 95, 226, 0.25);
+  box-shadow: 0 4px 12px rgba(86, 95, 226, 0.2);
 }
 
 .agentBubble {
-  background: #f7f8fa;
-  color: #18202f;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-primary, #18202f);
   border-radius: 20px 20px 20px 6px;
-  border: 1px solid rgba(104, 119, 144, 0.1);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--card-border, rgba(104, 119, 144, 0.08));
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
 }
 
 .messageText {
@@ -307,17 +378,17 @@
   width: 100%;
   max-width: 760px;
   margin: 0 auto 16px;
-  background: #fff;
-  border: 1px solid rgba(104, 119, 144, 0.15);
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--card-border, rgba(104, 119, 144, 0.1));
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
   padding: 10px 12px 8px 16px;
   font-size: 14px;
   outline: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
@@ -344,8 +415,8 @@
 }
 
 .centerInput:focus-within {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border-color: rgba(104, 119, 144, 0.25);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.08));
+  border-color: var(--color-primary, #565fe2);
 }
 
 /* 引用预览条 */
@@ -822,9 +893,14 @@
 }
 
 [data-theme='dark'] .centerInput {
-  background: var(--bg-secondary);
-  border-color: var(--border-color);
-  box-shadow: var(--shadow-md);
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .centerInput:focus-within {
+  border-color: var(--color-primary, #6b73ff);
+  box-shadow: 0 4px 20px rgba(107, 115, 255, 0.15);
 }
 
 [data-theme='dark'] .inputRow :global(textarea) {
@@ -906,8 +982,50 @@
   color: var(--text-secondary);
 }
 
+[data-theme='dark'] .newChatBtn {
+  background: var(--color-primary, #6b73ff) !important;
+  border-color: var(--color-primary, #6b73ff) !important;
+}
+
+[data-theme='dark'] .newChatBtn:hover {
+  background: #7c83ff !important;
+  border-color: #7c83ff !important;
+  box-shadow: 0 4px 12px rgba(107, 115, 255, 0.3);
+}
+
+[data-theme='dark'] .scrollBottomBtn {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .scrollBottomBtn:hover {
+  border-color: var(--color-primary, #6b73ff) !important;
+  color: var(--color-primary, #6b73ff) !important;
+}
+
 [data-theme='dark'] .chatPlaceholder :global(.ant-empty-description) {
   color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .welcomeTitle {
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .welcomeDesc {
+  color: #64748b;
+}
+
+[data-theme='dark'] .hintCard {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .hintCard:hover {
+  border-color: var(--color-primary, #6b73ff);
+  color: var(--color-primary, #6b73ff);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 [data-theme='dark'] .historyMask {

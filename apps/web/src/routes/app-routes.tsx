@@ -29,6 +29,7 @@ const KnowledgeList = lazy(() => import('../modules/knowledge-base').then(m => (
 const KnowledgeCreate = lazy(() => import('../modules/knowledge-base').then(m => ({ default: m.KnowledgeCreate })));
 const KnowledgeDetail = lazy(() => import('../modules/knowledge-base').then(m => ({ default: m.KnowledgeDetail })));
 const Productionline = lazy(() => import('../modules/knowledge-base/page/Productionline').then(m => ({ default: m.Productionline })));
+const WorkspaceSettings = lazy(() => import('../modules/workspace/WorkspaceSettings').then(m => ({ default: m.WorkspaceSettings })));
 
 // ── 加载指示器 ──
 function PageLoading() {
@@ -100,6 +101,7 @@ export function AppRoutes() {
         <Route element={strict(<ProtectedAppLayout />)}>
           <Route path="/workspace" element={withSuspense(DashboardPage)} />
           <Route path="/workspace/chat" element={withSuspense(HomepageIndex)} />
+          <Route path="/workspace/settings" element={withSuspense(WorkspaceSettings)} />
           <Route path="/profile" element={withSuspense(ProfilePage)} />
           <Route path="/agents" element={withSuspense(CreatAgent)} />
           <Route path="/agents/:agentId" element={withSuspense(AgentDetailPage)} />

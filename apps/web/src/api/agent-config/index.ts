@@ -171,7 +171,13 @@ export async function getAgentList(params?: {
   keyword?: string;
   status?: string;
 }): Promise<AgentConfig[]> {
-  const workspaceId = await getCurrentWorkspaceId();
+  let workspaceId: string;
+  try {
+    workspaceId = await getCurrentWorkspaceId();
+  } catch {
+    // 工作空间获取失败（未登录/token过期），返回空列表
+    return [];
+  }
 
   const res = await http.get<ApiEnvelope<PaginatedAgents>>('agents', {
     query: {

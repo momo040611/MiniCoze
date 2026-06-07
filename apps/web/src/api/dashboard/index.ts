@@ -51,6 +51,7 @@ export interface DashboardSummary {
   publishPendingCount: number;
   pluginEnabledCount: number;
   pluginUpdateCount: number;
+  memberCount: number;
   recentAgents: DashboardAgentSummary[];
   recentConversations: DashboardConversationSummary[];
   recentWorkflows: DashboardWorkflowRun[];
@@ -66,6 +67,48 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     `workspaces/${workspaceId}/dashboard`,
   );
   return res.data;
+}
+
+// ---- 前端派生类型（用于 UI 组件）----
+
+/** 统一活动时间线条目 */
+export interface ActivityItem {
+  id: string;
+  type: 'agent' | 'conversation' | 'workflow';
+  title: string;
+  subtitle: string;
+  status?: string;
+  statusColor?: string;
+  timestamp: string;
+  relativeTime: string;
+  targetPath: string;
+}
+
+/** 统计卡片数据 */
+export interface StatItem {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  value: number;
+  trend?: number;
+  accentColor: string;
+  targetPath: string;
+}
+
+/** 快捷操作定义 */
+export interface QuickAction {
+  key: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  targetPath: string;
+}
+
+/** 系统状态数据 */
+export interface SystemStatusData {
+  plugins: { enabled: number; total: number; updateAvailable: number };
+  publish: { pending: number; published: number };
+  knowledge: { synced: number; total: number };
 }
 
 export { setupDashboardMocks } from './setup-mocks';
