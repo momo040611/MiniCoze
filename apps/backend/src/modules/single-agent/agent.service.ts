@@ -146,6 +146,15 @@ export class AgentService {
     };
   }
 
+  async findPreviewAgentForUser(
+    userId: string,
+    agentId: string,
+  ): Promise<Agent> {
+    const agent = await this.findAgentOrThrow(agentId);
+    await this.workspaceAccessService.ensureMember(userId, agent.workspaceId);
+    return agent;
+  }
+
   async update(
     userId: string,
     agentId: string,
@@ -192,7 +201,7 @@ export class AgentService {
     return this.toAgentResponse(deletedAgent);
   }
 
-  private async findAgentOrThrow(agentId: string) {
+  private async findAgentOrThrow(agentId: string): Promise<Agent> {
     const agent = await this.prisma.agent.findUnique({
       where: {
         id: agentId,

@@ -31,6 +31,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       );
     }
 
+    if (response.headersSent || response.writableEnded) {
+      this.logger.warn(
+        `Skip error response because headers were already sent: ${message}`,
+      );
+      return;
+    }
+
     response.status(status).json({
       code,
       message,
