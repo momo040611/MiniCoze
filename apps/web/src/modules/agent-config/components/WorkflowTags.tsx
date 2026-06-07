@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { getWorkflowList, type Workflow } from '../../../api/workflows'
+import { getWorkflowListRemote, type Workflow } from '../../../api/workflows'
+import { getCurrentWorkspaceId } from '../../../api/workspace'
 import styles from './DatabaseTags.module.css'
 
 interface Props {
@@ -12,7 +13,10 @@ export function WorkflowTags({ ids, onRemove, onAdd }: Props) {
   const [allItems, setAllItems] = useState<Workflow[]>([])
 
   useEffect(() => {
-    getWorkflowList().then(setAllItems).catch(() => setAllItems([]))
+    getCurrentWorkspaceId()
+      .then((workspaceId) => getWorkflowListRemote(workspaceId))
+      .then(setAllItems)
+      .catch(() => setAllItems([]))
   }, [])
 
   const selected = useMemo(

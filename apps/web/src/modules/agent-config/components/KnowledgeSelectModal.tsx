@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { knowledgeApi, type KnowledgeBase } from '../../../api/knowledge-base';
+import { type KnowledgeBase } from '../../../api/knowledge-base';
 import { KnowledgeStatus } from '../../../api/knowledge-base/types';
+import { fetchKnowledgeBases } from './knowledge-base-helpers';
 import styles from './KnowledgeSelectModal.module.css';
 
 interface Props {
@@ -54,8 +55,8 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await knowledgeApi.getKnowledgeBases();
-      setItems(response.data.list);
+      const list = await fetchKnowledgeBases();
+      setItems(list);
     } catch {
       setItems([]);
     } finally {
