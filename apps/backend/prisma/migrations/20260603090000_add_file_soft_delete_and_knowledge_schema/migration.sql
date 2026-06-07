@@ -30,114 +30,54 @@ CREATE TYPE "KnowledgeBaseStatus" AS ENUM ('ACTIVE', 'DISABLED', 'ARCHIVED');
 -- CreateEnum
 CREATE TYPE "KnowledgeDocumentStatus" AS ENUM ('UPLOADED', 'PROCESSING', 'PARSED', 'CHUNKED', 'EMBEDDING', 'READY', 'FAILED');
 
--- KnowledgeBase was created by 20260528100000_add_knowledge_rag. Extend it to the
--- current schema instead of creating it again.
-ALTER TABLE "KnowledgeBase"
-    ADD COLUMN "status" "KnowledgeBaseStatus" NOT NULL DEFAULT 'ACTIVE';
+-- CreateTable
+CREATE TABLE "KnowledgeBase" (
+    "id" TEXT NOT NULL,
+    "workspaceId" TEXT NOT NULL,
+    "creatorId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "status" "KnowledgeBaseStatus" NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
--- KnowledgeDocument: migrate the initial RAG document shape to the file-backed
--- document schema.
-ALTER TABLE "KnowledgeDocument" RENAME COLUMN "originalName" TO "name";
+    CONSTRAINT "KnowledgeBase_pkey" PRIMARY KEY ("id")
+);
 
-ALTER TABLE "KnowledgeDocument"
-    ADD COLUMN "workspaceId" TEXT,
-    ADD COLUMN "fileId" TEXT,
-    ADD COLUMN "creatorId" TEXT,
-    ADD COLUMN "status" "KnowledgeDocumentStatus" NOT NULL DEFAULT 'UPLOADED',
-    ADD COLUMN "errorMessage" TEXT,
-    ADD COLUMN "chunkCount" INTEGER NOT NULL DEFAULT 0,
-    ADD COLUMN "tokenCount" INTEGER NOT NULL DEFAULT 0,
-    ADD COLUMN "updatedAt" TIMESTAMP(3);
+-- CreateTable
+CREATE TABLE "KnowledgeDocument" (
+    "id" TEXT NOT NULL,
+    "knowledgeBaseId" TEXT NOT NULL,
+    "workspaceId" TEXT NOT NULL,
+    "fileId" TEXT NOT NULL,
+    "creatorId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "status" "KnowledgeDocumentStatus" NOT NULL DEFAULT 'UPLOADED',
+    "errorMessage" TEXT,
+    "chunkCount" INTEGER NOT NULL DEFAULT 0,
+    "tokenCount" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-UPDATE "KnowledgeDocument" d
-SET
-    "workspaceId" = kb."workspaceId",
-    "creatorId" = kb."creatorId",
-    "chunkCount" = d."totalChunks",
-    "updatedAt" = d."createdAt"
-FROM "KnowledgeBase" kb
-WHERE d."knowledgeBaseId" = kb."id";
+    CONSTRAINT "KnowledgeDocument_pkey" PRIMARY KEY ("id")
+);
 
-INSERT INTO "FileAsset" (
-    "id",
-    "workspaceId",
-    "ownerId",
-    "purpose",
-    "visibility",
-    "status",
-    "originalName",
-    "storageKey",
-    "url",
-    "mimeType",
-    "extension",
-    "size",
-    "checksum",
-    "createdAt",
-    "updatedAt"
-)
-SELECT
-    'legacy_knowledge_file_' || md5(d."id"),
-    d."workspaceId",
-    d."creatorId",
-    'KNOWLEDGE_DOCUMENT'::"FilePurpose",
-    'PRIVATE'::"FileVisibility",
-    'READY'::"FileStatus",
-    d."name",
-    'legacy-knowledge/' || d."id",
-    NULL,
-    'application/octet-stream',
-    d."fileExtension",
-    d."fileSize",
-    NULL,
-    d."createdAt",
-    d."updatedAt"
-FROM "KnowledgeDocument" d
-WHERE d."fileId" IS NULL;
+-- CreateTable
+CREATE TABLE "KnowledgeChunk" (
+    "id" TEXT NOT NULL,
+    "documentId" TEXT NOT NULL,
+    "knowledgeBaseId" TEXT NOT NULL,
+    "workspaceId" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "index" INTEGER NOT NULL,
+    "tokenCount" INTEGER NOT NULL DEFAULT 0,
+    "metadata" JSONB,
+    "vectorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-UPDATE "KnowledgeDocument"
-SET "fileId" = 'legacy_knowledge_file_' || md5("id")
-WHERE "fileId" IS NULL;
-
-ALTER TABLE "KnowledgeDocument"
-    ALTER COLUMN "workspaceId" SET NOT NULL,
-    ALTER COLUMN "fileId" SET NOT NULL,
-    ALTER COLUMN "creatorId" SET NOT NULL,
-    ALTER COLUMN "updatedAt" SET NOT NULL,
-    ALTER COLUMN "chunkType" DROP NOT NULL,
-    ALTER COLUMN "chunkConfig" DROP NOT NULL,
-    ALTER COLUMN "totalChars" SET DEFAULT 0,
-    DROP COLUMN "fileExtension",
-    DROP COLUMN "fileSize",
-    DROP COLUMN "totalChunks";
-
-DROP INDEX IF EXISTS "KnowledgeDocument_knowledgeBaseId_createdAt_idx";
-
--- KnowledgeChunk: keep the old embedding column until
--- 20260606160000_add_knowledge_chunk_vector moves it to KnowledgeChunkVector.
-ALTER TABLE "KnowledgeChunk" RENAME COLUMN "chunkIndex" TO "index";
-
-ALTER TABLE "KnowledgeChunk"
-    ADD COLUMN "knowledgeBaseId" TEXT,
-    ADD COLUMN "workspaceId" TEXT,
-    ADD COLUMN "tokenCount" INTEGER NOT NULL DEFAULT 0,
-    ADD COLUMN "metadata" JSONB,
-    ADD COLUMN "vectorId" TEXT,
-    ADD COLUMN "updatedAt" TIMESTAMP(3);
-
-UPDATE "KnowledgeChunk" c
-SET
-    "knowledgeBaseId" = d."knowledgeBaseId",
-    "workspaceId" = d."workspaceId",
-    "tokenCount" = c."charCount",
-    "updatedAt" = c."createdAt"
-FROM "KnowledgeDocument" d
-WHERE c."documentId" = d."id";
-
-ALTER TABLE "KnowledgeChunk"
-    ALTER COLUMN "knowledgeBaseId" SET NOT NULL,
-    ALTER COLUMN "workspaceId" SET NOT NULL,
-    ALTER COLUMN "updatedAt" SET NOT NULL,
-    DROP COLUMN "charCount";
+    CONSTRAINT "KnowledgeChunk_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "KnowledgeBaseAgentBinding" (
@@ -168,7 +108,16 @@ CREATE INDEX "FileAsset_ownerId_createdAt_idx" ON "FileAsset"("ownerId", "create
 CREATE INDEX "FileAsset_createdAt_idx" ON "FileAsset"("createdAt");
 
 -- CreateIndex
+CREATE INDEX "KnowledgeBase_workspaceId_idx" ON "KnowledgeBase"("workspaceId");
+
+-- CreateIndex
+CREATE INDEX "KnowledgeBase_creatorId_idx" ON "KnowledgeBase"("creatorId");
+
+-- CreateIndex
 CREATE INDEX "KnowledgeBase_workspaceId_status_idx" ON "KnowledgeBase"("workspaceId", "status");
+
+-- CreateIndex
+CREATE INDEX "KnowledgeDocument_knowledgeBaseId_idx" ON "KnowledgeDocument"("knowledgeBaseId");
 
 -- CreateIndex
 CREATE INDEX "KnowledgeDocument_workspaceId_idx" ON "KnowledgeDocument"("workspaceId");
@@ -184,6 +133,9 @@ CREATE INDEX "KnowledgeDocument_status_idx" ON "KnowledgeDocument"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "KnowledgeDocument_knowledgeBaseId_fileId_key" ON "KnowledgeDocument"("knowledgeBaseId", "fileId");
+
+-- CreateIndex
+CREATE INDEX "KnowledgeChunk_documentId_idx" ON "KnowledgeChunk"("documentId");
 
 -- CreateIndex
 CREATE INDEX "KnowledgeChunk_knowledgeBaseId_idx" ON "KnowledgeChunk"("knowledgeBaseId");
@@ -210,6 +162,15 @@ CREATE INDEX "KnowledgeBaseAgentBinding_agentId_enabled_idx" ON "KnowledgeBaseAg
 CREATE UNIQUE INDEX "KnowledgeBaseAgentBinding_agentId_knowledgeBaseId_key" ON "KnowledgeBaseAgentBinding"("agentId", "knowledgeBaseId");
 
 -- AddForeignKey
+ALTER TABLE "KnowledgeBase" ADD CONSTRAINT "KnowledgeBase_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KnowledgeBase" ADD CONSTRAINT "KnowledgeBase_creatorId_fkey" FOREIGN KEY ("creatorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KnowledgeDocument" ADD CONSTRAINT "KnowledgeDocument_knowledgeBaseId_fkey" FOREIGN KEY ("knowledgeBaseId") REFERENCES "KnowledgeBase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "KnowledgeDocument" ADD CONSTRAINT "KnowledgeDocument_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -217,6 +178,9 @@ ALTER TABLE "KnowledgeDocument" ADD CONSTRAINT "KnowledgeDocument_fileId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "KnowledgeDocument" ADD CONSTRAINT "KnowledgeDocument_creatorId_fkey" FOREIGN KEY ("creatorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KnowledgeChunk" ADD CONSTRAINT "KnowledgeChunk_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "KnowledgeDocument"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "KnowledgeChunk" ADD CONSTRAINT "KnowledgeChunk_knowledgeBaseId_fkey" FOREIGN KEY ("knowledgeBaseId") REFERENCES "KnowledgeBase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
