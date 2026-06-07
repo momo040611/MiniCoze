@@ -152,6 +152,8 @@ enum PublishAction {
   OFFLINE
   ENABLE_CHANNEL
   DISABLE_CHANNEL
+  UPDATE_CHANNEL
+  ROTATE_API_KEY
 }
 
 enum PublishActionStatus {
@@ -575,6 +577,7 @@ model PublishRecord {
   targetType   PublishTargetType
   targetId     String
   versionId    String?
+  versionNumber Int?
   action       PublishAction
   status       PublishActionStatus
   changelog    String?             @db.Text
