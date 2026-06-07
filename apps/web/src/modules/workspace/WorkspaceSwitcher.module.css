@@ -1,0 +1,251 @@
+/* 工作区切换面板 — 简约高尚设计 */
+
+/* 触发按钮 */
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-color, rgba(104, 119, 144, 0.15));
+  border-radius: 8px;
+  background: var(--bg-primary, #ffffff);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font: inherit;
+  color: inherit;
+}
+
+.trigger:hover {
+  border-color: var(--color-primary, #565fe2);
+  background: rgba(86, 95, 226, 0.04);
+}
+
+.triggerText {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #18202f);
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.triggerArrow {
+  font-size: 10px;
+  color: var(--text-tertiary, #6b7280);
+  transition: transform 0.2s;
+}
+
+/* 弹出面板 */
+.popover {
+  padding: 0;
+}
+
+.popover :global(.ant-popover-inner) {
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.panel {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 搜索 */
+.searchWrap {
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--border-color, rgba(104, 119, 144, 0.08));
+}
+
+.searchInput {
+  border-radius: 8px;
+}
+
+/* 列表 */
+.list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: #d0d5dd;
+  border-radius: 2px;
+}
+
+.empty {
+  padding: 20px 0;
+}
+
+/* 列表项 */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.item:hover {
+  background: rgba(86, 95, 226, 0.06);
+}
+
+.itemActive {
+  background: rgba(86, 95, 226, 0.08);
+}
+
+.itemAvatar {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--color-primary, #565fe2), var(--color-success, #22c55e));
+}
+
+.itemInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itemName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #18202f);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.itemCheck {
+  font-size: 12px;
+  color: var(--color-success, #22c55e);
+}
+
+.itemMeta {
+  font-size: 12px;
+  color: var(--text-tertiary, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemSettings {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary, #6b7280);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.item:hover .itemSettings {
+  opacity: 1;
+}
+
+.itemSettings:hover {
+  background: rgba(86, 95, 226, 0.1);
+  color: var(--color-primary, #565fe2);
+}
+
+/* 底部 */
+.footer {
+  padding: 8px;
+  border-top: 1px solid var(--border-color, rgba(104, 119, 144, 0.08));
+}
+
+.createBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--color-primary, #565fe2);
+  transition: all 0.2s;
+}
+
+.createBtn:hover {
+  background: rgba(86, 95, 226, 0.06);
+}
+
+/* 暗色主题 */
+[data-theme='dark'] .trigger {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.1);
+}
+
+[data-theme='dark'] .trigger:hover {
+  border-color: var(--color-primary, #6b73ff);
+  background: rgba(107, 115, 255, 0.08);
+}
+
+[data-theme='dark'] .triggerText {
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .triggerArrow {
+  color: #64748b;
+}
+
+[data-theme='dark'] .popover :global(.ant-popover-inner) {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.1);
+}
+
+[data-theme='dark'] .searchWrap {
+  border-color: rgba(148, 163, 184, 0.08);
+}
+
+[data-theme='dark'] .item:hover {
+  background: rgba(107, 115, 255, 0.08);
+}
+
+[data-theme='dark'] .itemActive {
+  background: rgba(107, 115, 255, 0.12);
+}
+
+[data-theme='dark'] .itemName {
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .itemMeta {
+  color: #64748b;
+}
+
+[data-theme='dark'] .itemSettings {
+  color: #64748b;
+}
+
+[data-theme='dark'] .itemSettings:hover {
+  background: rgba(107, 115, 255, 0.1);
+  color: var(--color-primary, #6b73ff);
+}
+
+[data-theme='dark'] .footer {
+  border-color: rgba(148, 163, 184, 0.08);
+}
+
+[data-theme='dark'] .createBtn {
+  color: var(--color-primary, #6b73ff);
+}
+
+[data-theme='dark'] .createBtn:hover {
+  background: rgba(107, 115, 255, 0.08);
+}

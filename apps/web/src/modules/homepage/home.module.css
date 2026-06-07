@@ -1,5 +1,10 @@
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .windowBox{
-  flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: row;
   min-height: 0;
@@ -26,19 +31,22 @@
 
 .newChatBtn {
   margin: 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   height: 40px;
   font-size: 14px;
   font-weight: 600;
-  background: #22c55e !important;
-  border-color: #22c55e !important;
+  background: var(--color-primary, #565fe2) !important;
+  border-color: var(--color-primary, #565fe2) !important;
   color: #fff !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .newChatBtn:hover {
-  background: #16a34a !important;
-  border-color: #16a34a !important;
+  background: var(--color-primary-hover, #4a54d4) !important;
+  border-color: var(--color-primary-hover, #4a54d4) !important;
   color: #fff !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .newChatBtn:active {
@@ -81,7 +89,7 @@
 
 .historyItemIcon {
   font-size: 16px;
-  color: #8896a6;
+  color: #6b7280;
   flex-shrink: 0;
 }
 
@@ -103,7 +111,7 @@
 
 .historyItemAgent {
   font-size: 11px;
-  color: #8896a6;
+  color: #6b7280;
 }
 
 .historyItemDelete {
@@ -122,6 +130,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chatTopBar {
@@ -136,47 +146,162 @@
   font-size: 16px;
 }
 
-.centerChat{
+/* 可滚动的消息区域（flex:1, overflow-y:auto） */
+.chatMessagesWrapper {
   width: 100%;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+.chatMessagesWrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chatMessagesWrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chatMessagesWrapper::-webkit-scrollbar-thumb {
+  background: #d0d5dd;
+  border-radius: 3px;
 }
 
 .chatPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
   color: #a0aec0;
   font-size: 15px;
-  margin: auto;
+}
+
+/* 欢迎状态 */
+.welcomeState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.welcomeIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.welcomeTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary, #18202f);
+  margin: 0 0 8px 0;
+}
+
+.welcomeDesc {
+  font-size: 14px;
+  color: var(--text-tertiary, #6b7280);
+  margin: 0 0 32px 0;
+  max-width: 300px;
+}
+
+.welcomeHints {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hintCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, rgba(104, 119, 144, 0.15));
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  color: var(--text-secondary, #506070);
+}
+
+.hintCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary, #565fe2);
+  color: var(--color-primary, #565fe2);
+}
+
+.hintIcon {
+  font-size: 18px;
 }
 
 .chatMessageList {
-  flex: 1;
-  overflow-y: auto;
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.chatMessageList::-webkit-scrollbar {
-  width: 6px;
+/* 回到底部浮动按钮 */
+.scrollBottomBtn {
+  position: sticky;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  background: #fff;
+  border: 1px solid rgba(104, 119, 144, 0.15);
+  animation: fadeInUp 0.2s ease;
 }
 
-.chatMessageList::-webkit-scrollbar-track {
-  background: transparent;
+.scrollBottomBtn:hover {
+  border-color: #22c55e !important;
+  color: #22c55e !important;
 }
 
-.chatMessageList::-webkit-scrollbar-thumb {
-  background: #d0d5dd;
-  border-radius: 3px;
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* 固定在底部的输入区域 */
+.chatInputArea {
+  flex-shrink: 0;
+  width: 100%;
+  background: var(--layout-bg);
+  padding-top: 4px;
 }
 
 .chatMessage {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  margin-bottom: 4px;
+  animation: messageIn 0.3s ease-out;
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .userRow {
@@ -188,23 +313,27 @@
 }
 
 .messageContent {
-  max-width: 70%;
-  padding: 10px 16px;
+  max-width: 72%;
+  padding: 12px 18px;
   word-break: break-word;
-  line-height: 1.5;
+  line-height: 1.6;
   font-size: 14px;
+  position: relative;
 }
 
 .userBubble {
-  background: #565fe2;
+  background: linear-gradient(135deg, #565fe2 0%, #4a54d4 100%);
   color: #fff;
-  border-radius: 18px 18px 4px 18px;
+  border-radius: 20px 20px 6px 20px;
+  box-shadow: 0 4px 12px rgba(86, 95, 226, 0.2);
 }
 
 .agentBubble {
-  background: #f0f2f5;
-  color: #18202f;
-  border-radius: 18px 18px 18px 4px;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-primary, #18202f);
+  border-radius: 20px 20px 20px 6px;
+  border: 1px solid var(--card-border, rgba(104, 119, 144, 0.08));
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
 }
 
 .messageText {
@@ -213,7 +342,7 @@
 
 .messageTime {
   font-size: 11px;
-  color: #8896a6;
+  color: #6b7280;
   padding-right: 4px;
 }
 
@@ -249,22 +378,87 @@
   width: 100%;
   max-width: 760px;
   margin: 0 auto 16px;
-  background: #fff;
-  border: 1px solid rgba(104, 119, 144, 0.15);
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--card-border, rgba(104, 119, 144, 0.1));
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
   padding: 10px 12px 8px 16px;
   font-size: 14px;
   outline: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: box-shadow 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.centerInputDragOver {
+  border-color: #565fe2 !important;
+  box-shadow: 0 0 0 2px rgba(86, 95, 226, 0.2), 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.dragOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(86, 95, 226, 0.06);
+  border: 2px dashed #565fe2;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 10;
+  font-size: 14px;
+  color: #565fe2;
+  font-weight: 500;
 }
 
 .centerInput:focus-within {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border-color: rgba(104, 119, 144, 0.25);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.08));
+  border-color: var(--color-primary, #565fe2);
+}
+
+/* 引用预览条 */
+.quotePreview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(86, 95, 226, 0.04);
+  border: 1px solid rgba(86, 95, 226, 0.15);
+  border-radius: 8px;
+  animation: fadeIn 0.2s ease;
+}
+
+.quoteBar {
+  width: 3px;
+  height: 24px;
+  background: #565fe2;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.quoteContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quoteSender {
+  font-size: 11px;
+  color: #565fe2;
+  font-weight: 600;
+}
+
+.quoteText {
+  font-size: 12px;
+  color: #506070;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 文件预览条 */
@@ -316,7 +510,7 @@
 
 .filePreviewSize {
   font-size: 11px;
-  color: #8896a6;
+  color: #6b7280;
 }
 
 /* 输入行 */
@@ -333,12 +527,19 @@
 
 .inputRow :global(textarea) {
   resize: none;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 44px;
+  max-height: 88px;
   background: transparent;
   font-size: 14px;
   color: #18202f;
   line-height: 1.6;
+  scrollbar-width: none;
+}
+
+.inputRow :global(textarea)::-webkit-scrollbar {
+  display: none;
 }
 
 .inputRow :global(textarea::placeholder) {
@@ -360,7 +561,7 @@
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  color: #8896a6;
+  color: #6b7280;
 }
 
 /* 消息中的文件展示 */
@@ -375,18 +576,226 @@
   margin-top: 6px;
 }
 
+/* ── Phase B 新增样式 ── */
+
+/* 智能体头像 */
+.agentAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+/* 当前活跃智能体标签 */
+.activeAgentLabel {
+  margin-left: 12px;
+  font-size: 13px;
+  color: #506070;
+  font-weight: 500;
+}
+
+/* 思考中文本 - 三点动画 */
+.thinkingText {
+  color: #6b7280;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thinkingText::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 12px;
+  background: radial-gradient(circle, #8896a6 2px, transparent 2px);
+  background-size: 6px 6px;
+  background-position: 0 center;
+  animation: thinkingDots 1.5s steps(3) infinite;
+}
+
+@keyframes thinkingDots {
+  0% { background-position: 0 center; }
+  33% { background-position: 6px center; }
+  66% { background-position: 12px center; }
+  100% { background-position: 18px center; }
+}
+
+/* 失败消息 */
+.failedText {
+  color: #ff4d4f;
+  font-size: 13px;
+}
+
+/* 流式输出光标闪烁 - 更自然的打字机效果 */
+.streamingText::after {
+  content: '▋';
+  animation: cursorBlink 0.8s ease-in-out infinite;
+  color: #22c55e;
+  margin-left: 1px;
+  font-weight: normal;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 错误恢复卡片 */
+.errorCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fff5f5 0%, #fff2f0 100%);
+  border: 1px solid #ffccc7;
+  border-radius: 12px;
+  margin: 4px 0;
+  font-size: 13px;
+  color: #ff4d4f;
+  max-width: 80%;
+  align-self: flex-start;
+  box-shadow: 0 2px 8px rgba(255, 77, 79, 0.1);
+}
+
+.errorText {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* ── 操作按钮栏 ── */
+.messageActions {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(104, 119, 144, 0.1);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+/* 触摸设备始终显示操作栏 */
+@media (hover: none) {
+  .messageActions {
+    opacity: 1;
+  }
+}
+
+/* 键盘焦点时显示操作栏 */
+.messageContent:focus-within .messageActions {
+  opacity: 1;
+}
+
+.agentRow:hover .messageActions {
+  opacity: 1;
+}
+
+.messageActions :global(.ant-btn) {
+  border-radius: 6px;
+  font-size: 12px;
+  color: #506070;
+  transition: all 0.2s ease;
+}
+
+.messageActions :global(.ant-btn:hover) {
+  background: rgba(86, 95, 226, 0.08);
+  color: #565fe2;
+}
+.messageActions :global(.ant-btn) {
+  font-size: 12px;
+  color: #6b7280;
+  padding: 2px 8px;
+}
+.messageActions :global(.ant-btn:hover) {
+  color: #22c55e;
+}
+
+/* ── 用户消息编辑 ── */
+.userTextWrap {
+  position: relative;
+  cursor: default;
+}
+.editHint {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  opacity: 0;
+  transition: opacity 0.15s;
+  cursor: pointer;
+}
+.userTextWrap:hover .editHint {
+  opacity: 1;
+}
+
+.editArea {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+}
+.editTextarea {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 8px !important;
+  color: #18202f !important;
+}
+.editActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 移动端遮罩层 */
+.historyMask {
+  display: none;
+}
+
 /* ── Responsive: Mobile ── */
 @media (max-width: 768px) {
   .windowBox {
     flex-direction: column;
   }
 
+  .historyPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    width: 0;
+    min-width: 0;
+    max-height: 50vh;
+    overflow: hidden;
+    transition: width 0.3s ease, min-width 0.3s ease;
+    border-right: none;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+  }
+
   .historyPanelOpen {
     width: 100%;
     min-width: 100%;
-    max-height: 40vh;
+    max-height: 50vh;
     border-right: none;
     border-bottom: 1px solid rgba(104, 119, 144, 0.12);
+  }
+
+  .historyMask {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 99;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+
+  .historyMaskVisible {
+    opacity: 1;
+    visibility: visible;
   }
 
   .chatMessageList {
@@ -416,4 +825,227 @@
   .chatMessageList {
     padding: 8px 12px;
   }
+}
+
+/* ── 暗色主题 ── */
+[data-theme='dark'] .windowBox {
+  background: var(--layout-bg);
+}
+
+[data-theme='dark'] .historyPanel {
+  background: var(--sidebar-bg);
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .historyItem {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .historyItem:hover {
+  background: var(--sidebar-hover-bg);
+}
+
+[data-theme='dark'] .historyItemActive {
+  background: var(--color-primary-light);
+  color: #fff;
+}
+
+[data-theme='dark'] .chatPanel {
+  background: var(--bg-primary);
+}
+
+[data-theme='dark'] .chatTopBar {
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .activeAgentLabel {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .userBubble {
+  background: linear-gradient(135deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
+  box-shadow: 0 2px 8px rgba(74, 84, 212, 0.3);
+}
+
+[data-theme='dark'] .agentBubble {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-color-light);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .messageTime {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .thinkingText {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .errorCard {
+  background: var(--color-error-light);
+  border-color: rgba(255, 77, 79, 0.3);
+}
+
+[data-theme='dark'] .chatInputArea {
+  background: var(--sidebar-bg);
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .centerInput {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .centerInput:focus-within {
+  border-color: var(--color-primary, #6b73ff);
+  box-shadow: 0 4px 20px rgba(107, 115, 255, 0.15);
+}
+
+[data-theme='dark'] .inputRow :global(textarea) {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .inputRow :global(textarea::placeholder) {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .agentSelect :global(.ant-select-selector) {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .agentSelect :global(.ant-select-selection-item) {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .filePreviewBar {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme='dark'] .quotePreview {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary-light);
+}
+
+[data-theme='dark'] .quoteSender {
+  color: var(--color-primary);
+}
+
+[data-theme='dark'] .quoteText {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .docIcon {
+  background: var(--layout-bg);
+}
+
+[data-theme='dark'] .filePreviewName {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .filePreviewSize {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .messageActions {
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .messageActions :global(.ant-btn) {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .messageActions :global(.ant-btn:hover) {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+[data-theme='dark'] .historyPanelOpen {
+  border-color: var(--border-color-light);
+}
+
+[data-theme='dark'] .historyItemTitle {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .historyItemAgent {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .historyItemIcon {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .toggleBtn {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .newChatBtn {
+  background: var(--color-primary, #6b73ff) !important;
+  border-color: var(--color-primary, #6b73ff) !important;
+}
+
+[data-theme='dark'] .newChatBtn:hover {
+  background: #7c83ff !important;
+  border-color: #7c83ff !important;
+  box-shadow: 0 4px 12px rgba(107, 115, 255, 0.3);
+}
+
+[data-theme='dark'] .scrollBottomBtn {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .scrollBottomBtn:hover {
+  border-color: var(--color-primary, #6b73ff) !important;
+  color: var(--color-primary, #6b73ff) !important;
+}
+
+[data-theme='dark'] .chatPlaceholder :global(.ant-empty-description) {
+  color: var(--text-tertiary);
+}
+
+[data-theme='dark'] .welcomeTitle {
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .welcomeDesc {
+  color: #64748b;
+}
+
+[data-theme='dark'] .hintCard {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .hintCard:hover {
+  border-color: var(--color-primary, #6b73ff);
+  color: var(--color-primary, #6b73ff);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .historyMask {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .historyPanel {
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme='dark'] .newChatBtn {
+  background: var(--color-primary-hover) !important;
+  border-color: var(--color-primary-hover) !important;
+}
+
+[data-theme='dark'] .dragOverlay {
+  background: var(--color-primary-bg);
+}
+
+[data-theme='dark'] .centerInputDragOver {
+  border-color: var(--border-color-focus) !important;
+  box-shadow: 0 0 0 2px var(--color-primary-light), var(--shadow-md) !important;
 }

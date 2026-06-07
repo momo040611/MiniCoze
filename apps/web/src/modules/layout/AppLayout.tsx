@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Avatar, Button, ConfigProvider, Dropdown, Menu, Select, theme } from 'antd';
+import { Avatar, Button, ConfigProvider, Dropdown, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DownOutlined,
@@ -12,8 +12,10 @@ import {
 } from '@ant-design/icons';
 import { logout } from '../../api/auth';
 import { getCurrentUser, subscribeToAuth } from '../../api/auth/auth-store';
-import { useWorkspace } from '../workspace/use-workspace';
+import { WorkspaceSwitcher } from '../workspace/WorkspaceSwitcher';
 import { appMenuItems, flattenMenuItems, getMenuParentKeys } from './menu';
+import { AppBreadcrumb } from '../../components/Breadcrumb';
+import { GlobalSearch } from '../../components/GlobalSearch';
 import styles from './AppLayout.module.css';
 
 const flatMenuItems = flattenMenuItems(appMenuItems);
@@ -30,8 +32,8 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [user, setUser] = useState(getCurrentUser());
-  const { workspaces, currentWorkspace, loading, switchWorkspace } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   // 订阅 auth 数据变化（头像/昵称修改后自动刷新）
@@ -160,7 +162,7 @@ export function AppLayout() {
       }}
     >
     <div className={styles.appLayout}>
-      <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''}`}>
+      <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''} ${mobileOpen ? styles.sidebarMobileOpen : ''}`}>
         {!collapsed ? (
           <div className={styles.sidebarTop}>
             <div className={styles.brand}>
@@ -224,20 +226,30 @@ export function AppLayout() {
         </div>
       </aside>
 
+      {/* 移动端遮罩层 */}
+      <div
+        className={`${styles.sidebarMask} ${mobileOpen ? styles.sidebarMaskVisible : ''}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
       <section className={styles.shell}>
         <header className={styles.header}>
-          <Select
-            className={styles.workspaceSelect}
-            value={currentWorkspace?.id}
-            placeholder="选择一个工作区"
-            loading={loading}
-            options={workspaces.map((workspace) => ({
-              value: workspace.id,
-              label: workspace.name,
-            }))}
-            onChange={switchWorkspace}
-            suffixIcon={<DownOutlined />}
-          />
+          <div className={styles.headerLeft}>
+            <Button
+              type="text"
+              icon={<MenuUnfoldOutlined />}
+              onClick={() => setMobileOpen(true)}
+              className={styles.mobileMenuBtn}
+              aria-label="打开菜单"
+            />
+            <AppBreadcrumb />
+          </div>
+          <div className={styles.headerCenter}>
+            <GlobalSearch />
+          </div>
+          <div className={styles.headerRight}>
+            <WorkspaceSwitcher />
+          </div>
         </header>
 
         <main className={styles.content}>
