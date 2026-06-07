@@ -1,4 +1,3 @@
-// ③ 统一活动时间线 — 混合展示智能体、对话、工作流运行
 import { Skeleton, Result } from 'antd';
 import {
   RobotOutlined,
@@ -12,7 +11,6 @@ import { EmptyState } from './shared/EmptyState';
 import type { ActivityItem } from '../../../api/dashboard';
 import styles from './ActivityTimeline.module.css';
 
-// 活动类型配置
 const TYPE_CFG: Record<string, { icon: React.ReactNode; iconBg: string; iconColor: string }> = {
   agent: {
     icon: <RobotOutlined />,
@@ -52,7 +50,6 @@ export function ActivityTimeline({
 }: Props) {
   return (
     <div className={styles.panel}>
-      {/* 头部 */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <span className={styles.dot} />
@@ -63,16 +60,13 @@ export function ActivityTimeline({
         </div>
       </div>
 
-      {/* 列表区域 */}
       <div className={styles.list}>
-        {/* 加载态 */}
         {loading && (
           <div className={styles.stateWrap}>
             <Skeleton active paragraph={{ rows: 4 }} title={false} />
           </div>
         )}
 
-        {/* 错误态 */}
         {!loading && error && (
           <div className={styles.stateWrap}>
             <Result
@@ -89,7 +83,6 @@ export function ActivityTimeline({
           </div>
         )}
 
-        {/* 空数据 */}
         {!loading && !error && items.length === 0 && (
           <EmptyState
             icon={<RobotOutlined />}
@@ -98,7 +91,6 @@ export function ActivityTimeline({
           />
         )}
 
-        {/* 数据列表 */}
         {!loading && !error && items.map((item) => {
           const cfg = TYPE_CFG[item.type] ?? TYPE_CFG.agent;
           return (
@@ -118,7 +110,6 @@ export function ActivityTimeline({
         })}
       </div>
 
-      {/* 加载更多 */}
       {!loading && !error && hasMore && (
         <button className={styles.loadMore} onClick={onLoadMore}>
           <DownOutlined /> 加载更多

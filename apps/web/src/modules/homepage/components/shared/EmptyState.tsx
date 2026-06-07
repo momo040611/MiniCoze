@@ -1,4 +1,4 @@
-// 通用空状态组件
+
 
 import styles from './EmptyState.module.css';
 

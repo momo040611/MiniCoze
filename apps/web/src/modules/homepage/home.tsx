@@ -461,8 +461,6 @@ export function HomepageIndex() {
     setKnowledgeDismissed(false)
     runStartRef.current = performance.now()
 
-    // 从 orchestration 配置中提取知识库
-    // 工作流和插件工具由后端 pluginRegistryService 自动查询，前端无需手动构建
     let knowledgeBaseId: string | undefined
     try {
       const orchestration = JSON.parse(selectedAgent.orchestration || '{}')
@@ -470,9 +468,7 @@ export function HomepageIndex() {
       if (planner && Array.isArray(planner.databases) && planner.databases.length > 0) {
         knowledgeBaseId = planner.databases[0]
       }
-    } catch {
-      // orchestration JSON 解析失败时忽略
-    }
+    } catch {}
 
     const abortController = await runAgentStream(
       {

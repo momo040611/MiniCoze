@@ -1,9 +1,5 @@
-// 工作台 Dashboard API — 对接后端 GET workspaces/:workspaceId/dashboard
-
 import { http, type ApiEnvelope } from '../http';
 import { getCurrentWorkspaceId } from '../workspace';
-
-// ---- 类型定义（与后端 dashboard-summary.type.ts 对齐）----
 
 export interface DashboardAgentSummary {
   id: string;
@@ -21,17 +17,15 @@ export interface DashboardConversationSummary {
   agent: { id: string; name: string };
 }
 
-/** 工作流运行记录 */
 export interface DashboardWorkflowRun {
   id: string;
   workflowId: string;
   workflowName: string;
   status: 'running' | 'success' | 'failed';
   startedAt: string;
-  duration?: number; // 毫秒
+  duration?: number;
 }
 
-/** 统一运行日志条目 */
 export interface DashboardRunLog {
   id: string;
   type: 'tool_call' | 'knowledge_retrieval' | 'workflow_step';
@@ -47,7 +41,6 @@ export interface DashboardSummary {
   workflowCount: number;
   pluginCount: number;
   knowledgeBaseCount: number;
-  // 新增字段
   publishPendingCount: number;
   pluginEnabledCount: number;
   pluginUpdateCount: number;
@@ -58,9 +51,6 @@ export interface DashboardSummary {
   recentLogs: DashboardRunLog[];
 }
 
-// ---- API 函数 ----
-
-/** 获取当前工作空间的仪表盘摘要数据 */
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const workspaceId = await getCurrentWorkspaceId();
   const res = await http.get<ApiEnvelope<DashboardSummary>>(
@@ -69,9 +59,6 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   return res.data;
 }
 
-// ---- 前端派生类型（用于 UI 组件）----
-
-/** 统一活动时间线条目 */
 export interface ActivityItem {
   id: string;
   type: 'agent' | 'conversation' | 'workflow';
@@ -84,7 +71,6 @@ export interface ActivityItem {
   targetPath: string;
 }
 
-/** 统计卡片数据 */
 export interface StatItem {
   key: string;
   label: string;
@@ -95,7 +81,6 @@ export interface StatItem {
   targetPath: string;
 }
 
-/** 快捷操作定义 */
 export interface QuickAction {
   key: string;
   label: string;
@@ -104,7 +89,6 @@ export interface QuickAction {
   targetPath: string;
 }
 
-/** 系统状态数据 */
 export interface SystemStatusData {
   plugins: { enabled: number; total: number; updateAvailable: number };
   publish: { pending: number; published: number };

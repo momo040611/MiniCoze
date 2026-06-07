@@ -1,4 +1,4 @@
-// 通用统计卡片 — 展示数据 + 快捷操作
+
 import { useCallback } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import styles from './StatCard.module.css';

@@ -1,4 +1,4 @@
-// ① 欢迎横幅 — 简约设计
+
 import styles from './WelcomeHeader.module.css';
 
 interface Props {
