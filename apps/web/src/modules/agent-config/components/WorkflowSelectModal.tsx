@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getWorkflowList, type Workflow } from '../../../api/workflows';
+import { getWorkflowListRemote, type Workflow } from '../../../api/workflows';
+import { getCurrentWorkspaceId } from '../../../api/workspace';
 import styles from './WorkflowSelectModal.module.css';
 
 interface Props {
@@ -36,7 +37,8 @@ export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, sele
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await getWorkflowList();
+      const workspaceId = await getCurrentWorkspaceId();
+      const list = await getWorkflowListRemote(workspaceId);
       setItems(list);
     } catch {
       setItems([]);
