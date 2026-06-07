@@ -20,6 +20,7 @@ export const mockDashboardSummary: DashboardSummary = {
   publishPendingCount: 2,
   pluginEnabledCount: 3,
   pluginUpdateCount: 1,
+  memberCount: 1,
 
   recentAgents: [
     {

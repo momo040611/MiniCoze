@@ -461,30 +461,17 @@ export function HomepageIndex() {
     setKnowledgeDismissed(false)
     runStartRef.current = performance.now()
 
-    // 从 orchestration 配置中提取知识库和工作流
+    // 从 orchestration 配置中提取知识库
+    // 工作流和插件工具由后端 pluginRegistryService 自动查询，前端无需手动构建
     let knowledgeBaseId: string | undefined
-    let tools: Array<{ type: 'function'; function: { name: string; description: string } }> | undefined
     try {
       const orchestration = JSON.parse(selectedAgent.orchestration || '{}')
       const planner = orchestration?.planner
-      if (planner) {
-        // 知识库：取第一个绑定的知识库 ID
-        if (Array.isArray(planner.databases) && planner.databases.length > 0) {
-          knowledgeBaseId = planner.databases[0]
-        }
-        // 工作流：将绑定的工作流 ID 转换为 tools 定义
-        if (Array.isArray(planner.workflows) && planner.workflows.length > 0) {
-          tools = planner.workflows.map((wfId: string) => ({
-            type: 'function' as const,
-            function: {
-              name: `workflow_${wfId}`,
-              description: `调用工作流 ${wfId}`,
-            },
-          }))
-        }
+      if (planner && Array.isArray(planner.databases) && planner.databases.length > 0) {
+        knowledgeBaseId = planner.databases[0]
       }
     } catch {
-      // orchestration JSON 解析失败时忽略，使用默认值
+      // orchestration JSON 解析失败时忽略
     }
 
     const abortController = await runAgentStream(
@@ -497,7 +484,6 @@ export function HomepageIndex() {
         temperature: selectedAgent.temperature,
         maxTokens: 4096,
         knowledgeBaseId,
-        tools,
       },
       {
         onEvent: (event: RuntimeEvent) => {

@@ -118,7 +118,7 @@ export interface RunAgentParams {
   temperature?: number;
   maxTokens?: number;
   knowledgeBaseId?: string;
-  tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters?: Record<string, unknown> } }>;
+  tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>;
 }
 
 // ---- 回调 ----
