@@ -1,8 +1,56 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { knowledgeApi, type KnowledgeBase } from '../../../api/knowledge-base';
+import { type KnowledgeBase } from '../../../api/knowledge-base';
 import { KnowledgeStatus } from '../../../api/knowledge-base/types';
+import { http, type ApiEnvelope } from '../../../api/http';
+import { getCurrentWorkspaceId } from '../../../api/workspace';
 import styles from './KnowledgeSelectModal.module.css';
+
+/** 后端知识库响应 DTO */
+interface BackendKnowledgeBase {
+  id: string;
+  workspaceId: string;
+  creatorId: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 将后端知识库响应映射为前端 KnowledgeBase 类型 */
+function mapKnowledgeBase(item: BackendKnowledgeBase): KnowledgeBase {
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description ?? '',
+    status: item.enabled ? KnowledgeStatus.Active : KnowledgeStatus.Disabled,
+    sourceType: 'local_file',
+    documentCount: 0,
+    chunkCount: 0,
+    indexMode: 'high_quality' as const,
+    chunkConfig: {
+      chunkMode: 'general' as const,
+      chunkSize: 500,
+      chunkOverlap: 50,
+      separator: '\n',
+      autoClean: true,
+    },
+    embeddingConfig: {
+      embeddingModel: 'text-embedding-3-small',
+      embeddingDimension: 1536,
+      language: 'zh',
+    },
+    retrievalConfig: {
+      retrievalMode: 'vector' as const,
+      topK: 5,
+      scoreThreshold: 0.5,
+      rerankEnabled: false,
+    },
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
 
 interface Props {
   visible: boolean;
@@ -54,8 +102,12 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await knowledgeApi.getKnowledgeBases();
-      setItems(response.data.list);
+      const workspaceId = await getCurrentWorkspaceId();
+      const res = await http.get<ApiEnvelope<BackendKnowledgeBase[]>>(
+        'knowledge/bases',
+        { query: { workspaceId } },
+      );
+      setItems(res.data.map(mapKnowledgeBase));
     } catch {
       setItems([]);
     } finally {
