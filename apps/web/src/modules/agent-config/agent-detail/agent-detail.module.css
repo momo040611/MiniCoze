@@ -113,6 +113,12 @@
   white-space: nowrap;
 }
 
+.errorHint {
+  font-size: 12px;
+  color: #ef4444;
+  white-space: nowrap;
+}
+
 .draftHint {
   display: flex;
   align-items: center;

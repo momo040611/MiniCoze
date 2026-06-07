@@ -5,7 +5,8 @@ import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
 export class RunWorkflowDto {
   @ApiPropertyOptional({
     example: { query: '帮我总结这段文档' },
-    description: '运行输入参数，具体结构由 workflow version 的 inputSchema 决定',
+    description:
+      '运行输入参数，具体结构由 workflow version 的 inputSchema 决定',
   })
   @IsOptional()
   @IsObject()

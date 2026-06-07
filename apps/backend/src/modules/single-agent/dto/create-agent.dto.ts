@@ -1,7 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AgentStatus } from '@prisma/client';
 import {
-  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -63,9 +61,4 @@ export class CreateAgentDto {
   @Min(0)
   @Max(100)
   contextLimit?: number;
-
-  @ApiPropertyOptional({ enum: AgentStatus, default: AgentStatus.DRAFT })
-  @IsOptional()
-  @IsEnum(AgentStatus)
-  status?: AgentStatus;
 }

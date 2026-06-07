@@ -2,8 +2,12 @@ import { Module } from '@nestjs/common';
 import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { WorkflowAsyncRunner } from './internal/compose/workflow-async-runner';
+import { WorkflowCancellationRegistry } from './internal/execute/workflow-cancellation.registry';
+import { CodeNodeExecutor } from './internal/nodes/code-node.executor';
 import { EndNodeExecutor } from './internal/nodes/end-node.executor';
+import { HttpNodeExecutor } from './internal/nodes/http-node.executor';
 import { LlmNodeExecutor } from './internal/nodes/llm-node.executor';
+import { SelectorNodeExecutor } from './internal/nodes/selector-node.executor';
 import { StartNodeExecutor } from './internal/nodes/start-node.executor';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowMapper } from './workflow.mapper';
@@ -18,9 +22,13 @@ import { WorkflowService } from './workflow.service';
     WorkflowRunService,
     WorkflowMapper,
     WorkflowAsyncRunner,
+    WorkflowCancellationRegistry,
     StartNodeExecutor,
     LlmNodeExecutor,
     EndNodeExecutor,
+    SelectorNodeExecutor,
+    CodeNodeExecutor,
+    HttpNodeExecutor,
   ],
 })
 export class WorkflowModule {}

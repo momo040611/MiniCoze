@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { MulterError } from 'multer';
 import { ErrorCode } from '../constants/error-code';
 import { BusinessException } from '../exceptions/business.exception';
 
@@ -30,6 +31,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       );
     }
 
+    if (response.headersSent || response.writableEnded) {
+      this.logger.warn(
+        `Skip error response because headers were already sent: ${message}`,
+      );
+      return;
+    }
+
     response.status(status).json({
       code,
       message,
@@ -42,6 +50,22 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return {
         status: exception.getStatus(),
         code: exception.getErrorCode(),
+        message: exception.message,
+      };
+    }
+
+    // multer 文件大小超限 / 字段错误等映射为业务错误码。
+    if (exception instanceof MulterError) {
+      if (exception.code === 'LIMIT_FILE_SIZE') {
+        return {
+          status: HttpStatus.PAYLOAD_TOO_LARGE,
+          code: ErrorCode.KnowledgeFileTooLarge,
+          message: 'uploaded file exceeds size limit',
+        };
+      }
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        code: ErrorCode.BadRequest,
         message: exception.message,
       };
     }

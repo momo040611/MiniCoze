@@ -27,11 +27,15 @@ export class RuntimePrismaRepository implements RuntimeRepository {
     });
 
     if (conversation) {
-      if (
-        conversation.agentId !== context.agentId ||
-        conversation.userId !== context.userId ||
-        conversation.isPreview !== (context.isPreview ?? false)
-      ) {
+      const invalidConversation = context.publicAccess
+        ? conversation.agentId !== context.agentId ||
+          conversation.isPreview ||
+          !conversation.id.startsWith(context.publicAccess.conversationIdPrefix)
+        : conversation.agentId !== context.agentId ||
+          conversation.userId !== context.userId ||
+          conversation.isPreview !== (context.isPreview ?? false);
+
+      if (invalidConversation) {
         throw new BusinessException(
           'Conversation does not match current runtime context',
           ErrorCode.Forbidden,

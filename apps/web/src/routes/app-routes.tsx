@@ -20,6 +20,7 @@ const CreatAgent = lazy(() => import('../modules/agent-config').then(m => ({ def
 const AgentDetailPage = lazy(() => import('../modules/agent-config/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
 const WorkflowsPage = lazy(() => import('../modules/workflows').then(m => ({ default: m.WorkflowsPage })));
 const PluginsPage = lazy(() => import('../modules/plugins').then(m => ({ default: m.PluginsPage })));
+const PluginDetail = lazy(() => import('../modules/plugins').then(m => ({ default: m.PluginDetail })));
 const PublishPage = lazy(() => import('../modules/publish').then(m => ({ default: m.PublishPage })));
 const SettingsPage = lazy(() => import('../modules/settings').then(m => ({ default: m.SettingsPage })));
 const ArchitecturePage = lazy(() => import('../modules/architecture').then(m => ({ default: m.ArchitecturePage })));
@@ -107,6 +108,7 @@ export function AppRoutes() {
           <Route path="/agents/:agentId" element={withSuspense(AgentDetailPage)} />
           <Route path="/workflows" element={withSuspense(WorkflowsPage)} />
           <Route path="/plugins" element={withSuspense(PluginsPage)} />
+          <Route path="/plugins/:pluginId" element={withSuspense(PluginDetail)} />
           <Route path="/publish" element={withSuspense(PublishPage)} />
           <Route path="/settings" element={withSuspense(SettingsPage)} />
           <Route path="/architecture" element={withSuspense(ArchitecturePage)} />

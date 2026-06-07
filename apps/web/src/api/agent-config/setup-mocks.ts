@@ -109,7 +109,6 @@ export function setupAgentMocks() {
       temperature?: number;
       openingMessage?: string;
       contextLimit?: number;
-      status?: string;
     };
     const agentId = path.split('/').pop() ?? '';
     const agent = mockAgents.find((a) => a.id === agentId);
@@ -122,7 +121,6 @@ export function setupAgentMocks() {
       if (params.temperature !== undefined) agent.temperature = params.temperature;
       if (params.openingMessage !== undefined) agent.openingMessage = params.openingMessage;
       if (params.contextLimit !== undefined) agent.contextLimit = params.contextLimit;
-      if (params.status !== undefined) agent.status = params.status;
       agent.updatedAt = new Date().toISOString();
     }
     return { code: 0, message: 'ok', data: agent };

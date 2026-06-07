@@ -31,6 +31,16 @@ export interface ToolCall {
 export interface ToolResult {
   toolCallId: string;
   output: string;
+  metadata?: RuntimeToolMetadata;
+  maskedArgs?: unknown;
+  maskedOutput?: unknown;
+  maskedError?: string;
+}
+
+export interface RuntimeToolMetadata {
+  pluginId?: string;
+  pluginCode?: string;
+  toolCode?: string;
 }
 
 // ── Agent 配置 ──
@@ -94,21 +104,28 @@ export type RuntimeEvent =
       messageId: string;
       content: string;
     }
-  | {
+  | ({
       type: 'tool.call.created';
       runId: string;
       toolCallId: string;
       name: string;
       args: unknown;
-    }
-  | {
+    } & RuntimeToolMetadata)
+  | ({
       type: 'tool.call.completed';
       runId: string;
       toolCallId: string;
       name: string;
       result: unknown;
       error?: string;
-    }
+    } & RuntimeToolMetadata)
+  | ({
+      type: 'tool.call.failed';
+      runId: string;
+      toolCallId: string;
+      name: string;
+      error: string;
+    } & RuntimeToolMetadata)
   | {
       type: 'knowledge.status';
       runId: string;
@@ -123,6 +140,9 @@ export interface RunAgentCommand {
   userId: string;
   message: string;
   conversationId?: string;
+  publicAccess?: {
+    conversationIdPrefix: string;
+  };
   preview?: boolean;
   model?: string;
   systemPrompt?: string;
@@ -130,4 +150,15 @@ export interface RunAgentCommand {
   maxTokens?: number;
   tools?: ToolDefinition[];
   knowledgeBaseId?: string;
+  publishedSnapshot?: {
+    agent: {
+      id: string;
+      name: string;
+      systemPrompt: string;
+      model: string;
+      temperature: number;
+      contextLimit: number;
+    };
+    tools?: ToolDefinition[];
+  };
 }

@@ -12,6 +12,7 @@ import type {
   ToolCallCompletedEvent, KnowledgeStatusEvent, RunCompletedEvent,
   TokenUsage,
 } from '../../../api/agent-runtime'
+import type { IToolCallRecord } from '../../../api/plugins'
 import type { OpeningConfig } from '../agent-detail'
 import { deleteConversation, getConversation, getConversations } from '../../../api/homepage'
 import { formatFileSize } from '../../homepage/utils/format'
@@ -24,6 +25,7 @@ import { DebugInfoPanel } from './DebugInfoPanel'
 interface BaseMessage {
   id: string
   time: string
+  toolCall?: IToolCallRecord
 }
 
 interface ChatMessage extends BaseMessage {
@@ -332,6 +334,58 @@ export function PreviewChat({
               abortRef.current = null
               break
 
+            case 'run.failed':
+              sendingRef.current = false
+              setSending(false)
+              abortRef.current = null
+              break
+
+            case 'run.in_progress':
+              break
+
+            case 'tool.call.created': {
+              const params = event.args && typeof event.args === 'object' && !Array.isArray(event.args)
+                ? event.args as Record<string, unknown>
+                : { value: event.args }
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `tool-${event.toolCallId}`,
+                  text: '',
+                  sender: 'agent',
+                  time: timeStr,
+                  toolCall: {
+                    callId: event.toolCallId,
+                    toolName: event.name,
+                    params,
+                    status: 'running',
+                    startedAt: new Date().toISOString(),
+                  },
+                },
+              ])
+              break
+            }
+
+            case 'tool.call.completed':
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === `tool-${event.toolCallId}` && m.toolCall
+                    ? {
+                        ...m,
+                        toolCall: {
+                          ...m.toolCall,
+                          toolName: event.name,
+                          status: 'success',
+                          result: event.result,
+                          finishedAt: new Date().toISOString(),
+                        },
+                      }
+                    : m
+                )
+              )
+              break
+
+
             default:
               break
           }
@@ -563,10 +617,10 @@ export function PreviewChat({
 
         {/* 开场问题 */}
         {openingConfig.openingQuestionsEnabled &&
-          openingConfig.openingQuestions.length > 0 &&
+          (openingConfig.openingQuestions?.length ?? 0) > 0 &&
           messages.length === 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 38, marginBottom: 12 }}>
-              {openingConfig.openingQuestions.map((q, i) => (
+            <div className={styles.openingQuestions}>
+              {(openingConfig.openingQuestions ?? []).map((q, i) => (
                 <span
                   key={i}
                   onClick={() => doSend(q)}

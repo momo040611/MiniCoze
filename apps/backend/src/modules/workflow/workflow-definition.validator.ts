@@ -2,11 +2,16 @@ export interface WorkflowNode {
   id: string;
   type: string;
   data?: Record<string, unknown>;
+  // 容器节点（如 loop）的内部子节点与子图连线。
+  blocks?: WorkflowNode[];
+  edges?: WorkflowEdge[];
 }
 
 export interface WorkflowEdge {
   source: string;
   target: string;
+  // 出口端口：分支节点（selector）靠它区分不同分支走向。
+  sourcePort?: string;
 }
 
 export interface WorkflowDefinition {
@@ -61,11 +66,21 @@ function normalizeNode(raw: unknown): WorkflowNode {
     };
   }
 
-  return {
+  const node: WorkflowNode = {
     id: typeof raw.id === 'string' ? raw.id : '',
     type: typeof raw.type === 'string' ? raw.type : '',
     data: normalizeNodeData(raw.data),
   };
+
+  // 容器节点（loop/batch 等）保留其内部子图，供 runner 递归执行。
+  if (Array.isArray(raw.blocks)) {
+    node.blocks = raw.blocks.map(normalizeNode);
+  }
+  if (Array.isArray(raw.edges)) {
+    node.edges = raw.edges.map(normalizeEdge);
+  }
+
+  return node;
 }
 
 function normalizeNodeData(raw: unknown): Record<string, unknown> | undefined {
@@ -122,9 +137,18 @@ function normalizeEdge(raw: unknown): WorkflowEdge {
         ? raw.targetNodeID
         : '';
 
+  // 兼容端口字段：sourcePort（内部）/ sourcePortID（Coze Canvas）。
+  const sourcePort =
+    typeof raw.sourcePort === 'string'
+      ? raw.sourcePort
+      : typeof raw.sourcePortID === 'string'
+        ? raw.sourcePortID
+        : undefined;
+
   return {
     source,
     target,
+    ...(sourcePort ? { sourcePort } : {}),
   };
 }
 

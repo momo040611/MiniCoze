@@ -18,7 +18,7 @@ const renderVariables = (fieldName: 'inputs' | 'outputs') => (
   <Field<VariableInfo[]> name={fieldName}>
     {({ field }) => (
       <div className={styles.variableList}>
-        {field.value?.map((item, index) => (
+        {(Array.isArray(field.value) ? field.value : []).map((item, index) => (
           <div className={styles.variableRow} key={`${item.name}-${index}`}>
             <span className={styles.variableLabel}>
               {fieldName === 'inputs' ? '输入' : '输出'}

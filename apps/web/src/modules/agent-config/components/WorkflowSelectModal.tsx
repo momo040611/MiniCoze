@@ -1,231 +1,301 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { getWorkflowList, type Workflow } from '../../../api/workflows'
-import styles from './WorkflowSelectModal.module.css'
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getWorkflowList, type Workflow } from '../../../api/workflows';
+import styles from './WorkflowSelectModal.module.css';
 
 interface Props {
-  visible: boolean
-  onClose: () => void
-  onSelect: (wf: Workflow) => void
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (wf: Workflow) => void;
+  onRemove?: (id: string) => void;
+  selectedIds?: string[];
 }
 
-const STATUS_LABELS: Record<string, { text: string; color: string }> = {
-  DRAFT: { text: '草稿', color: '#6b7280' },
-  ACTIVE: { text: '已发布', color: '#22c55e' },
-  ARCHIVED: { text: '已归档', color: '#8896a6' },
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: '未发布',
+  ACTIVE: '已发布',
+  ARCHIVED: '已归档',
+};
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-const WF_CATEGORIES = [
-  { key: 'all', label: '全部工作流', icon: '⚡', count: 0 },
-]
-
-export function WorkflowSelectModal({ visible, onClose, onSelect }: Props) {
-  const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [items, setItems] = useState<Workflow[]>([])
-  const [search, setSearch] = useState('')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [category, setCategory] = useState('all')
-  const [sortBy, setSortBy] = useState('updated')
-  const [statusFilter, setStatusFilter] = useState('all')
+export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, selectedIds }: Props) {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<Workflow[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('DRAFT');
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const list = await getWorkflowList()
-      setItems(list)
+      const list = await getWorkflowList();
+      setItems(list);
     } catch {
-      setItems([])
+      setItems([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (visible) {
-      load()
-      setSearch('')
-      setSelectedId(null)
-      setCategory('all')
-      setSortBy('updated')
-      setStatusFilter('all')
+      load();
+      setSearch('');
+      setSelectedId(null);
+      setStatusFilter('DRAFT');
     }
-  }, [visible, load])
-
-  const categories = useMemo(
-    () => WF_CATEGORIES.map((c) => ({ ...c, count: items.length })),
-    [items],
-  )
+  }, [visible, load]);
 
   const filtered = useMemo(() => {
-    let list = items
-    const value = search.trim().toLowerCase()
-    if (value) {
+    let list = items;
+    const keyword = search.trim().toLowerCase();
+    if (keyword) {
       list = list.filter(
         (item) =>
-          item.name.toLowerCase().includes(value) ||
-          (item.description && item.description.toLowerCase().includes(value)),
-      )
+          item.name.toLowerCase().includes(keyword) ||
+          (item.description && item.description.toLowerCase().includes(keyword)),
+      );
     }
     if (statusFilter !== 'all') {
-      list = list.filter((item) => (item.status ?? 'DRAFT') === statusFilter)
+      list = list.filter((item) => (item.status ?? 'DRAFT') === statusFilter);
     }
-    return list
-  }, [items, search, statusFilter])
+    return list;
+  }, [items, search, statusFilter]);
 
-  const sorted = useMemo(() => {
-    const list = [...filtered]
-    if (sortBy === 'name') {
-      list.sort((a, b) => a.name.localeCompare(b.name))
-    }
-    return list
-  }, [filtered, sortBy])
+  const isEmpty = !loading && filtered.length === 0;
 
-  const handleConfirm = () => {
-    const selected = items.find((item) => item.id === selectedId)
-    if (selected) {
-      onSelect(selected)
-      onClose()
-    }
-  }
-
-  if (!visible) return null
-
-  const isEmpty = !loading && sorted.length === 0
+  if (!visible) return null;
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+        {/* 顶部标题栏 */}
         <div className={styles.header}>
           <h2 className={styles.title}>添加工作流</h2>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+          <button className={styles.closeBtn} onClick={onClose}>
+            &#x2715;
+          </button>
         </div>
 
+        {/* 主区域：左右两栏 */}
         <div className={styles.main}>
+          {/* 左侧边栏 */}
           <div className={styles.sidebar}>
+            <h3 className={styles.sidebarTitle}>添加工作流</h3>
+
             <div className={styles.searchWrap}>
+              <span className={styles.searchIcon}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+              </span>
               <input
                 className={styles.searchInput}
-                placeholder="搜索工作流名称..."
+                placeholder="搜索"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            <button
-              className={styles.createGroupBtn}
-              onClick={() => { onClose(); navigate('/workflows') }}
-            >
-              创建工作流
-            </button>
+            <div className={styles.sidebarBtns}>
+              <button
+                className={styles.createWfBtn}
+                onClick={() => {
+                  onClose();
+                  navigate('/workflows');
+                }}
+              >
+                创建工作流
+                <span className={styles.createWfBtnArrow}>
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                    <path d="M2 2.5L4 4.5L6 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  </svg>
+                </span>
+              </button>
+              <button className={styles.importBtn}>
+                <span className={styles.importBtnIcon}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M7 2V10M7 10L4 7M7 10L10 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M1.5 9.5V11.5H12.5V9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  </svg>
+                </span>
+                导入
+              </button>
+            </div>
 
             <hr className={styles.sidebarDivider} />
 
-            <span className={styles.sidebarLabel}>资源</span>
-            <ul className={styles.categoryList}>
-              {categories.map((c) => (
-                <li
-                  key={c.key}
-                  className={`${styles.categoryItem} ${category === c.key ? styles.categoryItemActive : ''}`}
-                  onClick={() => setCategory(c.key)}
-                >
-                  <span className={styles.categoryIcon}>{c.icon}</span>
-                  <span>{c.label}</span>
-                  <span className={styles.categoryCount}>{c.count}</span>
-                </li>
-              ))}
+            <ul className={styles.menuList}>
+              <li className={`${styles.menuItem} ${styles.menuItemActive}`}>
+                <span className={styles.menuIcon}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M2 4H14M2 8H14M2 12H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <span>资源库工作流</span>
+                <span className={styles.menuCount}>{items.length}</span>
+              </li>
             </ul>
           </div>
 
+          {/* 右侧内容区 */}
           <div className={styles.content}>
+            {/* 顶部筛选栏 */}
             <div className={styles.toolbar}>
-              <select className={styles.filterSelect} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="all">全部状态</option>
-                <option value="DRAFT">草稿</option>
-                <option value="ACTIVE">已发布</option>
-                <option value="ARCHIVED">已归档</option>
+              <select
+                className={styles.filterSelect}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ minWidth: 120 }}
+              >
+                <option value="all">状态：全部</option>
+                <option value="DRAFT">状态：未发布</option>
+                <option value="ACTIVE">状态：已发布</option>
               </select>
-              <select className={styles.filterSelect} value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="updated">最近更新</option>
-                <option value="name">名称排序</option>
-              </select>
+              <div className={styles.filterSpacer} />
+              <button className={styles.addBtn} onClick={() => { onClose(); navigate('/workflows'); }}>添加</button>
             </div>
 
-            <div className={styles.listBody}>
-              {loading ? (
-                <div className={styles.loading}>加载中...</div>
-              ) : isEmpty ? (
-                <div className={styles.emptyState}>
-                  <div className={styles.emptyIllustration}>
-                    <svg viewBox="0 0 64 64" fill="none">
-                      <rect x="6" y="8" width="52" height="48" rx="6" stroke="#a0aec0" strokeWidth="1.8" />
-                      <path d="M18 22H46M18 32H46M18 42H36" stroke="#a0aec0" strokeWidth="1.4" strokeLinecap="round" />
-                      <circle cx="42" cy="44" r="10" stroke="#a0aec0" strokeWidth="1.4" />
-                      <path d="M42 39V49M37 44H47" stroke="#a0aec0" strokeWidth="1.2" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <span className={styles.emptyText}>
-                    {search ? '未找到匹配的工作流' : '暂无工作流，点击下方按钮创建'}
-                  </span>
-                  {!search && (
-                    <button
-                      className={styles.emptyAction}
-                      onClick={() => { onClose(); navigate('/workflows') }}
-                    >
-                      创建工作流
-                    </button>
-                  )}
-                </div>
-              ) : (
-                sorted.map((item) => {
-                  const statusInfo = STATUS_LABELS[item.status ?? 'DRAFT']
+            {/* 工作流列表 / 空状态 */}
+            {loading ? (
+              <div className={styles.loading}>加载中...</div>
+            ) : isEmpty ? (
+              <div className={styles.emptyState}>
+                <h4 className={styles.emptyTitle}>暂无工作流</h4>
+                <p className={styles.emptyDesc}>请先创建后添加</p>
+                <button
+                  className={styles.emptyAction}
+                  onClick={() => {
+                    onClose();
+                    navigate('/workflows');
+                  }}
+                >
+                  创建工作流
+                </button>
+              </div>
+            ) : (
+              <div className={styles.listBody}>
+                {filtered.map((wf) => {
+                  const isSelected = selectedId === wf.id;
+                  const isAlreadyAdded = (selectedIds ?? []).includes(wf.id);
+                  const status = wf.status ?? 'DRAFT';
+                  const statusLabel = STATUS_LABELS[status] ?? status;
+
                   return (
                     <div
-                      key={item.id}
-                      className={styles.item}
-                      onClick={() => setSelectedId(item.id === selectedId ? null : item.id)}
+                      key={wf.id}
+                      className={`${styles.wfCard} ${isSelected ? styles.wfCardSelected : ''} ${isAlreadyAdded ? styles.wfCardAdded : ''}`}
+                      onClick={() => {
+                        if (isAlreadyAdded) {
+                          onRemove?.(wf.id);
+                          return;
+                        }
+                        setSelectedId(isSelected ? null : wf.id);
+                      }}
                     >
-                      <div className={styles.itemIcon}>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <path d="M2 4H14M2 8H14M2 12H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                      </div>
-                      <div className={styles.itemInfo}>
-                        <span className={styles.itemName}>{item.name}</span>
-                        <div className={styles.itemMeta}>
-                          <span style={{ color: statusInfo.color }}>{statusInfo.text}</span>
-                          {item.description && (
-                            <>
-                              <span className={styles.itemMetaDot} />
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>
-                                {item.description}
-                              </span>
-                            </>
-                          )}
+                      {/* 左侧：图标 + 信息 */}
+                      <div className={styles.wfCardLeft}>
+                        <div className={styles.wfIcon}>
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path
+                              d="M2 4H14M2 8H14M2 12H10"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </div>
+                        <div className={styles.wfInfo}>
+                          <span className={styles.wfName}>{wf.name}</span>
+                          <div className={styles.wfMeta}>
+                            <span>{statusLabel}</span>
+                            <span className={styles.wfMetaDot} />
+                            <span>{formatDate(wf.updatedAt)}</span>
+                            {wf.description && (
+                              <>
+                                <span className={styles.wfMetaDot} />
+                                <span className={styles.wfDesc}>
+                                  {wf.description}
+                                </span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      {selectedId === item.id && (
-                        <span className={styles.itemCheck}>✓</span>
+
+                      {/* 右侧：添加/移除按钮 */}
+                      <div className={styles.wfCardRight}>
+                        <button
+                          className={`${styles.wfAddBtn} ${isAlreadyAdded ? styles.wfRemoveBtn : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isAlreadyAdded) {
+                              onRemove?.(wf.id);
+                            } else {
+                              onSelect(wf);
+                            }
+                          }}
+                        >
+                          {isAlreadyAdded ? '移除' : '添加'}
+                        </button>
+                      </div>
+
+                      {/* 选中标记 / 已添加标记 */}
+                      {(isSelected || isAlreadyAdded) && (
+                        <span className={`${styles.selectedMark} ${isAlreadyAdded ? styles.selectedMarkAdded : ''}`}>
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                          >
+                            <path
+                              d="M2.5 6L5 8.5L9.5 3.5"
+                              stroke="white"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
                       )}
                     </div>
-                  )
-                })
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
+        {/* 底部操作栏 */}
         <div className={styles.footer}>
-          <button className={styles.cancelBtn} onClick={onClose}>取消</button>
+          <button className={styles.cancelBtn} onClick={onClose}>
+            取消
+          </button>
           <button
             className={styles.confirmBtn}
             disabled={!selectedId}
-            onClick={handleConfirm}
+            onClick={() => {
+              const selected = items.find((item) => item.id === selectedId);
+              if (selected) {
+                onSelect(selected);
+                onClose();
+              }
+            }}
           >
             确定
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }

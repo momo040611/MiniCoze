@@ -3,8 +3,7 @@
 
 import { http, type ApiEnvelope } from '../http';
 import { getCurrentWorkspaceId } from '../workspace';
-
-const DEFAULT_AGENT_MODEL = 'deepseek-v4-flash';
+import { DEFAULT_AGENT_MODEL } from './model-options';
 
 // ---- 类型定义 ----
 /** 后端 Agent 模型字段 */
@@ -40,13 +39,13 @@ export interface AgentConfig {
   persona: string;
   orchestration: string;
   createdAt: string;
-  /** 后端独有字段，前端可选择性使用 */
-  model?: string;
-  temperature?: number;
-  openingMessage?: string;
-  contextLimit?: number;
-  status?: string;
-  workspaceId?: string;
+  /** 后端字段 */
+  model: string;
+  temperature: number;
+  openingMessage: string;
+  contextLimit: number;
+  status: string;
+  workspaceId: string;
 }
 
 // ---- 本地扩展字段存储（mode / orchestration，后端暂无） ----
@@ -216,7 +215,7 @@ export async function deleteAgent(id: string): Promise<void> {
 /** 更新智能体配置 */
 export async function updateAgent(
   id: string,
-  patch: Partial<Pick<AgentConfig, 'name' | 'avatar' | 'description' | 'mode' | 'persona' | 'orchestration' | 'model' | 'temperature' | 'openingMessage' | 'contextLimit' | 'status'>>,
+  patch: Partial<Pick<AgentConfig, 'name' | 'avatar' | 'description' | 'mode' | 'persona' | 'orchestration' | 'model' | 'temperature' | 'openingMessage' | 'contextLimit'>>,
 ): Promise<AgentConfig | null> {
   // 分离后端字段和本地扩展字段
   const backendPatch: Record<string, unknown> = {};
@@ -228,7 +227,6 @@ export async function updateAgent(
   if (patch.temperature !== undefined) backendPatch.temperature = patch.temperature;
   if (patch.openingMessage !== undefined) backendPatch.openingMessage = patch.openingMessage;
   if (patch.contextLimit !== undefined) backendPatch.contextLimit = patch.contextLimit;
-  if (patch.status !== undefined) backendPatch.status = patch.status;
 
   // 更新后端
   const res = await http.patch<ApiEnvelope<BackendAgent>>(`agents/${id}`, backendPatch);

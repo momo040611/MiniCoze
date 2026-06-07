@@ -7,12 +7,16 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUserInfo } from '../../common/decorators/current-user.decorator';
+import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
+import type { WorkflowStreamEvent } from './internal/execute/workflow-run-event';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { PublishWorkflowDto } from './dto/publish-workflow.dto';
 import { RunWorkflowDto } from './dto/run-workflow.dto';
@@ -166,6 +170,55 @@ export class WorkflowController {
     @Body() dto: RunWorkflowDto,
   ) {
     return this.workflowRunService.run(currentUser.id, workflowId, dto);
+  }
+
+  // 参数：
+  // - path.workflowId: 工作流 ID
+  // - body.input/body.version: 同 run
+  // 作用：以 SSE 流式运行工作流，实时推送运行级/节点级事件。
+  // 事件类型：run.created / node.started / node.completed / node.failed
+  //          / run.completed / run.failed / stream.done
+  @Post(':workflowId/run/stream')
+  @SkipResponseWrap()
+  @ApiOperation({ summary: '流式运行工作流（SSE 实时事件）' })
+  async runStream(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('workflowId') workflowId: string,
+    @Body() dto: RunWorkflowDto,
+    @Res() res: Response,
+  ) {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    const send = (event: WorkflowStreamEvent): void => {
+      res.write(`event: ${event.type}\n`);
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    try {
+      await this.workflowRunService.run(currentUser.id, workflowId, dto, send);
+    } catch (error) {
+      // 运行前的错误（权限/校验/版本）会抛到这里，run 内部错误已通过 run.failed 推送。
+      const message = error instanceof Error ? error.message : String(error);
+      res.write(`event: error\n`);
+      res.write(`data: ${JSON.stringify({ message })}\n\n`);
+    } finally {
+      res.end();
+    }
+  }
+
+  // 参数：
+  // - path.runId: 运行实例 ID
+  // 作用：请求取消一次正在运行的工作流（运行中的会在下个节点前中断）。
+  @Post('runs/:runId/cancel')
+  @ApiOperation({ summary: '取消工作流运行' })
+  cancelRun(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('runId') runId: string,
+  ) {
+    return this.workflowRunService.requestCancel(currentUser.id, runId);
   }
 
   // 参数：

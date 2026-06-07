@@ -2,18 +2,22 @@ import React, { useState, useCallback } from 'react'
 import styles from '../agent-detail/agent-detail.module.css'
 import plannerStyles from './SingleAgentPlanner.module.css'
 import type { AgentDetailData, PlannerConfig, OpeningConfig } from '../agent-detail'
+import type { ModelOption } from '../../../api/agent-config/model-options'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
 import { PreviewChat } from '../components/PreviewChat'
 import { KnowledgeSelectModal } from '../components/KnowledgeSelectModal'
 import { DatabaseTags } from '../components/DatabaseTags'
 import { WorkflowSelectModal } from '../components/WorkflowSelectModal'
 import { WorkflowTags } from '../components/WorkflowTags'
+import { AddPluginModal } from '../components/AddPluginModal'
+import type { IPlugin } from '../../../api/plugins'
 
 interface Props {
   agent: AgentDetailData
   persona: string
   setPersona: (v: string) => void
   model: string
+  modelOptions: ModelOption[]
   onModelChange: (v: string) => void
   temperature: number
   onTemperatureChange: (v: number) => void
@@ -24,11 +28,6 @@ interface Props {
   openingConfig: OpeningConfig
   onOpeningChange: (config: OpeningConfig) => void
 }
-
-const MODEL_OPTIONS = [
-  { label: 'DeepSeek V4 Flash', value: 'deepseek-v4-flash' },
-  { label: 'DeepSeek V4 Pro', value: 'deepseek-v4-pro' },
-]
 
 function CollapsePanel({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -52,6 +51,7 @@ export function SingleAgentPlanner({
   persona,
   setPersona,
   model,
+  modelOptions,
   onModelChange,
   temperature,
   onTemperatureChange,
@@ -65,6 +65,7 @@ export function SingleAgentPlanner({
   const [modelOpen, setModelOpen] = useState(false)
   const [knowledgeModalOpen, setKnowledgeModalOpen] = useState(false)
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false)
+  const [pluginModalOpen, setPluginModalOpen] = useState(false)
   const { plugins, fileBoxEnabled, longMemoryEnabled, variables, databases } = config
 
   const updateConfig = useCallback(
@@ -125,7 +126,7 @@ export function SingleAgentPlanner({
                 className={plannerStyles.modelTrigger}
                 onClick={() => setModelOpen((v) => !v)}
               >
-                <span className={plannerStyles.modelName}>{MODEL_OPTIONS.find(m => m.value === model)?.label ?? model}</span>
+                <span className={plannerStyles.modelName}>{modelOptions.find(m => m.value === model)?.label ?? model}</span>
                 <span className={`${plannerStyles.modelArrow} ${modelOpen ? plannerStyles.modelArrowOpen : ''}`}>
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                     <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -134,7 +135,7 @@ export function SingleAgentPlanner({
               </div>
               {modelOpen && (
                 <div className={plannerStyles.modelDropdown}>
-                  {MODEL_OPTIONS.map((m) => (
+                  {modelOptions.map((m) => (
                     <button
                       key={m.value}
                       className={`${plannerStyles.modelOption} ${m.value === model ? plannerStyles.modelOptionActive : ''}`}
@@ -221,7 +222,7 @@ export function SingleAgentPlanner({
                 {plugins.length > 0 && (
                   <span className={styles.configRowCount}>{plugins.length} 个插件</span>
                 )}
-                <button className={styles.addBtn} >
+                <button className={styles.addBtn} onClick={() => setPluginModalOpen(true)}>
                   <span>+</span>
                 </button>
               </div>
@@ -293,7 +294,7 @@ export function SingleAgentPlanner({
             <div className={styles.configRow}>
             <div className={styles.configRowInfo}>
               <div className={styles.configRowText}>
-                <span className={styles.configRowName}>知识库</span>
+                <span className={styles.configRowName}>数据库</span>
               </div>
             </div>
             <div className={styles.configRowRight}>
@@ -375,15 +376,27 @@ export function SingleAgentPlanner({
       <WorkflowSelectModal
         visible={workflowModalOpen}
         onClose={() => setWorkflowModalOpen(false)}
+        selectedIds={config.workflows}
+        onRemove={(id) => updateConfig({ workflows: config.workflows.filter(w => w !== id) })}
         onSelect={(wf) => {
           if (!config.workflows.includes(wf.id)) {
             updateConfig({ workflows: [...config.workflows, wf.id] })
           }
         }}
       />
+      <AddPluginModal
+        visible={pluginModalOpen}
+        onClose={() => setPluginModalOpen(false)}
+        selectedIds={config.plugins}
+        onSelect={(selectedPlugins: IPlugin[]) => {
+          updateConfig({ plugins: selectedPlugins.map((p) => p.id) })
+        }}
+      />
       <KnowledgeSelectModal
         visible={knowledgeModalOpen}
         onClose={() => setKnowledgeModalOpen(false)}
+        selectedIds={config.databases}
+        onRemove={(id) => updateConfig({ databases: config.databases.filter(d => d !== id) })}
         onSelect={(kb) => {
           if (!config.databases.includes(kb.id)) {
             onConfigChange({ ...config, databases: [...config.databases, kb.id] })

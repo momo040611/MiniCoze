@@ -14,9 +14,11 @@ import styles from './Header.module.css';
 
 interface HeaderProps {
   workflow?: Pick<Workflow, 'name' | 'description' | 'status' | 'updatedAt'> | null;
+  saveStatus?: 'idle' | 'dirty' | 'saving' | 'saved' | 'failed';
+  lastSavedAt?: string | null;
 }
 
-function Header({ workflow }: HeaderProps) {
+function Header({ workflow, saveStatus = 'idle', lastSavedAt }: HeaderProps) {
   const navigate = useNavigate();
   const workflowName = workflow?.name ?? '未命名工作流';
   const workflowDesc = workflow?.description || '暂无工作流介绍';
@@ -28,6 +30,14 @@ function Header({ workflow }: HeaderProps) {
     : workflow?.status === 'ARCHIVED'
       ? '已归档'
       : '草稿';
+
+  const saveStatusText = (() => {
+    if (saveStatus === 'dirty') return '有未保存修改';
+    if (saveStatus === 'saving') return '保存中...';
+    if (saveStatus === 'saved') return `已保存${lastSavedAt ? ` ${lastSavedAt}` : ''}`;
+    if (saveStatus === 'failed') return '保存失败';
+    return updatedText;
+  })();
 
   return (
     <div className={styles.header}>
@@ -66,7 +76,9 @@ function Header({ workflow }: HeaderProps) {
           </div>
 
           <div className={styles.workflowinfoBottom}>
-            <div className={styles.saveTime}>{updatedText}</div>
+            <div className={`${styles.saveTime} ${styles[`saveStatus-${saveStatus}`]}`}>
+              {saveStatusText}
+            </div>
           </div>
         </div>
       </div>
