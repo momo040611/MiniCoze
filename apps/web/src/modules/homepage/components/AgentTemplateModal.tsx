@@ -11,7 +11,7 @@ import {
   BookOutlined,
   EditOutlined,
 } from '@ant-design/icons';
-import { createAgent } from '../api/agent-config';
+import { createAgent } from '../../../api/agent-config';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -131,7 +131,7 @@ export function AgentTemplateModal({ open, onClose }: AgentTemplateModalProps) {
 
       // 如果有 persona，更新智能体配置
       if (template.persona) {
-        const { updateAgent } = await import('../api/agent-config');
+        const { updateAgent } = await import('../../../api/agent-config');
         await updateAgent(agent.id, {
           persona: template.persona,
         });

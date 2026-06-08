@@ -7,7 +7,7 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
 import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
-import { copyToClipboard } from '../../utils/clipboard';
+import { copyToClipboard } from '../../../../utils/clipboard';
 import styles from './MarkdownRenderer.module.css';
 
 interface Props {

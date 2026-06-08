@@ -21,10 +21,8 @@ import { formatFileSize } from './utils/format'
 import { ToolCallCard, type ToolCallData } from '../agent-config/components/ToolCallCard'
 import { DebugInfoPanel } from '../agent-config/components/DebugInfoPanel'
 import { KnowledgeStatus } from '../agent-config/components/KnowledgeStatus'
-import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer'
+import { MarkdownRenderer } from './components/chat/MarkdownRenderer'
 import { copyToClipboard } from '../../utils/clipboard'
-
-// ---- 升级后的消息模型 ----
 
 interface ToolCallMessage {
   kind: 'tool-call';

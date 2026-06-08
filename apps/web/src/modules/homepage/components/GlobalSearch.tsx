@@ -9,7 +9,7 @@ import {
   DeploymentUnitOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { getAgentList } from '../api/agent-config';
+import { getAgentList } from '../../../api/agent-config';
 
 interface SearchResult {
   id: string;
