@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { knowledgeApi, type KnowledgeBase } from '../../../api/knowledge-base'
+import { type KnowledgeBase } from '../../../api/knowledge-base'
+import { fetchKnowledgeBases } from './knowledge-base-helpers'
 import styles from './DatabaseTags.module.css'
 
 interface Props {
@@ -12,7 +13,7 @@ export function DatabaseTags({ ids, onRemove, onAdd }: Props) {
   const [allKbs, setAllKbs] = useState<KnowledgeBase[]>([])
 
   useEffect(() => {
-    knowledgeApi.getKnowledgeBases().then((res) => setAllKbs(res.data.list)).catch(() => setAllKbs([]))
+    fetchKnowledgeBases().then(setAllKbs).catch(() => setAllKbs([]))
   }, [])
 
   const selectedKbs = useMemo(

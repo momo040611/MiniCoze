@@ -5,7 +5,6 @@ import {
   PluginStatus,
   Prisma,
   PublishAction,
-  PublishActionStatus,
   PublishChannelType,
   PublishTargetType,
 } from '@prisma/client';
@@ -17,6 +16,7 @@ import type { ToolDefinition } from '../../shared/types/agent';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { OfflineAgentDto } from './dto/offline-agent.dto';
 import { PublishAgentDto } from './dto/publish-agent.dto';
+import { PublishRecordService } from './publish-record.service';
 import { RollbackAgentDto } from './dto/rollback-agent.dto';
 import { PublishChannelService } from './publish-channel.service';
 import {
@@ -63,6 +63,7 @@ export class PublishService {
     private readonly prisma: PrismaService,
     private readonly workspaceAccessService: WorkspaceAccessService,
     private readonly publishChannelService: PublishChannelService,
+    private readonly publishRecordService: PublishRecordService,
   ) {}
 
   async checkAgent(
@@ -125,17 +126,14 @@ export class PublishService {
         },
       });
 
-      await tx.publishRecord.create({
-        data: {
-          workspaceId: agent.workspaceId,
-          targetType: PublishTargetType.AGENT,
-          targetId: agentId,
-          versionId: createdVersion.id,
-          action: PublishAction.PUBLISH,
-          status: PublishActionStatus.SUCCESS,
-          changelog: dto.changelog,
-          operatorId: userId,
-        },
+      await this.publishRecordService.createAgentRecord(tx, {
+        workspaceId: agent.workspaceId,
+        agentId,
+        versionId: createdVersion.id,
+        versionNumber: createdVersion.version,
+        action: PublishAction.PUBLISH,
+        reason: dto.changelog,
+        operatorId: userId,
       });
 
       await this.publishChannelService.ensureDefaultAgentChannels(tx, {
@@ -198,35 +196,7 @@ export class PublishService {
     const agent = await this.findAgentOrThrow(agentId);
     await this.workspaceAccessService.ensureMember(userId, agent.workspaceId);
 
-    const records = await this.prisma.publishRecord.findMany({
-      where: {
-        targetType: PublishTargetType.AGENT,
-        targetId: agentId,
-      },
-      include: {
-        operator: {
-          select: {
-            id: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return records.map((record) => ({
-      id: record.id,
-      action: record.action,
-      status: record.status,
-      versionId: record.versionId,
-      changelog: record.changelog,
-      errorMessage: record.errorMessage,
-      createdAt: formatShanghaiDateTime(record.createdAt),
-      operator: {
-        id: record.operator.id,
-        username: record.operator.username,
-      },
-    }));
+    return this.publishRecordService.listAgentRecords(agentId);
   }
 
   async rollbackAgent(
@@ -256,31 +226,29 @@ export class PublishService {
     }
 
     const rolledBackAt = new Date();
-    await this.prisma.$transaction([
-      this.prisma.agent.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.agent.update({
         where: { id: agentId },
         data: {
           currentVersionId: version.id,
           status: AgentStatus.ACTIVE,
         },
-      }),
-      this.prisma.publishRecord.create({
-        data: {
-          workspaceId: agent.workspaceId,
-          targetType: PublishTargetType.AGENT,
-          targetId: agentId,
-          versionId: version.id,
-          action: PublishAction.ROLLBACK,
-          status: PublishActionStatus.SUCCESS,
-          changelog: dto.reason,
-          operatorId: userId,
-          createdAt: rolledBackAt,
-        },
-      }),
-    ]);
+      });
+      await this.publishRecordService.createAgentRecord(tx, {
+        workspaceId: agent.workspaceId,
+        agentId,
+        versionId: version.id,
+        versionNumber: version.version,
+        action: PublishAction.ROLLBACK,
+        reason: dto.reason,
+        operatorId: userId,
+        createdAt: rolledBackAt,
+      });
+    });
 
     return {
       currentVersionId: version.id,
+      version: version.version,
       rolledBackAt: formatShanghaiDateTime(rolledBackAt),
     };
   }
@@ -305,6 +273,7 @@ export class PublishService {
     }
 
     const offlineAt = new Date();
+    let offlineVersion: number | null = null;
     await this.prisma.$transaction(async (tx) => {
       await tx.agent.update({
         where: { id: agentId },
@@ -321,22 +290,28 @@ export class PublishService {
           enabled: false,
         },
       });
-      await tx.publishRecord.create({
-        data: {
-          workspaceId: agent.workspaceId,
-          targetType: PublishTargetType.AGENT,
-          targetId: agentId,
-          versionId: agent.currentVersionId,
-          action: PublishAction.OFFLINE,
-          status: PublishActionStatus.SUCCESS,
-          changelog: dto.reason,
-          operatorId: userId,
-          createdAt: offlineAt,
-        },
+      const currentVersion = agent.currentVersionId
+        ? await tx.agentVersion.findUnique({
+            where: { id: agent.currentVersionId },
+            select: { version: true },
+          })
+        : null;
+      offlineVersion = currentVersion?.version ?? null;
+      await this.publishRecordService.createAgentRecord(tx, {
+        workspaceId: agent.workspaceId,
+        agentId,
+        versionId: agent.currentVersionId,
+        versionNumber: currentVersion?.version,
+        action: PublishAction.OFFLINE,
+        reason: dto.reason,
+        operatorId: userId,
+        createdAt: offlineAt,
       });
     });
 
     return {
+      versionId: agent.currentVersionId,
+      version: offlineVersion,
       offlineAt: formatShanghaiDateTime(offlineAt),
     };
   }

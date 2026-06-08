@@ -2,7 +2,6 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   Prisma,
   PublishAction,
-  PublishActionStatus,
   PublishChannel,
   PublishChannelType,
   PublishTargetType,
@@ -15,6 +14,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { RotateApiKeyDto } from './dto/rotate-api-key.dto';
 import { UpdatePublishChannelDto } from './dto/update-publish-channel.dto';
+import { PublishRecordService } from './publish-record.service';
 import {
   ApiPublishChannelConfig,
   PublishChannelConfig,
@@ -28,6 +28,7 @@ export class PublishChannelService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly publishRecordService: PublishRecordService,
   ) {}
 
   async listAgentChannels(
@@ -131,8 +132,9 @@ export class PublishChannelService {
       workspaceId: agent.workspaceId,
       targetId: agentId,
       versionId: agent.currentVersionId,
+      versionNumber: agent.currentVersion?.version,
       operatorId: userId,
-      action: PublishAction.ENABLE_CHANNEL,
+      action: PublishAction.UPDATE_CHANNEL,
       changelog: `更新 ${channel} 发布渠道配置`,
     });
 
@@ -162,6 +164,7 @@ export class PublishChannelService {
       workspaceId: agent.workspaceId,
       targetId: agentId,
       versionId: agent.currentVersionId,
+      versionNumber: agent.currentVersion?.version,
       operatorId: userId,
       action: PublishAction.ENABLE_CHANNEL,
       changelog: `启用 ${channel} 发布渠道`,
@@ -208,6 +211,7 @@ export class PublishChannelService {
       workspaceId: agent.workspaceId,
       targetId: agentId,
       versionId: agent.currentVersionId,
+      versionNumber: agent.currentVersion?.version,
       operatorId: userId,
       action: PublishAction.DISABLE_CHANNEL,
       changelog: `禁用 ${channel} 发布渠道`,
@@ -251,8 +255,9 @@ export class PublishChannelService {
       workspaceId: agent.workspaceId,
       targetId: agentId,
       versionId: agent.currentVersionId,
+      versionNumber: agent.currentVersion?.version,
       operatorId: userId,
-      action: PublishAction.ENABLE_CHANNEL,
+      action: PublishAction.ROTATE_API_KEY,
       changelog: dto?.reason ?? '重新生成 API Key',
       createdAt: rotatedAt,
     });
@@ -292,6 +297,11 @@ export class PublishChannelService {
         id: true,
         workspaceId: true,
         currentVersionId: true,
+        currentVersion: {
+          select: {
+            version: true,
+          },
+        },
       },
     });
 
@@ -454,23 +464,21 @@ export class PublishChannelService {
     workspaceId: string;
     targetId: string;
     versionId: string | null;
+    versionNumber?: number | null;
     operatorId: string;
     action: PublishAction;
     changelog: string;
     createdAt?: Date;
   }): Promise<void> {
-    await this.prisma.publishRecord.create({
-      data: {
-        workspaceId: input.workspaceId,
-        targetType: PublishTargetType.AGENT,
-        targetId: input.targetId,
-        versionId: input.versionId,
-        action: input.action,
-        status: PublishActionStatus.SUCCESS,
-        changelog: input.changelog,
-        operatorId: input.operatorId,
-        createdAt: input.createdAt,
-      },
+    await this.publishRecordService.createAgentRecord(this.prisma, {
+      workspaceId: input.workspaceId,
+      agentId: input.targetId,
+      versionId: input.versionId,
+      versionNumber: input.versionNumber,
+      action: input.action,
+      reason: input.changelog,
+      operatorId: input.operatorId,
+      createdAt: input.createdAt,
     });
   }
 
