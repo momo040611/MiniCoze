@@ -14,8 +14,8 @@ import { logout } from '../../api/auth';
 import { getCurrentUser, subscribeToAuth } from '../../api/auth/auth-store';
 import { WorkspaceSwitcher } from '../workspace/WorkspaceSwitcher';
 import { appMenuItems, flattenMenuItems, getMenuParentKeys } from './menu';
-import { AppBreadcrumb } from '../../components/Breadcrumb';
-import { GlobalSearch } from '../../components/GlobalSearch';
+import { AppBreadcrumb } from '../homepage/components/Breadcrumb';
+import { GlobalSearch } from '../homepage/components/GlobalSearch';
 import styles from './AppLayout.module.css';
 
 const flatMenuItems = flattenMenuItems(appMenuItems);

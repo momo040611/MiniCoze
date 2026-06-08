@@ -4,7 +4,7 @@ import { PluginRegistryService } from '../../plugins/plugin-registry.service';
 import { AgentService } from '../../single-agent/agent.service';
 import type { Agent } from '@prisma/client';
 
-const DEFAULT_MAX_TOKENS = 1024;
+const DEFAULT_MAX_TOKENS = 4096;
 
 @Injectable()
 export class AgentConfigFactory {

@@ -6,7 +6,7 @@ import { WorkspaceProvider } from '../modules/workspace/workspace-context';
 import { RedirectIfAuth, RequireAuth, RootRedirect } from './auth-guard';
 import { LegacyRedirectRoutes } from './legacy-redirects';
 import { StrictMode } from 'react';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ErrorBoundary } from '../modules/homepage/components/ErrorBoundary';
 import { AppLayout } from '../modules/layout/AppLayout';
 
 // ── 懒加载页面组件 ──
@@ -62,7 +62,7 @@ const strict = (element: ReactNode) => {
 };
 
 // ── Suspense 包装的路由元素 ──
-const withSuspense = (Component: React.LazyExoticComponent<() => JSX.Element>) => (
+const withSuspense = (Component: React.LazyExoticComponent<() => React.ReactElement | null>) => (
   <Suspense fallback={<PageLoading />}>
     <Component />
   </Suspense>

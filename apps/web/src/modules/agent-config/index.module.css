@@ -73,7 +73,6 @@
 .newAgentBtn:active {
   transform: scale(0.98);
 }
-
 /* 可滚动列表 */
 .agentListScroll {
   flex: 1;

@@ -369,6 +369,7 @@ export function SingleAgentPlanner({
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
+            knowledgeBaseId={databases[0]}
           />
         </div>
       </div>

@@ -44,4 +44,8 @@ export class RunAgentDto {
   @IsOptional()
   @IsBoolean()
   preview?: boolean;
+
+  @IsOptional()
+  @IsString()
+  knowledgeBaseId?: string;
 }

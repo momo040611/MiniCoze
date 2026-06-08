@@ -111,7 +111,7 @@ export class AiGatewayService {
   }
 
   private createProvider(): AiProviderInterface {
-    const provider = this.configService.get<AiProvider>('AI_PROVIDER');
+    const provider = this.configService.get<AiProvider>('ai.provider');
 
     if (!provider) {
       throw new BusinessException(
@@ -127,20 +127,20 @@ export class AiGatewayService {
       case AiProvider.OPENAI:
         config = {
           provider: AiProvider.OPENAI,
-          apiKey: this.configService.get<string>('OPENAI_API_KEY')!,
-          baseUrl: this.configService.get<string>('OPENAI_BASE_URL')!,
+          apiKey: this.configService.get<string>('ai.openai.apiKey')!,
+          baseUrl: this.configService.get<string>('ai.openai.baseUrl')!,
           defaultModel:
-            this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini',
+            this.configService.get<string>('ai.openai.model') || 'gpt-4o-mini',
         };
         break;
 
       case AiProvider.DEEPSEEK:
         config = {
           provider: AiProvider.DEEPSEEK,
-          apiKey: this.configService.get<string>('DEEPSEEK_API_KEY')!,
-          baseUrl: this.configService.get<string>('DEEPSEEK_BASE_URL')!,
+          apiKey: this.configService.get<string>('ai.deepseek.apiKey')!,
+          baseUrl: this.configService.get<string>('ai.deepseek.baseUrl')!,
           defaultModel:
-            this.configService.get<string>('DEEPSEEK_MODEL') ||
+            this.configService.get<string>('ai.deepseek.model') ||
             'deepseek-v4-flash',
         };
         break;

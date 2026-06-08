@@ -467,6 +467,7 @@ export function MultiAgents({
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
+            knowledgeBaseId={config.databases[0]}
           />
           <WorkflowSelectModal
             visible={dialogFlow}
