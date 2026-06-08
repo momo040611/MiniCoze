@@ -1,5 +1,5 @@
 import { Button, Card, Form, Input, InputNumber, Modal, Select, Space, Switch, message } from 'antd';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChunkMode,
@@ -22,6 +22,7 @@ type SettingsTabProps = {
 function SettingsTab({ base, onChanged }: SettingsTabProps) {
   const navigate = useNavigate();
   const [form] = Form.useForm<UpdateKnowledgeBasePayload>();
+  const [reindexing, setReindexing] = useState(false);
   const icon = Form.useWatch('icon', form);
   const iconType = Form.useWatch('iconType', form);
   const iconImageUrl = Form.useWatch('iconImageUrl', form);
@@ -60,6 +61,17 @@ function SettingsTab({ base, onChanged }: SettingsTabProps) {
         navigate('/knowledge');
       },
     });
+  };
+
+  const reindexBase = async () => {
+    setReindexing(true);
+    try {
+      await knowledgeApi.reindexKnowledgeBase(base.id);
+      message.success('Reindex submitted');
+      onChanged();
+    } finally {
+      setReindexing(false);
+    }
   };
 
   return (
@@ -148,6 +160,9 @@ function SettingsTab({ base, onChanged }: SettingsTabProps) {
         <Space style={{ marginTop: 16 }}>
           <Button type="primary" onClick={saveSettings}>
             保存设置
+          </Button>
+          <Button loading={reindexing} onClick={reindexBase}>
+            Reindex
           </Button>
         </Space>
       </Form>

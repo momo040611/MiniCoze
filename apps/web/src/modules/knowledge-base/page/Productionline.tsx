@@ -118,12 +118,20 @@ function Productionline() {
 
   useEffect(() => {
     const loadBases = async () => {
-      const response = await knowledgeApi.getKnowledgeBases({ pageSize: 100 });
-      setKnowledgeBases(response.data.list);
-      const first = response.data.list[0];
-      if (first) {
-        setSelectedKnowledgeBaseId(first.id);
-        await loadPipeline(first.id, first.name);
+      try {
+        const response = await knowledgeApi.getKnowledgeBases({ pageSize: 100 });
+        setKnowledgeBases(response.data.list);
+        const first = response.data.list[0];
+        if (first) {
+          setSelectedKnowledgeBaseId(first.id);
+          await loadPipeline(first.id, first.name);
+        }
+      } catch (error) {
+        if (error instanceof Error && (error.message.includes('workspace') || error.message.includes('工作空间'))) {
+          message.warning('当前工作区为空，已跳过知识库加载');
+          return;
+        }
+        message.error(error instanceof Error ? error.message : '加载知识库失败');
       }
     };
     void loadBases();
