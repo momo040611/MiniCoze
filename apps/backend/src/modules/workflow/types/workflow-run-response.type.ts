@@ -20,6 +20,8 @@ export interface WorkflowRunResponse {
   id: string;
   workflowId: string;
   workflowVersionId: string | null;
+  workflowName?: string | null;
+  workflowVersion?: number | null;
   workspaceId: string;
   startedBy: string;
   status: WorkflowRunStatus;

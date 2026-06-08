@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { FileModule } from '../file/file.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
+import { AgentKnowledgeBindingController } from './bases/agent-knowledge-binding.controller';
+import { AgentKnowledgeBindingService } from './bases/agent-knowledge-binding.service';
 import { KnowledgeBaseController } from './bases/knowledge-base.controller';
 import { KnowledgeBaseService } from './bases/knowledge-base.service';
 import { KnowledgeDocumentController } from './documents/knowledge-document.controller';
@@ -17,12 +19,14 @@ import { RetrievalService } from './retrieval/retrieval.service';
   imports: [ConfigModule, WorkspaceModule, FileModule],
   controllers: [
     KnowledgeController,
+    AgentKnowledgeBindingController,
     KnowledgeBaseController,
     KnowledgeDocumentController,
     RetrievalController,
   ],
   providers: [
     KnowledgeService,
+    AgentKnowledgeBindingService,
     KnowledgeBaseService,
     KnowledgeDocumentService,
     RetrievalService,
@@ -32,6 +36,6 @@ import { RetrievalService } from './retrieval/retrieval.service';
       inject: [ConfigService],
     },
   ],
-  exports: [RetrievalService],
+  exports: [RetrievalService, AgentKnowledgeBindingService],
 })
 export class KnowledgeModule {}

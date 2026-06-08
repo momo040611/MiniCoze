@@ -36,7 +36,10 @@ export function resolveValueRef(ref: unknown, scope: VariableScope): unknown {
 }
 
 // 解析模板字符串：把其中所有 {{...}} 替换为对应值（对象/数组会被 JSON 序列化）。
-export function resolveTemplate(template: string, scope: VariableScope): string {
+export function resolveTemplate(
+  template: string,
+  scope: VariableScope,
+): string {
   return template.replace(INLINE_REF_PATTERN, (_match, rawPath: string) => {
     const value = lookupPath(rawPath.trim(), scope);
     if (value === undefined || value === null) {
@@ -87,7 +90,11 @@ function lookupPath(path: string, scope: VariableScope): unknown {
 function walk(base: unknown, segments: string[]): unknown {
   let current = base;
   for (const segment of segments) {
-    if (current === null || current === undefined || typeof current !== 'object') {
+    if (
+      current === null ||
+      current === undefined ||
+      typeof current !== 'object'
+    ) {
       return undefined;
     }
     current = (current as Record<string, unknown>)[segment];

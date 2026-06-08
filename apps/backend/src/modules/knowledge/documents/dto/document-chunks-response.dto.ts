@@ -10,7 +10,9 @@ export class DocumentChunkItemDto {
   @ApiProperty({ description: 'chunk 文本内容（不含向量）' })
   content!: string;
 
-  @ApiProperty({ description: '按 Unicode 码点（rune）计的字符数，由 content 计算得出' })
+  @ApiProperty({
+    description: '按 Unicode 码点（rune）计的字符数，由 content 计算得出',
+  })
   charCount!: number;
 
   @ApiProperty({ description: '切片是否启用' })

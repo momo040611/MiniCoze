@@ -23,9 +23,14 @@ const buildFile = (overrides: Partial<Record<string, unknown>> = {}) => ({
 });
 
 describe('KnowledgeService', () => {
-  const buildService = (fileOverrides = {}, buffer = Buffer.from('hello\n\nworld', 'utf8')) => {
+  const buildService = (
+    fileOverrides = {},
+    buffer = Buffer.from('hello\n\nworld', 'utf8'),
+  ) => {
     const fileService = {
-      getReadyFileForUser: jest.fn().mockResolvedValue(buildFile(fileOverrides)),
+      getReadyFileForUser: jest
+        .fn()
+        .mockResolvedValue(buildFile(fileOverrides)),
       getFileBufferForInternal: jest.fn().mockResolvedValue(buffer),
     } as unknown as FileService;
     return {
@@ -79,7 +84,10 @@ describe('KnowledgeService', () => {
   });
 
   it('扩展名为 pdf：抛 KnowledgeFileTypeUnsupported', async () => {
-    const { service } = buildService({ originalName: 'spec.pdf', extension: '.pdf' });
+    const { service } = buildService({
+      originalName: 'spec.pdf',
+      extension: '.pdf',
+    });
     try {
       await service.chunkDocument('u1', 'f1', { chunkType: 'default' });
       fail('should throw');
@@ -103,7 +111,10 @@ describe('KnowledgeService', () => {
   });
 
   it('leveled 用于 txt：抛 KnowledgeChunkConfigInvalid', async () => {
-    const { service } = buildService({ originalName: 'demo.txt' }, Buffer.from('hi'));
+    const { service } = buildService(
+      { originalName: 'demo.txt' },
+      Buffer.from('hi'),
+    );
     try {
       await service.chunkDocument('u1', 'f1', {
         chunkType: 'leveled',

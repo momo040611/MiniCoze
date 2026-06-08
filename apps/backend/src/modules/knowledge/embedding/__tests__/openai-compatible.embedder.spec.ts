@@ -6,7 +6,11 @@ const buildVector = (n: number, fill = 0.1): number[] =>
   Array.from({ length: n }, () => fill);
 
 const buildEmbeddingResponse = (vectors: number[][]) => ({
-  data: vectors.map((v, i) => ({ index: i, embedding: v, object: 'embedding' })),
+  data: vectors.map((v, i) => ({
+    index: i,
+    embedding: v,
+    object: 'embedding',
+  })),
   model: 'mock',
   object: 'list',
   usage: { prompt_tokens: 0, total_tokens: 0 },

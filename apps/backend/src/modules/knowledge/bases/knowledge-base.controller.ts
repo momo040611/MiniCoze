@@ -44,10 +44,7 @@ export class KnowledgeBaseController {
 
   @Delete(':id')
   @ApiOperation({ summary: '删除知识库（级联删除文档与切片）' })
-  remove(
-    @CurrentUserInfo() currentUser: CurrentUser,
-    @Param('id') id: string,
-  ) {
+  remove(@CurrentUserInfo() currentUser: CurrentUser, @Param('id') id: string) {
     return this.service.remove(currentUser.id, id);
   }
 

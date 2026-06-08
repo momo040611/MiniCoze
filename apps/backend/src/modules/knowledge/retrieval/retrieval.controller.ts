@@ -28,7 +28,9 @@ export class RetrievalController {
   constructor(private readonly service: RetrievalService) {}
 
   @Post('retrieval')
-  @ApiOperation({ summary: '多知识库语义检索（cosine similarity + topK + minScore）' })
+  @ApiOperation({
+    summary: '多知识库语义检索（cosine similarity + topK + minScore）',
+  })
   async retrieve(
     @CurrentUserInfo() currentUser: CurrentUser,
     @Body() dto: RetrieveRequestDto,
@@ -39,7 +41,7 @@ export class RetrievalController {
       topK: dto.topK,
       minScore: dto.minScore,
     });
-    return { results: results as RetrievedChunkDto[] };
+    return { results: results };
   }
 
   @Post('bases/:id/reindex')

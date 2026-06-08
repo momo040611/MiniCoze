@@ -3,7 +3,10 @@ import {
   PublishActionStatus,
   PublishChannelType,
 } from '@prisma/client';
-import type { ToolDefinition } from '../../../shared/types/agent';
+import type {
+  RuntimeKnowledgeBinding,
+  ToolDefinition,
+} from '../../../shared/types/agent';
 
 export interface PublishCheckItem {
   key: string;
@@ -84,8 +87,11 @@ export interface AgentPublishSnapshot {
     bindingId: string;
     workflowId: string;
     workflowVersionId: string;
+    workflowName: string;
     enabled: boolean;
+    tool?: ToolDefinition | null;
   }>;
+  knowledges?: RuntimeKnowledgeBinding[];
   plugins: Array<{
     bindingId: string;
     pluginId: string;

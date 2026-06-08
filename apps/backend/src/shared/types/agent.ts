@@ -38,9 +38,26 @@ export interface ToolResult {
 }
 
 export interface RuntimeToolMetadata {
+  toolKind?: 'plugin' | 'workflow';
   pluginId?: string;
   pluginCode?: string;
   toolCode?: string;
+  workflowId?: string;
+  workflowVersionId?: string;
+  workflowBindingId?: string;
+  workflowName?: string;
+}
+
+export interface RuntimeKnowledgeBindingConfig {
+  topK?: number;
+  minScore?: number;
+}
+
+export interface RuntimeKnowledgeBinding {
+  bindingId: string;
+  knowledgeBaseId: string;
+  enabled: boolean;
+  config?: RuntimeKnowledgeBindingConfig | null;
 }
 
 // ── Agent 配置 ──
@@ -53,6 +70,7 @@ export interface AgentConfig {
   maxTokens: number;
   contextLimit: number;
   tools: ToolDefinition[];
+  knowledgeBindings?: RuntimeKnowledgeBinding[];
 }
 
 // ── 流式事件 ──
@@ -142,6 +160,7 @@ export interface RunAgentCommand {
   publishedSnapshot?: {
     agent: {
       id: string;
+      workspaceId: string;
       name: string;
       systemPrompt: string;
       model: string;
@@ -149,5 +168,6 @@ export interface RunAgentCommand {
       contextLimit: number;
     };
     tools?: ToolDefinition[];
+    knowledgeBindings?: RuntimeKnowledgeBinding[];
   };
 }

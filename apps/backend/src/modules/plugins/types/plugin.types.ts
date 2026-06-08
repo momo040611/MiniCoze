@@ -143,7 +143,10 @@ export interface ResolvedPluginTool {
   plugin: PluginWithTools;
   tool: PluginToolEntity;
   metadata: Required<
-    Pick<RuntimeToolMetadata, 'pluginId' | 'pluginCode' | 'toolCode'>
+    Pick<
+      RuntimeToolMetadata,
+      'toolKind' | 'pluginId' | 'pluginCode' | 'toolCode'
+    >
   >;
 }
 

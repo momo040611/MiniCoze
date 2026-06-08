@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   AgentPluginBindingStatus,
   AgentStatus,
+  KnowledgeBaseStatus,
   PluginStatus,
   Prisma,
   PublishAction,
@@ -12,8 +13,12 @@ import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
-import type { ToolDefinition } from '../../shared/types/agent';
+import type {
+  RuntimeKnowledgeBindingConfig,
+  ToolDefinition,
+} from '../../shared/types/agent';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
+import { buildWorkflowToolDefinition } from '../workflow/workflow-tool.util';
 import { OfflineAgentDto } from './dto/offline-agent.dto';
 import { PublishAgentDto } from './dto/publish-agent.dto';
 import { PublishRecordService } from './publish-record.service';
@@ -52,6 +57,11 @@ type PublishAgent = Prisma.AgentGetPayload<{
             };
           };
         };
+      };
+    };
+    knowledgeBaseBindings: {
+      include: {
+        knowledgeBase: true;
       };
     };
   };
@@ -362,6 +372,12 @@ export class PublishService {
           },
           orderBy: { sortOrder: 'asc' },
         },
+        knowledgeBaseBindings: {
+          include: {
+            knowledgeBase: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
@@ -405,6 +421,12 @@ export class PublishService {
       (binding) =>
         binding.plugin.status !== PluginStatus.ACTIVE ||
         binding.plugin.invocationEnabled !== true,
+    );
+    const activeKnowledgeBindings = agent.knowledgeBaseBindings.filter(
+      (binding) => binding.enabled,
+    );
+    const invalidKnowledgeBindings = activeKnowledgeBindings.filter(
+      (binding) => binding.knowledgeBase.status !== KnowledgeBaseStatus.ACTIVE,
     );
 
     return [
@@ -454,6 +476,17 @@ export class PublishService {
                 .join('、')}`,
       },
       {
+        key: 'knowledges',
+        label: '知识库绑定',
+        passed: invalidKnowledgeBindings.length === 0,
+        message:
+          invalidKnowledgeBindings.length === 0
+            ? '知识库绑定有效'
+            : `存在不可用的知识库：${invalidKnowledgeBindings
+                .map((binding) => binding.knowledgeBase.name)
+                .join('、')}`,
+      },
+      {
         key: 'plugins',
         label: '插件绑定',
         passed: invalidPluginBindings.length === 0,
@@ -485,7 +518,15 @@ export class PublishService {
         bindingId: binding.id,
         workflowId: binding.workflowId,
         workflowVersionId: binding.workflowVersionId,
+        workflowName: binding.workflow.name,
         enabled: binding.enabled,
+        tool: this.buildWorkflowToolSnapshot(binding),
+      })),
+      knowledges: agent.knowledgeBaseBindings.map((binding) => ({
+        bindingId: binding.id,
+        knowledgeBaseId: binding.knowledgeBaseId,
+        enabled: binding.enabled,
+        config: this.toKnowledgeBindingConfig(binding.config),
       })),
       plugins: agent.pluginBindings.map((binding) => ({
         bindingId: binding.id,
@@ -550,5 +591,40 @@ export class PublishService {
     return Array.isArray(disabledTools)
       ? disabledTools.filter((item): item is string => typeof item === 'string')
       : [];
+  }
+
+  private buildWorkflowToolSnapshot(
+    binding: PublishAgent['workflows'][number],
+  ): ToolDefinition | null {
+    if (!binding.enabled || !binding.workflowVersion.isPublished) {
+      return null;
+    }
+
+    return buildWorkflowToolDefinition({
+      workflowVersionId: binding.workflowVersionId,
+      workflowName: binding.workflow.name,
+      workflowDescription: binding.workflow.description,
+      inputSchema: this.toObjectOrNull(binding.workflowVersion.inputSchema),
+    });
+  }
+
+  private toObjectOrNull(
+    value: Prisma.JsonValue | null,
+  ): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    return value;
+  }
+
+  private toKnowledgeBindingConfig(
+    value: Prisma.JsonValue | null,
+  ): RuntimeKnowledgeBindingConfig | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    return value;
   }
 }

@@ -3,7 +3,7 @@ import { BusinessException } from '../../../../common/exceptions/business.except
 import { chunk } from '../chunk';
 
 describe('chunk dispatch', () => {
-  it("default + txt 调通且 meta.totalChunks 等于 chunks.length", () => {
+  it('default + txt 调通且 meta.totalChunks 等于 chunks.length', () => {
     const result = chunk('hello\n\nworld', 'txt', { chunkType: 'default' });
     expect(result.meta.chunkType).toBe('default');
     expect(result.meta.fileExtension).toBe('txt');
@@ -58,9 +58,9 @@ describe('chunk dispatch', () => {
   });
 
   it('不支持的扩展名抛 KnowledgeFileTypeUnsupported', () => {
-    expect(() =>
-      chunk('hi', 'pdf', { chunkType: 'default' }),
-    ).toThrow(BusinessException);
+    expect(() => chunk('hi', 'pdf', { chunkType: 'default' })).toThrow(
+      BusinessException,
+    );
     try {
       chunk('hi', 'pdf', { chunkType: 'default' });
     } catch (e) {
@@ -71,8 +71,8 @@ describe('chunk dispatch', () => {
   });
 
   it('未知 chunkType 抛 KnowledgeChunkConfigInvalid', () => {
-    expect(() =>
-      chunk('hi', 'txt', { chunkType: 'unknown' as never } as never),
-    ).toThrow(BusinessException);
+    expect(() => chunk('hi', 'txt', { chunkType: 'unknown' as never })).toThrow(
+      BusinessException,
+    );
   });
 });

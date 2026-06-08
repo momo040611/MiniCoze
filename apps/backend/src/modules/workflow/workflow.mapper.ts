@@ -76,6 +76,8 @@ export class WorkflowMapper {
     run:
       | WorkflowRun
       | (WorkflowRun & {
+          workflow?: Pick<Workflow, 'name'> | null;
+          workflowVersion?: Pick<WorkflowVersion, 'version'> | null;
           nodes?: WorkflowRunNode[];
         }),
     includeNodes: boolean,
@@ -84,6 +86,12 @@ export class WorkflowMapper {
       id: run.id,
       workflowId: run.workflowId,
       workflowVersionId: run.workflowVersionId,
+      workflowName:
+        'workflow' in run ? (run.workflow?.name ?? null) : undefined,
+      workflowVersion:
+        'workflowVersion' in run
+          ? (run.workflowVersion?.version ?? null)
+          : undefined,
       workspaceId: run.workspaceId,
       startedBy: run.startedBy,
       status: run.status,
