@@ -68,30 +68,53 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
       });
 
       for (const toolCall of toolCalls) {
-        const parsedArgs = this.safeParse(toolCall.function.arguments);
+        const parsedArgs = this.maskPreviewArgs(
+          this.safeParse(toolCall.function.arguments),
+        );
+        const initialMetadata = this.parseFunctionName(toolCall.function.name);
         yield {
           type: 'tool.call.created',
           runId: context.runId,
           toolCallId: toolCall.id,
           name: toolCall.function.name,
+          ...initialMetadata,
           args: parsedArgs,
         };
 
-        const result = await toolExecutor.execute(toolCall);
-        yield {
-          type: 'tool.call.completed',
-          runId: context.runId,
-          toolCallId: toolCall.id,
-          name: toolCall.function.name,
-          result: result.output,
-        };
+        try {
+          const result = await toolExecutor.execute({
+            toolCall,
+            context,
+          });
+          yield {
+            type: 'tool.call.completed',
+            runId: context.runId,
+            toolCallId: toolCall.id,
+            name: toolCall.function.name,
+            ...initialMetadata,
+            ...result.metadata,
+            result: result.maskedOutput ?? result.output,
+          };
 
-        messages.push({
-          role: 'tool',
-          content: result.output,
-          tool_call_id: toolCall.id,
-          name: toolCall.function.name,
-        });
+          messages.push({
+            role: 'tool',
+            content: result.output,
+            tool_call_id: toolCall.id,
+            name: toolCall.function.name,
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          yield {
+            type: 'tool.call.failed',
+            runId: context.runId,
+            toolCallId: toolCall.id,
+            name: toolCall.function.name,
+            ...initialMetadata,
+            error: message,
+          };
+          throw error;
+        }
       }
     }
   }
@@ -102,5 +125,38 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
     } catch {
       return value;
     }
+  }
+
+  private parseFunctionName(name: string): {
+    pluginCode?: string;
+    toolCode?: string;
+  } {
+    const [pluginCode, toolCode] = name.split('__');
+    return {
+      pluginCode,
+      toolCode,
+    };
+  }
+
+  private maskPreviewArgs(value: unknown): unknown {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return value;
+    }
+
+    const sensitiveKeys = new Set([
+      'token',
+      'apiKey',
+      'authorization',
+      'password',
+      'secret',
+      'cookie',
+    ]);
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, val]) => [
+        key,
+        sensitiveKeys.has(key) ? '***' : val,
+      ]),
+    );
   }
 }

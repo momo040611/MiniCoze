@@ -31,7 +31,7 @@ export function OpeningMessageEditor({ agentName, config, onChange, defaultOpen 
   const [newQuestion, setNewQuestion] = useState('')
   const [hover, setHover] = useState(false)
 
-  const { openingMessage, openingQuestions, openingQuestionsEnabled } = config
+  const { openingMessage, openingQuestions = [], openingQuestionsEnabled = false } = config
 
   const updateOpening = useCallback(
     (patch: Partial<OpeningConfig>) => onChange({ ...config, ...patch }),

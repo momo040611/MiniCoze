@@ -62,6 +62,27 @@ export function setupAuthMocks() {
     }
   });
 
+  registerMockHandler('GET', 'users/me', async (_body, headers) => {
+    try {
+      const token = getTokenFromHeaders(headers);
+      const userInfo = handleGetProfile(token);
+      return { code: 0, message: 'ok', data: userInfo };
+    } catch (err) {
+      errorResponse(err instanceof Error ? err.message : '未登录', 401);
+    }
+  });
+
+  registerMockHandler('PATCH', 'users/me', async (body, headers) => {
+    try {
+      const token = getTokenFromHeaders(headers);
+      const updates = body as Record<string, unknown>;
+      const userInfo = handleUpdateProfile(token, updates);
+      return { code: 0, message: 'ok', data: userInfo };
+    } catch (err) {
+      errorResponse(err instanceof Error ? err.message : '更新失败', 400);
+    }
+  });
+
   registerMockHandler('PUT', 'auth/password', async (body, headers) => {
     try {
       const token = getTokenFromHeaders(headers);
@@ -84,4 +105,12 @@ export function setupAuthMocks() {
       errorResponse(err instanceof Error ? err.message : '头像上传失败', 400);
     }
   });
+
+  registerMockHandler('POST', 'files/upload', async () => ({
+    code: 0,
+    message: 'ok',
+    data: {
+      url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
+    },
+  }));
 }

@@ -14,6 +14,9 @@ export interface RuntimeContext {
   conversationId: string;
   agentId: string;
   userId: string;
+  publicAccess?: {
+    conversationIdPrefix: string;
+  };
   status: RuntimeRunStatus;
   isPreview?: boolean;
   input: ChatMessage;
@@ -40,7 +43,10 @@ export interface RuntimeRepository {
 
 // 工具执行器由 runtime 注入，执行策略只负责调用，不关心工具来源。
 export interface ToolExecutor {
-  execute(toolCall: ToolCall): Promise<ToolResult>;
+  execute(input: {
+    toolCall: ToolCall;
+    context: RuntimeContext;
+  }): Promise<ToolResult>;
 }
 
 export type AgentExecutionMode = 'single_agent' | 'workflow' | 'multi_agent';

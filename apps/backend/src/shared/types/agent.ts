@@ -31,6 +31,16 @@ export interface ToolCall {
 export interface ToolResult {
   toolCallId: string;
   output: string;
+  metadata?: RuntimeToolMetadata;
+  maskedArgs?: unknown;
+  maskedOutput?: unknown;
+  maskedError?: string;
+}
+
+export interface RuntimeToolMetadata {
+  pluginId?: string;
+  pluginCode?: string;
+  toolCode?: string;
 }
 
 // ── Agent 配置 ──
@@ -80,6 +90,10 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export type KnowledgeBoundStatus =
+  | { bound: false }
+  | { bound: true; knowledgeName: string; retrievedCount?: number };
+
 export type RuntimeEvent =
   | { type: 'run.created'; runId: string; conversationId: string }
   | { type: 'run.in_progress'; runId: string }
@@ -90,19 +104,32 @@ export type RuntimeEvent =
       messageId: string;
       content: string;
     }
-  | {
+  | ({
       type: 'tool.call.created';
       runId: string;
       toolCallId: string;
       name: string;
       args: unknown;
-    }
-  | {
+    } & RuntimeToolMetadata)
+  | ({
       type: 'tool.call.completed';
       runId: string;
       toolCallId: string;
       name: string;
       result: unknown;
+      error?: string;
+    } & RuntimeToolMetadata)
+  | ({
+      type: 'tool.call.failed';
+      runId: string;
+      toolCallId: string;
+      name: string;
+      error: string;
+    } & RuntimeToolMetadata)
+  | {
+      type: 'knowledge.status';
+      runId: string;
+      knowledge: KnowledgeBoundStatus;
     }
   | { type: 'run.completed'; runId: string; usage?: TokenUsage }
   | { type: 'run.failed'; runId: string; error: string }
@@ -113,10 +140,25 @@ export interface RunAgentCommand {
   userId: string;
   message: string;
   conversationId?: string;
+  publicAccess?: {
+    conversationIdPrefix: string;
+  };
   preview?: boolean;
   model?: string;
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
   tools?: ToolDefinition[];
+  knowledgeBaseId?: string;
+  publishedSnapshot?: {
+    agent: {
+      id: string;
+      name: string;
+      systemPrompt: string;
+      model: string;
+      temperature: number;
+      contextLimit: number;
+    };
+    tools?: ToolDefinition[];
+  };
 }

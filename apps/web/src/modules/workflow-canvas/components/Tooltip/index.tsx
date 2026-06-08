@@ -18,7 +18,6 @@ export function Tooltip(props: TooltipProps) {
                         <div className={`
                         ${styles.tooltip}
                         ${styles[position]}
-                         ${isShow ? styles.tooltipVisavle : ''}
                          ${isShow ? styles.tooltipVisible : ''}
                          `}>
                                 {text}

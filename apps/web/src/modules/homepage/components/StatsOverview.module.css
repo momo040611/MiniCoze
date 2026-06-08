@@ -1,0 +1,46 @@
+/* ② 统计概览 */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.skeleton {
+  padding: 20px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--card-border, rgba(104, 119, 144, 0.06));
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeletonHeader {
+  display: flex;
+  justify-content: space-between;
+}
+
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 暗色 */
+[data-theme='dark'] .skeleton {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.06);
+}

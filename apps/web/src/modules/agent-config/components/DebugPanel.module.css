@@ -1,0 +1,141 @@
+/* 调试面板 */
+.debugCollapse {
+  border-top: 1px solid rgba(104, 119, 144, 0.1) !important;
+  border-radius: 0 !important;
+  flex-shrink: 0;
+}
+.debugLabel {
+  font-size: 12px;
+  color: #8896a6;
+}
+.debugContent {
+  padding: 4px 0;
+  font-size: 13px;
+}
+.debugRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+.debugKey { color: #8896a6; }
+.debugValue { color: #18202f; font-family: monospace; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.copyIcon { cursor: pointer; color: #8896a6; font-size: 12px; }
+.copyIcon:hover { color: #22c55e; }
+.debugSection {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(104, 119, 144, 0.06);
+}
+.debugSectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #506070;
+  display: block;
+  margin-bottom: 6px;
+}
+.tokenBox {
+  background: #f5f6f8;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.tokenRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 2px 0;
+  color: #506070;
+}
+.tokenDivider {
+  border-top: 1px solid rgba(104, 119, 144, 0.1);
+  margin: 4px 0;
+}
+.toolChain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.toolChainItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.toolChainIndex {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f0f1f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #506070;
+  flex-shrink: 0;
+}
+.toolChainName {
+  color: #18202f;
+  font-family: monospace;
+  font-size: 12px;
+  flex: 1;
+}
+.toolChainStatus { color: #8896a6; font-size: 11px; }
+.toolChainDuration { color: #8896a6; font-size: 11px; margin-left: auto; }
+.noData { color: #8896a6; font-size: 12px; }
+
+/* 工具调用卡片 */
+.toolCard {
+  border-radius: 8px;
+  margin: 6px 0;
+  overflow: hidden;
+  background: #fff;
+}
+.toolExecuting { border-left: 3px solid #1677ff; }
+.toolSuccess { border-left: 3px solid #22c55e; }
+.toolFailed { border-left: 3px solid #ff4d4f; }
+.toolHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fafbfc;
+}
+.toolHeaderLeft { display: flex; align-items: center; gap: 8px; }
+.toolIcon { color: #506070; }
+.toolName { font-family: monospace; font-size: 12px; color: #18202f; }
+.toolHeaderRight { display: flex; align-items: center; gap: 10px; }
+.toolStatus { font-size: 11px; color: #8896a6; display: flex; align-items: center; gap: 4px; }
+.collapseBtn { background: none; border: none; font-size: 11px; color: #8896a6; cursor: pointer; padding: 2px 6px; }
+.toolBody { padding: 8px 12px 12px; }
+.toolSection { margin-top: 8px; }
+.toolSectionLabel { font-size: 11px; color: #8896a6; margin-bottom: 4px; }
+.toolJson {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.toolError {
+  background: #fff2f0;
+  color: #ff4d4f;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 0;
+}
+.expandBtn {
+  background: none;
+  border: none;
+  color: #1677ff;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+}

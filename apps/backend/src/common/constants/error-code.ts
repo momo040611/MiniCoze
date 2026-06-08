@@ -31,4 +31,34 @@ export enum ErrorCode {
 
   // AI 配置缺失或错误。
   AiConfigError = 60002,
+
+  // 知识库切分配置非法（例如 overlap >= chunkSize、leveled 用于非 md 等）。
+  KnowledgeChunkConfigInvalid = 60101,
+
+  // 知识库不支持的文件类型（本期仅支持 txt / md）。
+  KnowledgeFileTypeUnsupported = 60102,
+
+  // Embedding 调用失败：HTTP 错、网络错、维度不符等。
+  KnowledgeEmbeddingFailed = 60104,
+
+  // 知识库上传文件过大（超过限制）。
+  KnowledgeFileTooLarge = 60103,
+
+  // 知识库不存在或无访问权限。
+  KnowledgeBaseNotFound = 60106,
+
+  // 文档不存在或无访问权限。
+  KnowledgeDocumentNotFound = 60107,
+
+  // 切片不存在。
+  KnowledgeChunkNotFound = 60108,
+
+  // 知识库当前状态不允许该操作（例如对 ARCHIVED 知识库切换 enabled）。
+  KnowledgeBaseInvalidStatus = 60109,
+
+  // 知识库检索 SQL 查询失败（向量索引或数据库异常）。
+  KnowledgeRetrievalQueryFailed = 60110,
+
+  // 写入或检索时向量维度与 KB 配置不一致。
+  KnowledgeVectorDimensionMismatch = 60111,
 }

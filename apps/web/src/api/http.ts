@@ -54,7 +54,7 @@ export function clearAuthToken() {
 }
 
 // Mock 拦截器类型：传入请求体和请求头，返回模拟的响应数据
-type MockHandler = (body: unknown, headers: Headers) => Promise<unknown>;
+type MockHandler = (body: unknown, headers: Headers, path: string) => Promise<unknown>;
 
 const mockHandlers = new Map<string, MockHandler>();
 
@@ -199,24 +199,31 @@ export async function request<TResponse, TBody = unknown>(
   let mockHandler = mockHandlers.get(mockKey);
 
   // 未命中精确匹配时，尝试 RESTful 前缀匹配（如 GET:agents 匹配 GET:agents/some-id）
+  // 按路径长度降序排列，确保更具体的路径（如 workspaces/default-workspace）优先于短路径（如 workspaces）
   if (!mockHandler) {
-    for (const [key, handler] of mockHandlers) {
-      const sepIdx = key.indexOf(':');
-      if (sepIdx !== -1) {
+    const candidates = Array.from(mockHandlers.entries())
+      .filter(([key]) => {
+        const sepIdx = key.indexOf(':');
+        if (sepIdx === -1) return false;
         const keyMethod = key.slice(0, sepIdx);
         const keyPath = key.slice(sepIdx + 1);
-        if (keyMethod === method && path.startsWith(`${keyPath}/`)) {
-          mockHandler = handler;
-          break;
-        }
-      }
+        return keyMethod === method && path.startsWith(`${keyPath}/`);
+      })
+      .sort((a, b) => {
+        const lenA = a[0].indexOf(':') !== -1 ? a[0].slice(a[0].indexOf(':') + 1).length : 0;
+        const lenB = b[0].indexOf(':') !== -1 ? b[0].slice(b[0].indexOf(':') + 1).length : 0;
+        return lenB - lenA; // 降序：最长（最具体）路径优先
+      });
+
+    if (candidates.length > 0) {
+      mockHandler = candidates[0][1];
     }
   }
 
   if (mockHandler) {
     const simulateDelay = new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 200));
     try {
-      const data = await mockHandler(body, createHeaders(body, headers, auth));
+      const data = await mockHandler(body, createHeaders(body, headers, auth), path);
       await simulateDelay;
       return data as TResponse;
     } catch (error) {

@@ -54,11 +54,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  width: 120px;
   padding: 10px 16px;
   border: none;
   border-radius: 8px;
-  background: #22c55e;
+  background: #2563eb;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -67,13 +67,12 @@
 }
 
 .newAgentBtn:hover {
-  background: #16a34a;
+  background: #1d4ed8;
 }
 
 .newAgentBtn:active {
   transform: scale(0.98);
 }
-
 /* 可滚动列表 */
 .agentListScroll {
   flex: 1;
@@ -118,17 +117,17 @@
 }
 
 .agentListItem:hover {
-  background: rgba(34, 197, 94, 0.06);
+  background: rgba(37, 99, 235, 0.04);
 }
 
 /* 选中态 */
 .agentListItemActive {
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(37, 99, 235, 0.08);
   font-weight: 600;
 }
 
 .agentListItemActive:hover {
-  background: rgba(34, 197, 94, 0.16);
+  background: rgba(37, 99, 235, 0.12);
 }
 
 /* 名称 — 超长截断 */
@@ -274,8 +273,8 @@
 .formInput:focus,
 .formTextarea:focus,
 .formSelect:focus {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 
 /* textarea 独有 */
@@ -301,16 +300,16 @@
    ============================================ */
 .formDescribeBox {
   padding: 16px 20px;
-  border: 1px solid rgba(15, 118, 110, 0.18);
+  border: 1px solid rgba(37, 99, 235, 0.15);
   border-radius: 8px;
-  background: rgba(236, 253, 245, 0.68);
+  background: rgba(239, 246, 255, 0.6);
 }
 
 .formDescribeBox h4 {
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 700;
-  color: #164e63;
+  color: #1e3a5f;
 }
 
 .formDescribeBox p {
@@ -324,7 +323,7 @@
   padding: 8px 18px;
   border: none;
   border-radius: 6px;
-  background: #18202f;
+  background: #2563eb;
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -333,7 +332,7 @@
 }
 
 .formToolButton:hover {
-  background: #0f766e;
+  background: #1d4ed8;
 }
 
 /* ============================================
@@ -385,8 +384,8 @@
   margin-bottom: 16px;
   padding: 4px 12px;
   border-radius: 4px;
-  background: rgba(34, 197, 94, 0.12);
-  color: #16a34a;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
   font-size: 13px;
   font-weight: 600;
   animation: fadeOut 0.3s ease-in-out 1.7s forwards;
@@ -407,7 +406,7 @@
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
-  background: #22c55e;
+  background: #2563eb;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -417,7 +416,7 @@
 }
 
 .formCreate:hover {
-  background: #16a34a;
+  background: #1d4ed8;
 }
 
 .formCreate:active {
@@ -446,6 +445,12 @@
   margin-bottom: 24px;
 }
 
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .topBarTitle {
   font-size: 22px;
   font-weight: 700;
@@ -472,8 +477,8 @@
 }
 
 .searchBox:focus-within {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 
 .searchIcon {
@@ -496,42 +501,140 @@
 }
 
 /* 新建按钮 — 顶部栏版本 */
-.newAgentBtn {
+.topBarCreateBtn {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 9px 20px;
-  border: 1px solid rgba(104, 119, 144, 0.3);
+  padding: 8px 20px;
+  border: none;
   border-radius: 8px;
-  background: #fff;
-  color: #18202f;
+  background: #2563eb;
+  color: #fff;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  transition: background 0.15s, transform 0.15s;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.newAgentBtn:hover {
-  background: #f3f4f6;
-  border-color: rgba(34, 197, 94, 0.35);
+.topBarCreateBtn:hover {
+  background: #1d4ed8;
 }
 
-.newAgentBtn:active {
+.topBarCreateBtn:active {
   transform: scale(0.98);
 }
 
 /* ============================================
-   M — 智能体列表
+   M1 — 筛选下拉框
+   ============================================ */
+.filterBar {
+  position: relative;
+}
+
+.filterTrigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid rgba(104, 119, 144, 0.25);
+  border-radius: 8px;
+  background: #fff;
+  color: #506070;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.filterTrigger:hover {
+  border-color: #2563eb;
+}
+
+.filterTriggerLabel {
+  font-weight: 500;
+}
+
+.filterTriggerArrow {
+  transition: transform 0.15s;
+  color: #8896a6;
+}
+
+.filterTriggerArrowOpen {
+  transform: rotate(180deg);
+}
+
+.filterDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #e7ebf3;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+  z-index: 100;
+}
+
+.filterDropdownGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.filterDropdownGroupTitle {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a0aec0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.filterDropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #18202f;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.filterDropdownItem:hover {
+  background: #f3f4f6;
+}
+
+.filterDropdownItemActive {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.06);
+  font-weight: 600;
+}
+
+.filterDropdownItemActive svg {
+  stroke: #2563eb;
+}
+
+.filterDropdownDivider {
+  height: 1px;
+  margin: 6px 8px;
+  background: #e7ebf3;
+}
+
+/* ============================================
+   M — 智能体列表（网格布局）
    ============================================ */
 .agentList {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
   overflow-y: auto;
   min-height: 0;
+  align-content: start;
+  padding: 4px 0;
 }
 
 .agentList::-webkit-scrollbar {
@@ -549,43 +652,61 @@
 
 /* 空状态 */
 .agentListEmpty {
+  grid-column: 1 / -1;
   padding: 48px 12px;
   text-align: center;
   color: #a0aec0;
   font-size: 14px;
 }
 
-/* 智能体卡片 */
+/* 智能体卡片 — 长方形横向 */
 .agentCard {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  border: 1px solid rgba(104, 119, 144, 0.15);
-  border-radius: 10px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid #e7ebf3;
+  border-radius: 12px;
   background: #fff;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+  min-height: 0;
 }
 
 .agentCard:hover {
-  border-color: rgba(34, 197, 94, 0.3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-color: #2563eb;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.10);
+  transform: translateY(-2px);
+}
+
+.agentCard:active {
+  transform: translateY(0);
 }
 
 .agentCardAvatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   object-fit: cover;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.agentCardInfo {
+.agentCardBody {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+}
+
+.agentCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .agentCardName {
@@ -595,32 +716,65 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
+}
+
+.agentCardStatus {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+  line-height: 1.6;
+}
+
+.agentCardStatusPublished {
+  color: #16a34a;
+  background: #dcfce7;
+}
+
+.agentCardStatusDraft {
+  color: #8896a6;
+  background: #f3f4f6;
 }
 
 .agentCardDesc {
-  font-size: 13px;
+  font-size: 12px;
   color: #8896a6;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
+  line-height: 1.4;
+}
+
+.agentCardTime {
+  font-size: 12px;
+  color: #c0c8d4;
+  line-height: 1.4;
 }
 
 .agentCardDelete {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: 6px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.9);
   color: #8896a6;
   font-size: 12px;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .agentCard:hover .agentCardDelete {
@@ -630,7 +784,7 @@
 
 .agentCardDelete:hover {
   color: #dc2626;
-  background: rgba(220, 38, 38, 0.08);
+  background: #fef2f2;
 }
 
 /* ============================================
@@ -809,8 +963,8 @@
 
 .modalInput:focus,
 .modalTextarea:focus {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 
 .modalTextarea {
@@ -853,7 +1007,7 @@
   padding: 9px 24px;
   border: none;
   border-radius: 8px;
-  background: #22c55e;
+  background: #2563eb;
   color: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -862,7 +1016,7 @@
 }
 
 .modalCreateBtn:hover {
-  background: #16a34a;
+  background: #1d4ed8;
 }
 
 .modalCreateBtn:active {

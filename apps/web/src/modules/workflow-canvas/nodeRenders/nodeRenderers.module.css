@@ -1,0 +1,113 @@
+.nodeTitle {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1f2329;
+    line-height: 22px;
+    margin-bottom: 4px;
+}
+
+.llmNode,
+.inputNode,
+.outputNode,
+.conditionNode,
+.pluginNode,
+.databaseNode,
+.annotationNode,
+.genericNode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.annotationNode {
+    width: 204px;
+    height: 128px;
+    padding: 0;
+    border: 1px solid #ff8a3d;
+    border-radius: 8px;
+    background: #fff2e8;
+    overflow: hidden;
+    cursor: move;
+}
+
+.annotationTextarea {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    border: 0;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: #3f4654;
+    font-size: 12px;
+    line-height: 18px;
+    font-family: inherit;
+}
+
+.annotationText {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    color: #3f4654;
+    font-size: 12px;
+    line-height: 18px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    cursor: move;
+}
+
+.annotationPlaceholder {
+    color: #b8bec8;
+}
+
+.annotationTextarea::placeholder {
+    color: #b8bec8;
+}
+
+.variableRow,
+.configRow {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    align-items: center;
+    column-gap: 8px;
+}
+
+.variableLabel {
+    font-size: 12px;
+    color: #8a8f99;
+    line-height: 18px;
+    white-space: nowrap;
+}
+
+.variableTag {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #f1f3f8;
+    font-size: 12px;
+    line-height: 18px;
+    white-space: nowrap;
+}
+
+.variableType,
+.dot {
+    color: #8a8f99;
+}
+
+.dot {
+    margin: 0 1px;
+}
+
+.variableName {
+    color: #3f4654;
+    font-weight: 500;
+}
+
+.configText {
+    font-size: 12px;
+    color: #3f4654;
+    line-height: 18px;
+    white-space: nowrap;
+}

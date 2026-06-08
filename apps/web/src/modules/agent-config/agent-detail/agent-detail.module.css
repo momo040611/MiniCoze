@@ -1,0 +1,568 @@
+/* ============================================
+   A — 顶部导航栏
+   ============================================ */
+.detailPage {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #f9fafb;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  background: #fff;
+  border-bottom: 1px solid rgba(104, 119, 144, 0.15);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.backArrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #506070;
+  cursor: pointer;
+  font-size: 18px;
+  transition: background 0.15s;
+}
+
+.backArrow:hover {
+  background: #f3f4f6;
+}
+
+.navAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.navName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #18202f;
+  white-space: nowrap;
+}
+
+.editBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #8896a6;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.editBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.publishedBadge {
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.navCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.savedHint {
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.errorHint {
+  font-size: 12px;
+  color: #ef4444;
+  white-space: nowrap;
+}
+
+.draftHint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.draftDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.saveBtn {
+  padding: 6px 16px;
+  border: 1px solid rgba(104, 119, 144, 0.3);
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.saveBtn:hover {
+  background: #f3f4f6;
+  border-color: rgba(104, 119, 144, 0.4);
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.publishBtn {
+  padding: 6px 18px;
+  border: none;
+  border-radius: 6px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.publishBtn:hover {
+  background: #6d28d9;
+}
+
+/* ============================================
+   B — 多栏固定布局（共用）
+   ============================================ */
+.columns {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+  border-right: 1px solid rgba(104, 119, 144, 0.12);
+  flex-shrink: 0;
+}
+
+.col:last-child {
+  border-right: none;
+}
+
+.colHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(104, 119, 144, 0.1);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.colTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #18202f;
+  margin: 0;
+}
+
+.colToolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #8896a6;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.toolbarBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.colBody {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 18px;
+  min-height: 0;
+}
+
+.colBody::-webkit-scrollbar {
+  width: 5px;
+}
+
+.colBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.colBody::-webkit-scrollbar-thumb {
+  background: #d0d5dd;
+  border-radius: 3px;
+}
+
+/* ============================================
+   C — 可折叠面板（共用）
+   ============================================ */
+.collapsePanel {
+  margin-bottom: 4px;
+}
+
+.collapseHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid transparent;
+}
+
+.collapseHeader:hover .collapseTitle {
+  color: #374151;
+}
+
+.collapseTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #506070;
+  transition: color 0.12s;
+}
+
+.collapseArrow {
+  display: flex;
+  align-items: center;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.collapseArrowOpen {
+  transform: rotate(90deg);
+}
+
+.collapseContent {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.35s ease;
+}
+
+.collapseContentOpen {
+  max-height: 4000px;
+  opacity: 1;
+  padding-top: 8px;
+  padding-bottom: 12px;
+}
+
+/* ============================================
+   D — 面板（共用）
+   ============================================ */
+.panelTitle {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #18202f;
+}
+
+.panelDesc {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #8896a6;
+  line-height: 1.5;
+}
+
+.panelTextarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(104, 119, 144, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #18202f;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.panelTextarea::placeholder {
+  color: #a0aec0;
+}
+
+.panelTextarea:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+/* ============================================
+   F — 配置行 / 参数 / 按钮（共用）
+   ============================================ */
+.configRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #fafbfc;
+  border: 1px solid rgba(104, 119, 144, 0.1);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.configRow:last-child {
+  margin-bottom: 0;
+}
+
+.configRowInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.configRowIcon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.configRowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.configRowName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #18202f;
+}
+
+.configRowDesc {
+  font-size: 11px;
+  color: #8896a6;
+}
+
+.configRowRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.paramControl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.paramRange {
+  width: 86px;
+  height: 4px;
+  accent-color: #7c3aed;
+  cursor: pointer;
+}
+
+.paramNumber {
+  width: 54px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid rgba(104, 119, 144, 0.2);
+  border-radius: 6px;
+  background: #fff;
+  color: #18202f;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.paramNumber:focus,
+.paramSelect:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+.paramSelect {
+  min-width: 92px;
+  height: 30px;
+  padding: 0 28px 0 10px;
+  border: 1px solid rgba(104, 119, 144, 0.2);
+  border-radius: 6px;
+  background: #fff;
+  color: #18202f;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.paramUnit {
+  min-width: 16px;
+  font-size: 12px;
+  color: #8896a6;
+}
+
+.configRowCount {
+  font-size: 12px;
+  color: #8896a6;
+}
+
+.addBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(104, 119, 144, 0.2);
+  border-radius: 6px;
+  background: #fff;
+  color: #506070;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.addBtn:hover {
+  border-color: #7c3aed;
+  color: #7c3aed;
+  background: #f5f3ff;
+}
+
+/* Toggle 开关 */
+.toggleSwitch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggleSwitch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggleSlider {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  background: #d1d5db;
+  border-radius: 11px;
+  transition: background 0.2s;
+}
+
+.toggleSlider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.toggleSwitch input:checked + .toggleSlider {
+  background: #7c3aed;
+}
+
+.toggleSwitch input:checked + .toggleSlider::before {
+  transform: translateX(16px);
+}
+
+/* 字数统计 */
+.charCount {
+  display: block;
+  text-align: right;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+/* 入场动画 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

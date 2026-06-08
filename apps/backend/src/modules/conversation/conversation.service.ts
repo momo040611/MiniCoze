@@ -231,6 +231,21 @@ export class ConversationService {
     return this.prisma.conversation.findMany({
       where: { agentId, userId, isPreview: preview },
       orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        agentId: true,
+        userId: true,
+        title: true,
+        isPreview: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { messages: true } },
+        messages: {
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+          select: { content: true, role: true, createdAt: true },
+        },
+      },
     });
   }
 
