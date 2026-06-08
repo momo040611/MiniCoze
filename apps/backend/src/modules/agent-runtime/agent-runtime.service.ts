@@ -38,6 +38,7 @@ export class AgentRuntimeService {
       publishedSnapshot: {
         agent: command.snapshot.agent,
         tools: this.getSnapshotTools(command.snapshot),
+        knowledgeBindings: command.snapshot.knowledges ?? [],
       },
     });
   }
@@ -47,6 +48,11 @@ export class AgentRuntimeService {
   }
 
   private getSnapshotTools(snapshot: AgentPublishSnapshot): ToolDefinition[] {
-    return snapshot.plugins.flatMap((plugin) => plugin.tools ?? []);
+    return [
+      ...snapshot.plugins.flatMap((plugin) => plugin.tools ?? []),
+      ...snapshot.workflows.flatMap((workflow) =>
+        workflow.tool ? [workflow.tool] : [],
+      ),
+    ];
   }
 }

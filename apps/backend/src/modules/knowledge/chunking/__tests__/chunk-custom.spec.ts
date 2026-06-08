@@ -29,7 +29,11 @@ describe('chunkCustom', () => {
 
   it('按 separator 分段，独立成 chunk', () => {
     const text = '段落一\n\n段落二';
-    const chunks = chunkCustom(text, { ...baseCfg, chunkSize: 100, overlap: 0 });
+    const chunks = chunkCustom(text, {
+      ...baseCfg,
+      chunkSize: 100,
+      overlap: 0,
+    });
     expect(chunks).toHaveLength(2);
     expect(chunks[0].content).toBe('段落一');
     expect(chunks[1].content).toBe('段落二');
@@ -38,9 +42,15 @@ describe('chunkCustom', () => {
   it('overlap 比例生效：相邻 chunk 的尾首重叠 rune 一致', () => {
     // chunkSize=10, overlap=20% => 2 rune overlap
     const text = 'abcdefghijklmnopqrstuvwxyz';
-    const chunks = chunkCustom(text, { ...baseCfg, chunkSize: 10, overlap: 20 });
+    const chunks = chunkCustom(text, {
+      ...baseCfg,
+      chunkSize: 10,
+      overlap: 20,
+    });
     for (let i = 1; i < chunks.length; i++) {
-      const prevTail = Array.from(chunks[i - 1].content).slice(-2).join('');
+      const prevTail = Array.from(chunks[i - 1].content)
+        .slice(-2)
+        .join('');
       const currHead = Array.from(chunks[i].content).slice(0, 2).join('');
       expect(currHead).toBe(prevTail);
     }

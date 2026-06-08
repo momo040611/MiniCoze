@@ -287,7 +287,9 @@ describe('KnowledgeDocumentService', () => {
 
     await expect(
       service.chunkAndIngest('u1', 'kb1', 'f1', { chunkType: 'default' }),
-    ).rejects.toMatchObject({ message: expect.stringContaining('provider down') });
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('provider down'),
+    });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -428,10 +430,7 @@ describe('KnowledgeDocumentService', () => {
         content: 'new content',
       });
       retrievalService.indexSingleChunk.mockRejectedValueOnce(
-        new BusinessException(
-          'embed down',
-          ErrorCode.KnowledgeEmbeddingFailed,
-        ),
+        new BusinessException('embed down', ErrorCode.KnowledgeEmbeddingFailed),
       );
       const service = buildService(makeEmbedder([]));
 

@@ -264,6 +264,8 @@ describe('DashboardService', () => {
     });
     expect(
       new Date(result.recentLogs[0].timestamp).getTime(),
-    ).toBeGreaterThanOrEqual(new Date(result.recentLogs[1].timestamp).getTime());
+    ).toBeGreaterThanOrEqual(
+      new Date(result.recentLogs[1].timestamp).getTime(),
+    );
   });
 });

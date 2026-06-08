@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { AgentConfig, RunAgentCommand } from '../../../shared/types/agent';
+import type { Agent } from '@prisma/client';
+import {
+  AgentConfig,
+  RunAgentCommand,
+  ToolDefinition,
+} from '../../../shared/types/agent';
+import { AgentKnowledgeBindingService } from '../../knowledge/bases/agent-knowledge-binding.service';
 import { PluginRegistryService } from '../../plugins/plugin-registry.service';
 import { AgentService } from '../../single-agent/agent.service';
-import type { Agent } from '@prisma/client';
+import { WorkflowToolRegistryService } from '../../workflow/workflow-tool-registry.service';
 
 const DEFAULT_MAX_TOKENS = 4096;
 
@@ -11,6 +17,8 @@ export class AgentConfigFactory {
   constructor(
     private readonly agentService: AgentService,
     private readonly pluginRegistryService: PluginRegistryService,
+    private readonly workflowToolRegistryService: WorkflowToolRegistryService,
+    private readonly agentKnowledgeBindingService: AgentKnowledgeBindingService,
   ) {}
 
   async build(command: RunAgentCommand): Promise<AgentConfig> {
@@ -26,30 +34,30 @@ export class AgentConfigFactory {
         maxTokens: command.maxTokens ?? DEFAULT_MAX_TOKENS,
         contextLimit: snapshotAgent.contextLimit,
         tools: command.publishedSnapshot.tools ?? [],
+        knowledgeBindings: command.publishedSnapshot.knowledgeBindings ?? [],
       };
     }
 
-    let agent: Agent;
-    if (command.preview) {
-      agent = await this.agentService.findPreviewAgentForUser(
-        command.userId,
-        command.agentId,
-      );
-    } else {
-      agent = await this.agentService.findRunnableAgentForUser(
-        command.userId,
-        command.agentId,
-      );
-    }
+    const agent = command.preview
+      ? await this.agentService.findPreviewAgentForUser(
+          command.userId,
+          command.agentId,
+        )
+      : await this.agentService.findRunnableAgentForUser(
+          command.userId,
+          command.agentId,
+        );
 
     const tools =
       command.preview && command.tools?.length
         ? command.tools
-        : await this.pluginRegistryService.listRunnableTools({
-            agentId: agent.id,
-            workspaceId: agent.workspaceId,
-            userId: command.userId,
-          });
+        : await this.listRunnableTools(agent, command.userId);
+    const knowledgeBindings =
+      await this.agentKnowledgeBindingService.listRuntimeBindings({
+        agentId: agent.id,
+        workspaceId: agent.workspaceId,
+        userId: command.userId,
+      });
 
     return {
       id: agent.id,
@@ -60,6 +68,27 @@ export class AgentConfigFactory {
       maxTokens: command.maxTokens ?? DEFAULT_MAX_TOKENS,
       contextLimit: agent.contextLimit,
       tools,
+      knowledgeBindings,
     };
+  }
+
+  private async listRunnableTools(
+    agent: Agent,
+    userId: string,
+  ): Promise<ToolDefinition[]> {
+    const [pluginTools, workflowTools] = await Promise.all([
+      this.pluginRegistryService.listRunnableTools({
+        agentId: agent.id,
+        workspaceId: agent.workspaceId,
+        userId,
+      }),
+      this.workflowToolRegistryService.listRunnableTools({
+        agentId: agent.id,
+        workspaceId: agent.workspaceId,
+        userId,
+      }),
+    ]);
+
+    return [...pluginTools, ...workflowTools];
   }
 }

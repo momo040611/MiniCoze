@@ -75,6 +75,7 @@ export class PluginResolverService {
       plugin: binding.plugin,
       tool: binding.plugin.tools[0],
       metadata: {
+        toolKind: 'plugin',
         pluginId: binding.plugin.id,
         pluginCode,
         toolCode,

@@ -90,7 +90,11 @@ export class ChunkConfigDto {
         ErrorCode.KnowledgeChunkConfigInvalid,
       );
     }
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    if (
+      parsed === null ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed)
+    ) {
       throw new BusinessException(
         'config must be a JSON object',
         ErrorCode.KnowledgeChunkConfigInvalid,

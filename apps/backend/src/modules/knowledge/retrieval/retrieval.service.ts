@@ -5,10 +5,7 @@ import { ErrorCode } from '../../../common/constants/error-code';
 import { BusinessException } from '../../../common/exceptions/business.exception';
 import { PrismaService } from '../../../database/prisma.service';
 import { KnowledgeBaseService } from '../bases/knowledge-base.service';
-import {
-  EMBEDDER_TOKEN,
-  type Embedder,
-} from '../embedding/embedder.interface';
+import { EMBEDDER_TOKEN, type Embedder } from '../embedding/embedder.interface';
 
 /** 既能接 PrismaService，也能接事务里的 tx 参数。 */
 export type PrismaRawExecutor = PrismaService | Prisma.TransactionClient;
@@ -138,10 +135,7 @@ export class RetrievalService {
    * 2. embed query
    * 3. 走 SQL 算 cosine similarity，受 topK / minScore / enabled / status 过滤
    */
-  async search(
-    userId: string,
-    input: SearchInput,
-  ): Promise<RetrievedChunk[]> {
+  async search(userId: string, input: SearchInput): Promise<RetrievedChunk[]> {
     if (input.knowledgeBaseIds.length === 0) {
       throw new BusinessException(
         'knowledgeBaseIds must not be empty',
@@ -214,9 +208,7 @@ export class RetrievalService {
         LIMIT ${input.topK}
       `;
     } catch (error) {
-      this.logger.error(
-        `retrieval search failed: ${(error as Error).message}`,
-      );
+      this.logger.error(`retrieval search failed: ${(error as Error).message}`);
       throw new BusinessException(
         `retrieval query failed: ${(error as Error).message}`,
         ErrorCode.KnowledgeRetrievalQueryFailed,
@@ -308,9 +300,7 @@ export class RetrievalService {
 
     let processed = 0;
     try {
-      const vectors = await this.embedder.embed(
-        targets.map((c) => c.content),
-      );
+      const vectors = await this.embedder.embed(targets.map((c) => c.content));
       if (vectors.length !== targets.length) {
         throw new BusinessException(
           `embedding count mismatch: expected ${targets.length}, got ${vectors.length}`,

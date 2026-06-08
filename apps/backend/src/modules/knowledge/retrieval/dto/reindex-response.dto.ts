@@ -12,6 +12,8 @@ export class ReindexResponseDto {
   })
   skipped!: number;
 
-  @ApiProperty({ description: '失败的 chunk 数量（出错时通常通过抛错返回，此字段保留为 0）' })
+  @ApiProperty({
+    description: '失败的 chunk 数量（出错时通常通过抛错返回，此字段保留为 0）',
+  })
   failed!: number;
 }

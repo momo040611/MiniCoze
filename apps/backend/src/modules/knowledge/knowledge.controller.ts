@@ -35,6 +35,6 @@ export class KnowledgeController {
       dto.fileId,
       dto.config,
     );
-    return result as ChunkDocumentResponseDto;
+    return result;
   }
 }

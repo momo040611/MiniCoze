@@ -26,6 +26,7 @@ export function parseAgentPublishSnapshot(
 
   if (
     !Array.isArray(value.workflows) ||
+    (value.knowledges !== undefined && !Array.isArray(value.knowledges)) ||
     !Array.isArray(value.plugins) ||
     !Array.isArray(value.channels)
   ) {

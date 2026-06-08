@@ -26,9 +26,7 @@ export class EndNodeExecutor implements WorkflowNodeExecutor {
       for (const [key, ref] of Object.entries(inputs.outputs)) {
         mapped[key] = context.resolveValue(ref);
       }
-      this.logger.debug(
-        `[end] 输出映射(outputs)=${JSON.stringify(mapped)}`,
-      );
+      this.logger.debug(`[end] 输出映射(outputs)=${JSON.stringify(mapped)}`);
       return Promise.resolve({ output: { ...mapped, final: true } });
     }
 

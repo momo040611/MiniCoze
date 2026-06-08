@@ -5,10 +5,7 @@ import { BusinessException } from '../../../common/exceptions/business.exception
 import { formatShanghaiDateTime } from '../../../common/utils/date-time';
 import { PrismaService } from '../../../database/prisma.service';
 import { WorkspaceAccessService } from '../../workspace/workspace-access.service';
-import {
-  EMBEDDER_TOKEN,
-  type Embedder,
-} from '../embedding/embedder.interface';
+import { EMBEDDER_TOKEN, type Embedder } from '../embedding/embedder.interface';
 import { CreateKnowledgeBaseDto } from './dto/create-knowledge-base.dto';
 import { KnowledgeBaseResponseDto } from './dto/knowledge-base-response.dto';
 

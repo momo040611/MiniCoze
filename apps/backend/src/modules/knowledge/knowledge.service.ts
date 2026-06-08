@@ -26,7 +26,9 @@ export class KnowledgeService {
     );
     const ext = this.extractExtension(fileAsset.originalName);
     // ChunkConfigDto.fromJsonString 接收字符串；这里 config 已经是 object，先 stringify。
-    const config = ChunkConfigDto.fromJsonString(JSON.stringify(configRawObject));
+    const config = ChunkConfigDto.fromJsonString(
+      JSON.stringify(configRawObject),
+    );
     const text = buffer.toString('utf8');
     return chunk(text, ext, config);
   }

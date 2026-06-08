@@ -11,7 +11,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUserInfo } from '../../../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
@@ -121,10 +126,7 @@ export class KnowledgeDocumentController {
 
   @Delete('documents/:id')
   @ApiOperation({ summary: '删除文档（级联删除 chunks）' })
-  remove(
-    @CurrentUserInfo() currentUser: CurrentUser,
-    @Param('id') id: string,
-  ) {
+  remove(@CurrentUserInfo() currentUser: CurrentUser, @Param('id') id: string) {
     return this.service.remove(currentUser.id, id);
   }
 }

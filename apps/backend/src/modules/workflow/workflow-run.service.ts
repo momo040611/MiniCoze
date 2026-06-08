@@ -9,6 +9,8 @@ import { BusinessException } from '../../common/exceptions/business.exception';
 import { createPaginatedData } from '../../common/types/pagination-response.type';
 import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
+import { RunWorkflowDto } from './dto/run-workflow.dto';
+import { WorkflowRunQueryDto } from './dto/workflow-run-query.dto';
 import { WorkflowAsyncRunner } from './internal/compose/workflow-async-runner';
 import {
   WorkflowCanceledError,
@@ -19,14 +21,24 @@ import {
   WorkflowStreamEvent,
 } from './internal/execute/workflow-run-event';
 import { WorkflowRunEventBus } from './internal/execute/workflow-run-event-bus';
-import { RunWorkflowDto } from './dto/run-workflow.dto';
-import { WorkflowRunQueryDto } from './dto/workflow-run-query.dto';
 import {
   parseWorkflowDefinition,
   validateWorkflowDefinition,
 } from './workflow-definition.validator';
 import { WorkflowMapper } from './workflow.mapper';
 import { WorkflowRunResponse } from './types/workflow-run-response.type';
+
+type WorkflowWithCurrentVersion = Prisma.WorkflowGetPayload<{
+  include: { currentVersion: true };
+}>;
+
+type WorkflowVersionWithWorkflow = Prisma.WorkflowVersionGetPayload<{
+  include: {
+    workflow: {
+      include: { currentVersion: true };
+    };
+  };
+}>;
 
 @Injectable()
 export class WorkflowRunService {
@@ -61,150 +73,69 @@ export class WorkflowRunService {
       workflowId,
       dto.version,
     );
-    const definitionSource =
-      workflowVersion?.definition ?? workflow.draftDefinition;
 
-    // Step 3) 对工作流定义做运行前校验与解析。
-    // 这里会校验 nodes/edges、start/end、节点引用等结构合法性；
-    // 不合法直接抛错，不会创建执行节点日志。
-    const validation = validateWorkflowDefinition(definitionSource);
-    if (!validation.valid) {
-      throw new BusinessException(
-        `当前工作流不可运行：${validation.errors.join('; ')}`,
-        ErrorCode.BadRequest,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const definition = parseWorkflowDefinition(definitionSource);
-    if (!definition) {
-      throw new BusinessException(
-        '工作流定义无效，无法解析执行图',
-        ErrorCode.BadRequest,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Step 4) 先创建 workflowRun 主记录，状态置为 RUNNING。
-    // 这条记录是本次运行的“总账本”，后续每个节点日志都挂在 run.id 下。
-    const run = await this.prisma.workflowRun.create({
-      data: {
-        workflowId,
-        workflowVersionId: workflowVersion?.id,
-        workspaceId: workflow.workspaceId,
-        startedBy: userId,
-        status: WorkflowRunStatus.RUNNING,
-        input: this.toNullableInputJsonValue(dto.input),
-        startedAt: new Date(),
-      },
+    return this.executeRun({
+      userId,
+      workflow,
+      workflowVersion,
+      input: dto.input,
+      onEvent,
     });
-    onEvent?.({ type: 'run.created', runId: run.id });
-
-    // Step 5) 初始化事件总线，订阅节点事件并写入 WorkflowRunNode。
-    // 事件来源是 runner（node.started / node.completed / node.failed）。
-    // - node.started: 仅记录开始时间到内存 map
-    // - node.completed/node.failed: 写一条节点执行日志到数据库
-    const eventBus = new WorkflowRunEventBus();
-    const startedAtMap = new Map<string, Date>();
-    eventBus.subscribe(async (event: WorkflowRunEvent) => {
-      // 先把节点事件转发给 SSE（实时进度），再落库。
-      onEvent?.(event);
-
-      if (event.type === 'node.started') {
-        startedAtMap.set(event.nodeId, event.at);
-        return;
-      }
-
-      const status =
-        event.type === 'node.completed'
-          ? WorkflowRunNodeStatus.SUCCEEDED
-          : WorkflowRunNodeStatus.FAILED;
-      const nodeStartedAt = startedAtMap.get(event.nodeId) ?? event.at;
-      await this.prisma.workflowRunNode.create({
-        data: {
-          runId: run.id,
-          nodeId: event.nodeId,
-          nodeType: event.nodeType,
-          status,
-          input: event.input ? this.toInputJsonValue(event.input) : undefined,
-          output: event.output
-            ? this.toInputJsonValue(event.output)
-            : undefined,
-          errorMessage: event.errorMessage,
-          durationMs: event.durationMs ?? this.diffMs(nodeStartedAt, event.at),
-          startedAt: nodeStartedAt,
-          endedAt: event.at,
-        },
-      });
-    });
-
-    try {
-      // Step 6) 真正执行工作流（当前基础版 runner 支持单路径 start->...->end）。
-      // runner 内部会在节点生命周期中不断 publish 事件，上面的订阅者会实时落库。
-      const runOutput = await this.workflowAsyncRunner.run({
-        runId: run.id,
-        definition,
-        input: dto.input ?? {},
-        eventBus,
-        isCanceled: () => this.cancellationRegistry.isCanceled(run.id),
-      });
-
-      // Step 7) 所有节点执行成功后，更新 run 为 SUCCEEDED 并写最终 output。
-      const finalOutput = {
-        ...runOutput.output,
-        workflowId,
-        workflowVersion: workflowVersion?.version ?? null,
-      };
-      const updatedRun = await this.prisma.workflowRun.update({
-        where: { id: run.id },
-        data: {
-          status: WorkflowRunStatus.SUCCEEDED,
-          output: this.toInputJsonValue(finalOutput),
-          endedAt: new Date(),
-        },
-        include: {
-          nodes: {
-            orderBy: { createdAt: 'asc' },
-          },
-        },
-      });
-
-      onEvent?.({ type: 'run.completed', runId: run.id, output: finalOutput });
-      // Step 8) 返回运行详情（含节点日志），给 API 层直接响应前端。
-      return this.workflowMapper.toWorkflowRunResponse(updatedRun, true);
-    } catch (error) {
-      // 失败/取消分支：
-      // - 取消（WorkflowCanceledError）-> 状态 CANCELED
-      // - 其它异常 -> 状态 FAILED
-      // - 都保留已写入的节点日志用于排障
-      const canceled = error instanceof WorkflowCanceledError;
-      const message = error instanceof Error ? error.message : String(error);
-      const endedRun = await this.prisma.workflowRun.update({
-        where: { id: run.id },
-        data: {
-          status: canceled
-            ? WorkflowRunStatus.CANCELED
-            : WorkflowRunStatus.FAILED,
-          errorMessage: message,
-          endedAt: new Date(),
-        },
-        include: {
-          nodes: {
-            orderBy: { createdAt: 'asc' },
-          },
-        },
-      });
-
-      onEvent?.({ type: 'run.failed', runId: run.id, error: message });
-      return this.workflowMapper.toWorkflowRunResponse(endedRun, true);
-    } finally {
-      // 清理取消信号，避免内存泄漏。
-      this.cancellationRegistry.clear(run.id);
-      // 无论成功失败，最后都发一个 stream.done，告诉 SSE 客户端可以关闭了。
-      onEvent?.({ type: 'stream.done', runId: run.id });
-    }
   }
 
-  // 请求取消某次运行：校验权限后写入取消信号，运行中的 runner 会在下个节点前中断。
+  async runWithVersionId(input: {
+    userId: string;
+    workflowVersionId: string;
+    input?: Record<string, unknown>;
+    agentId?: string;
+    conversationId?: string;
+    messageId?: string;
+    onEvent?: (event: WorkflowStreamEvent) => void;
+  }): Promise<WorkflowRunResponse> {
+    const workflowVersion = await this.prisma.workflowVersion.findUnique({
+      where: { id: input.workflowVersionId },
+      include: {
+        workflow: {
+          include: {
+            currentVersion: true,
+          },
+        },
+      },
+    });
+
+    if (!workflowVersion?.workflow) {
+      throw new BusinessException(
+        '工作流版本不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!workflowVersion.isPublished) {
+      throw new BusinessException(
+        '工作流版本尚未发布，无法运行',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.workspaceAccessService.ensureMember(
+      input.userId,
+      workflowVersion.workflow.workspaceId,
+    );
+
+    return this.executeRun({
+      userId: input.userId,
+      workflow: workflowVersion.workflow,
+      workflowVersion,
+      input: input.input,
+      agentId: input.agentId,
+      conversationId: input.conversationId,
+      messageId: input.messageId,
+      onEvent: input.onEvent,
+    });
+  }
+
   async requestCancel(
     userId: string,
     runId: string,
@@ -227,7 +158,6 @@ export class WorkflowRunService {
       run.workflow.workspaceId,
     );
 
-    // 只有运行中的才需要取消；已结束的直接返回。
     if (run.status !== WorkflowRunStatus.RUNNING) {
       return { runId, requested: false };
     }
@@ -256,6 +186,10 @@ export class WorkflowRunService {
     const [runs, total] = await Promise.all([
       this.prisma.workflowRun.findMany({
         where,
+        include: {
+          workflow: true,
+          workflowVersion: true,
+        },
         orderBy: { startedAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -281,6 +215,7 @@ export class WorkflowRunService {
       where: { id: runId },
       include: {
         workflow: true,
+        workflowVersion: true,
         nodes: { orderBy: { createdAt: 'asc' } },
       },
     });
@@ -297,7 +232,156 @@ export class WorkflowRunService {
       userId,
       run.workflow.workspaceId,
     );
+
     return this.workflowMapper.toWorkflowRunResponse(run, true);
+  }
+
+  private async executeRun(input: {
+    userId: string;
+    workflow: WorkflowWithCurrentVersion;
+    workflowVersion: Prisma.WorkflowVersionGetPayload<object> | null;
+    input?: Record<string, unknown>;
+    agentId?: string;
+    conversationId?: string;
+    messageId?: string;
+    onEvent?: (event: WorkflowStreamEvent) => void;
+  }): Promise<WorkflowRunResponse> {
+    const definitionSource =
+      input.workflowVersion?.definition ?? input.workflow.draftDefinition;
+    const validation = validateWorkflowDefinition(definitionSource);
+
+    if (!validation.valid) {
+      throw new BusinessException(
+        `当前工作流不可运行：${validation.errors.join('; ')}`,
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const definition = parseWorkflowDefinition(definitionSource);
+    if (!definition) {
+      throw new BusinessException(
+        '工作流定义无效，无法解析执行图',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const run = await this.prisma.workflowRun.create({
+      data: {
+        workflowId: input.workflow.id,
+        workflowVersionId: input.workflowVersion?.id,
+        workspaceId: input.workflow.workspaceId,
+        agentId: input.agentId,
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        startedBy: input.userId,
+        status: WorkflowRunStatus.RUNNING,
+        input: this.toNullableInputJsonValue(input.input),
+        startedAt: new Date(),
+      },
+    });
+    input.onEvent?.({ type: 'run.created', runId: run.id });
+
+    const eventBus = new WorkflowRunEventBus();
+    const startedAtMap = new Map<string, Date>();
+    eventBus.subscribe(async (event: WorkflowRunEvent) => {
+      input.onEvent?.(event);
+
+      if (event.type === 'node.started') {
+        startedAtMap.set(event.nodeId, event.at);
+        return;
+      }
+
+      const status =
+        event.type === 'node.completed'
+          ? WorkflowRunNodeStatus.SUCCEEDED
+          : WorkflowRunNodeStatus.FAILED;
+      const nodeStartedAt = startedAtMap.get(event.nodeId) ?? event.at;
+
+      await this.prisma.workflowRunNode.create({
+        data: {
+          runId: run.id,
+          nodeId: event.nodeId,
+          nodeType: event.nodeType,
+          status,
+          input: event.input ? this.toInputJsonValue(event.input) : undefined,
+          output: event.output
+            ? this.toInputJsonValue(event.output)
+            : undefined,
+          errorMessage: event.errorMessage,
+          durationMs: event.durationMs ?? this.diffMs(nodeStartedAt, event.at),
+          startedAt: nodeStartedAt,
+          endedAt: event.at,
+        },
+      });
+    });
+
+    try {
+      const runOutput = await this.workflowAsyncRunner.run({
+        runId: run.id,
+        definition,
+        input: input.input ?? {},
+        eventBus,
+        isCanceled: () => this.cancellationRegistry.isCanceled(run.id),
+      });
+
+      const finalOutput = {
+        ...runOutput.output,
+        workflowId: input.workflow.id,
+        workflowVersion: input.workflowVersion?.version ?? null,
+      };
+
+      const updatedRun = await this.prisma.workflowRun.update({
+        where: { id: run.id },
+        data: {
+          status: WorkflowRunStatus.SUCCEEDED,
+          output: this.toInputJsonValue(finalOutput),
+          endedAt: new Date(),
+        },
+        include: {
+          workflow: true,
+          workflowVersion: true,
+          nodes: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+
+      input.onEvent?.({
+        type: 'run.completed',
+        runId: run.id,
+        output: finalOutput,
+      });
+
+      return this.workflowMapper.toWorkflowRunResponse(updatedRun, true);
+    } catch (error) {
+      const canceled = error instanceof WorkflowCanceledError;
+      const message = error instanceof Error ? error.message : String(error);
+      const endedRun = await this.prisma.workflowRun.update({
+        where: { id: run.id },
+        data: {
+          status: canceled
+            ? WorkflowRunStatus.CANCELED
+            : WorkflowRunStatus.FAILED,
+          errorMessage: message,
+          endedAt: new Date(),
+        },
+        include: {
+          workflow: true,
+          workflowVersion: true,
+          nodes: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+
+      input.onEvent?.({ type: 'run.failed', runId: run.id, error: message });
+      return this.workflowMapper.toWorkflowRunResponse(endedRun, true);
+    } finally {
+      this.cancellationRegistry.clear(run.id);
+      input.onEvent?.({ type: 'stream.done', runId: run.id });
+    }
   }
 
   private async resolveRunVersion(workflowId: string, version?: number) {
@@ -329,7 +413,9 @@ export class WorkflowRunService {
     return workflowVersion;
   }
 
-  private async findWorkflowOrThrow(workflowId: string) {
+  private async findWorkflowOrThrow(
+    workflowId: string,
+  ): Promise<WorkflowWithCurrentVersion> {
     const workflow = await this.prisma.workflow.findUnique({
       where: { id: workflowId },
       include: { currentVersion: true },
@@ -358,6 +444,7 @@ export class WorkflowRunService {
     if (!value) {
       return undefined;
     }
+
     return value as Prisma.InputJsonValue;
   }
 

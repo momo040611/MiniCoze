@@ -7,7 +7,10 @@ export class ChunkItemDto {
   @ApiProperty({ example: 'chunk content...' })
   content!: string;
 
-  @ApiProperty({ example: 256, description: '按 Unicode 码点（rune）计的字符数' })
+  @ApiProperty({
+    example: 256,
+    description: '按 Unicode 码点（rune）计的字符数',
+  })
   charCount!: number;
 }
 

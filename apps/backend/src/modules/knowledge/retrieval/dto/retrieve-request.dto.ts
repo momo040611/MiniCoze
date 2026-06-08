@@ -14,7 +14,8 @@ import {
 
 export class RetrieveRequestDto {
   @ApiProperty({
-    description: '要检索的知识库 ID 列表（多 KB 联检），均需当前用户在所在 workspace 是成员',
+    description:
+      '要检索的知识库 ID 列表（多 KB 联检），均需当前用户在所在 workspace 是成员',
     type: [String],
     minItems: 1,
   })
@@ -23,7 +24,10 @@ export class RetrieveRequestDto {
   @IsString({ each: true })
   knowledgeBaseIds!: string[];
 
-  @ApiProperty({ description: '查询字符串（自然语言 query）', example: '退款流程是什么' })
+  @ApiProperty({
+    description: '查询字符串（自然语言 query）',
+    example: '退款流程是什么',
+  })
   @IsString()
   @IsNotEmpty()
   query!: string;
@@ -43,7 +47,8 @@ export class RetrieveRequestDto {
   topK: number = 5;
 
   @ApiProperty({
-    description: '最低相似度阈值（cosine similarity ∈ [-1, 1]，低于该值的命中将被过滤）',
+    description:
+      '最低相似度阈值（cosine similarity ∈ [-1, 1]，低于该值的命中将被过滤）',
     minimum: -1,
     maximum: 1,
     default: 0,
