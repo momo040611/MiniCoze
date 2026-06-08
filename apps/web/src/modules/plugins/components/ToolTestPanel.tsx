@@ -1,7 +1,19 @@
-import { App, Button, Divider, Form, Input, InputNumber, Select, Space, Switch, Tag } from 'antd';
+import {
+  App,
+  Button,
+  Divider,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  Switch,
+  Tag,
+} from 'antd';
 import type { FormInstance } from 'antd';
 import type { IPluginTool, IToolParam } from '../../../api/plugins';
 import { useToolTest } from '../hooks/useToolTest';
+import { ToolCallCard } from './ToolCallCard';
 import styles from './ToolTestPanel.module.css';
 
 interface IToolTestPanelProps {
@@ -21,7 +33,10 @@ function getDefaultValue(param: IToolParam) {
 
 function buildInitialValues(tool: IPluginTool): IFormValues {
   return Object.fromEntries(
-    Object.entries(tool.inputSchema.properties).map(([key, param]) => [key, getDefaultValue(param)]),
+    Object.entries(tool.inputSchema.properties).map(([key, param]) => [
+      key,
+      getDefaultValue(param),
+    ]),
   );
 }
 
@@ -31,13 +46,20 @@ function parseStructuredValue(value: unknown, fallback: unknown) {
   return JSON.parse(value) as unknown;
 }
 
-function collectValues(form: FormInstance<IFormValues>, tool: IPluginTool) {
+function collectValues(
+  form: FormInstance<IFormValues>,
+  tool: IPluginTool,
+) {
   const rawValues = form.getFieldsValue();
   return Object.fromEntries(
     Object.entries(tool.inputSchema.properties).map(([key, param]) => {
       const value = rawValues[key];
-      if (param.type === 'object') return [key, parseStructuredValue(value, {})];
-      if (param.type === 'array') return [key, parseStructuredValue(value, [])];
+      if (param.type === 'object') {
+        return [key, parseStructuredValue(value, {})];
+      }
+      if (param.type === 'array') {
+        return [key, parseStructuredValue(value, [])];
+      }
       return [key, value];
     }),
   );
@@ -45,21 +67,26 @@ function collectValues(form: FormInstance<IFormValues>, tool: IPluginTool) {
 
 function renderInput(param: IToolParam) {
   if (param.enum?.length) {
-    return <Select options={param.enum.map((value) => ({ label: value, value }))} />;
+    return (
+      <Select
+        options={param.enum.map((value) => ({ label: value, value }))}
+      />
+    );
   }
 
   if (param.type === 'number' || param.type === 'integer') {
-    return <InputNumber className={styles.fullInput} precision={param.type === 'integer' ? 0 : undefined} />;
+    return (
+      <InputNumber
+        className={styles.fullInput}
+        precision={param.type === 'integer' ? 0 : undefined}
+      />
+    );
   }
 
-  if (param.type === 'boolean') {
-    return <Switch />;
-  }
-
+  if (param.type === 'boolean') return <Switch />;
   if (param.type === 'object' || param.type === 'array') {
     return <Input.TextArea autoSize={{ minRows: 4, maxRows: 8 }} />;
   }
-
   return <Input />;
 }
 
@@ -74,21 +101,27 @@ function formatInitialValue(param: IToolParam) {
 export function ToolTestPanel({ tool }: IToolTestPanelProps) {
   const [form] = Form.useForm<IFormValues>();
   const { message } = App.useApp();
-  const { testing, error, records, runTest, clear } = useToolTest();
+  const { testing, error, toolCalls, runTest, clear } = useToolTest();
   const initialValues = Object.fromEntries(
-    Object.entries(tool.inputSchema.properties).map(([key, param]) => [key, formatInitialValue(param)]),
+    Object.entries(tool.inputSchema.properties).map(([key, param]) => [
+      key,
+      formatInitialValue(param),
+    ]),
   );
+
+  const showResult = (success: boolean, errorMessage?: string | null) => {
+    if (success) {
+      message.success('工具测试成功');
+    } else {
+      message.error(errorMessage ?? '工具测试失败');
+    }
+  };
 
   const handleTest = async () => {
     try {
       await form.validateFields();
-      const params = collectValues(form, tool);
-      const result = await runTest(tool.id, params, tool.pluginId);
-      if (result.success) {
-        message.success('工具测试成功');
-      } else {
-        message.error(result.error ?? '工具测试失败');
-      }
+      const result = await runTest(tool, collectValues(form, tool));
+      showResult(result.success, result.error);
     } catch (err) {
       if (err instanceof SyntaxError) {
         message.error('JSON 参数格式不正确');
@@ -99,21 +132,24 @@ export function ToolTestPanel({ tool }: IToolTestPanelProps) {
   };
 
   const handleUseRawJson = () => {
-    form.setFieldsValue({
-      rawJson: JSON.stringify(collectValues(form, tool), null, 2),
-    });
+    try {
+      form.setFieldValue(
+        'rawJson',
+        JSON.stringify(collectValues(form, tool), null, 2),
+      );
+    } catch {
+      message.error('JSON 参数格式不正确');
+    }
   };
 
   const handleRawJsonTest = async () => {
-    const rawJson = form.getFieldValue('rawJson');
     try {
-      const params = JSON.parse(typeof rawJson === 'string' ? rawJson : '{}') as Record<string, unknown>;
-      const result = await runTest(tool.id, params, tool.pluginId);
-      if (result.success) {
-        message.success('工具测试成功');
-      } else {
-        message.error(result.error ?? '工具测试失败');
-      }
+      const rawJson = form.getFieldValue('rawJson');
+      const params = JSON.parse(
+        typeof rawJson === 'string' ? rawJson : '{}',
+      ) as Record<string, unknown>;
+      const result = await runTest(tool, params);
+      showResult(result.success, result.error);
     } catch {
       message.error('JSON 参数格式不正确');
     }
@@ -126,10 +162,19 @@ export function ToolTestPanel({ tool }: IToolTestPanelProps) {
           <h3>{tool.name}</h3>
           <p>{tool.description}</p>
         </div>
-        <Tag color={tool.enabled ? 'success' : 'default'}>{tool.enabled ? '可用' : '不可用'}</Tag>
+        <Tag color={tool.enabled ? 'success' : 'default'}>
+          {tool.enabled ? '可用' : '不可用'}
+        </Tag>
       </div>
 
-      <Form form={form} layout="vertical" initialValues={{ ...initialValues, rawJson: JSON.stringify(buildInitialValues(tool), null, 2) }}>
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={{
+          ...initialValues,
+          rawJson: JSON.stringify(buildInitialValues(tool), null, 2),
+        }}
+      >
         {Object.entries(tool.inputSchema.properties).map(([key, param]) => (
           <Form.Item
             key={key}
@@ -148,8 +193,13 @@ export function ToolTestPanel({ tool }: IToolTestPanelProps) {
           </Form.Item>
         ))}
 
-        <Space>
-          <Button type="primary" loading={testing} disabled={!tool.enabled} onClick={handleTest}>
+        <Space wrap>
+          <Button
+            type="primary"
+            loading={testing}
+            disabled={!tool.enabled}
+            onClick={() => void handleTest()}
+          >
             开始测试
           </Button>
           <Button onClick={handleUseRawJson}>同步到 JSON</Button>
@@ -160,26 +210,23 @@ export function ToolTestPanel({ tool }: IToolTestPanelProps) {
         <Form.Item name="rawJson">
           <Input.TextArea autoSize={{ minRows: 5, maxRows: 10 }} />
         </Form.Item>
-        <Button loading={testing} disabled={!tool.enabled} onClick={handleRawJsonTest}>
+        <Button
+          loading={testing}
+          disabled={!tool.enabled}
+          onClick={() => void handleRawJsonTest()}
+        >
           使用 JSON 测试
         </Button>
       </Form>
 
-      <Divider titlePlacement="left">最近 5 次测试</Divider>
+      <Divider titlePlacement="left">工具调用过程</Divider>
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.records}>
-        {records.length === 0 ? (
-          <div className={styles.empty}>暂无测试记录</div>
+        {toolCalls.length === 0 ? (
+          <div className={styles.empty}>暂无工具调用记录</div>
         ) : (
-          records.map((record) => (
-            <div className={styles.record} key={record.id}>
-              <div className={styles.recordTitle}>
-                <Tag color={record.success ? '#52c41a' : '#ff4d4f'}>{record.success ? '成功' : '失败'}</Tag>
-                <span>{new Date(record.createdAt).toLocaleTimeString()}</span>
-                {record.duration !== undefined && <span>{record.duration} ms</span>}
-              </div>
-              <pre>{JSON.stringify(record.success ? record.data ?? record.output : record.error, null, 2)}</pre>
-            </div>
+          toolCalls.map((record) => (
+            <ToolCallCard key={record.callId} record={record} />
           ))
         )}
       </div>

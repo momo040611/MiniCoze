@@ -201,14 +201,6 @@ interface BackendAgentPluginBinding {
   } | null;
 }
 
-function isEnvelope<T>(payload: unknown): payload is ApiEnvelope<T> {
-  return Boolean(payload && typeof payload === 'object' && 'data' in payload);
-}
-
-function unwrap<T>(payload: T | ApiEnvelope<T>): T {
-  return isEnvelope<T>(payload) ? payload.data : payload;
-}
-
 function normalizeInputSchema(value: Record<string, unknown>): IToolParamSchema {
   const properties = value.properties;
   const required = value.required;
@@ -379,12 +371,8 @@ export async function testTool(
 }
 
 export async function getAgentTools(agentId: string): Promise<IToolCallRecord[]> {
-  try {
-    const payload = await http.get<IToolCallRecord[] | ApiEnvelope<IToolCallRecord[]>>(`agents/${agentId}/tool-calls`);
-    return unwrap(payload);
-  } catch {
-    return [];
-  }
+  void agentId;
+  return [];
 }
 
 export async function getAgentToolBinding(agentId: string): Promise<IAgentToolBinding> {
