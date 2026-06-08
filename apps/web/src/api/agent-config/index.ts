@@ -211,17 +211,16 @@ export async function updateAgent(
   if (patch.model !== undefined) backendPatch.model = patch.model;
   if (patch.temperature !== undefined) backendPatch.temperature = patch.temperature;
   if (patch.openingMessage !== undefined) backendPatch.openingMessage = patch.openingMessage;
-  if (patch.orchestration !== undefined) backendPatch.orchestration = patch.orchestration;
   if (patch.contextLimit !== undefined) backendPatch.contextLimit = patch.contextLimit;
 
   const res = await http.patch<ApiEnvelope<BackendAgent>>(`agents/${id}`, backendPatch);
 
-  if (patch.mode !== undefined) {
+  if (patch.mode !== undefined || patch.orchestration !== undefined) {
     const extras = loadExtras();
     const current = extras[id] ?? getDefaultExtras();
     extras[id] = {
       mode: patch.mode ?? current.mode,
-      orchestration: '',
+      orchestration: patch.orchestration ?? current.orchestration,
     };
     saveExtras(extras);
   }
