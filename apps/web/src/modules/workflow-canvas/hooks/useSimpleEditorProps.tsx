@@ -22,6 +22,7 @@ import {
     renderConditionNode,
     renderPluginNode,
     renderDatabaseNode,
+    renderAnnotationNode,
     renderGenericNode,
 } from '../nodeRenders'
 
@@ -69,6 +70,18 @@ function ErrorAwareNodeRenderer({
     const nodeId = nodeJson?.id ?? String((node as unknown as { id?: string }).id ?? '')
     const nodeErrors = nodeId ? errorsByNodeId[nodeId] : undefined
     const hasError = Boolean(nodeErrors?.length)
+    const isAnnotation = String(node.flowNodeType ?? '') === 'annotation'
+
+    if (isAnnotation) {
+        return (
+            <WorkflowNodeRenderer
+                node={node}
+                className={styles.annotationWorkflowNode}
+            >
+                {form?.render()}
+            </WorkflowNodeRenderer>
+        )
+    }
 
     return (
         <div
@@ -146,6 +159,12 @@ const nodeRegistries: WorkflowNodeRegistry[] = [
         type: 'output',
         meta: {
             defaultPorts: [{ type: 'output' }],
+        },
+    },
+    {
+        type: 'annotation',
+        meta: {
+            defaultPorts: [],
         },
     },
 ]
@@ -237,6 +256,10 @@ export const useSimpleEditorProps = ({
 
                             if (type === 'output') {
                                 return renderOutputNode()
+                            }
+
+                            if (type === 'annotation') {
+                                return renderAnnotationNode()
                             }
 
                             return renderGenericNode()

@@ -12,10 +12,56 @@
 .conditionNode,
 .pluginNode,
 .databaseNode,
+.annotationNode,
 .genericNode {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.annotationNode {
+    width: 204px;
+    height: 128px;
+    padding: 0;
+    border: 1px solid #ff8a3d;
+    border-radius: 8px;
+    background: #fff2e8;
+    overflow: hidden;
+    cursor: move;
+}
+
+.annotationTextarea {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    border: 0;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: #3f4654;
+    font-size: 12px;
+    line-height: 18px;
+    font-family: inherit;
+}
+
+.annotationText {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    color: #3f4654;
+    font-size: 12px;
+    line-height: 18px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    cursor: move;
+}
+
+.annotationPlaceholder {
+    color: #b8bec8;
+}
+
+.annotationTextarea::placeholder {
+    color: #b8bec8;
 }
 
 .variableRow,
