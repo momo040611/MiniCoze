@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
+import { PublishModule } from '../publish/publish.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { AgentWorkflowBindingController } from './agent-workflow-binding.controller';
 import { AgentWorkflowBindingService } from './agent-workflow-binding.service';
@@ -19,7 +20,7 @@ import { WorkflowToolExecutionService } from './workflow-tool-execution.service'
 import { WorkflowToolRegistryService } from './workflow-tool-registry.service';
 
 @Module({
-  imports: [WorkspaceModule, AiGatewayModule],
+  imports: [WorkspaceModule, AiGatewayModule, PublishModule],
   controllers: [WorkflowController, AgentWorkflowBindingController],
   providers: [
     WorkflowService,
@@ -39,6 +40,7 @@ import { WorkflowToolRegistryService } from './workflow-tool-registry.service';
   ],
   exports: [
     WorkflowRunService,
+    WorkflowMapper,
     AgentWorkflowBindingService,
     WorkflowToolRegistryService,
     WorkflowToolExecutionService,
