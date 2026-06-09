@@ -1,9 +1,23 @@
 import { WorkflowNode } from '../../workflow-definition.validator';
 
+// 持久化变量的归属上下文：决定变量写到数据库的哪一行。
+export interface WorkflowVariableContext {
+  workspaceId: string;
+  // 会话作用域键（一般是 sessionId）；为空表示当前运行没有会话，session 变量不可写。
+  sessionKey?: string;
+  // 全局作用域键（一般是 userId）。
+  globalKey: string;
+}
+
 export interface WorkflowRuntimeState {
   originalInput: Record<string, unknown>;
   currentText: string;
   nodeOutputs: Record<string, Record<string, unknown>>;
+  // 持久化变量的内存副本：运行开始时从库加载，set 节点会就地更新，
+  // 供后续节点通过 {{session.x}} / {{global.x}} 读取。
+  sessionVars: Record<string, unknown>;
+  globalVars: Record<string, unknown>;
+  variableContext: WorkflowVariableContext;
 }
 
 export interface WorkflowNodeExecutionContext {

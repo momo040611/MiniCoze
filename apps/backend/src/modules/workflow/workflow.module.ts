@@ -9,6 +9,8 @@ import { HttpNodeExecutor } from './internal/nodes/http-node.executor';
 import { LlmNodeExecutor } from './internal/nodes/llm-node.executor';
 import { SelectorNodeExecutor } from './internal/nodes/selector-node.executor';
 import { StartNodeExecutor } from './internal/nodes/start-node.executor';
+import { VariableNodeExecutor } from './internal/nodes/variable-node.executor';
+import { WorkflowVariableService } from './internal/variable/workflow-variable.service';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowMapper } from './workflow.mapper';
 import { WorkflowRunService } from './workflow-run.service';
@@ -29,6 +31,8 @@ import { WorkflowService } from './workflow.service';
     SelectorNodeExecutor,
     CodeNodeExecutor,
     HttpNodeExecutor,
+    VariableNodeExecutor,
+    WorkflowVariableService,
   ],
 })
 export class WorkflowModule {}

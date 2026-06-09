@@ -3,6 +3,7 @@ import {
   Prisma,
   WorkflowRunNodeStatus,
   WorkflowRunStatus,
+  WorkflowVariableScope,
 } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
@@ -14,6 +15,7 @@ import {
   WorkflowCanceledError,
   WorkflowCancellationRegistry,
 } from './internal/execute/workflow-cancellation.registry';
+import { WorkflowVariableService } from './internal/variable/workflow-variable.service';
 import {
   WorkflowRunEvent,
   WorkflowStreamEvent,
@@ -36,6 +38,7 @@ export class WorkflowRunService {
     private readonly workflowAsyncRunner: WorkflowAsyncRunner,
     private readonly workflowMapper: WorkflowMapper,
     private readonly cancellationRegistry: WorkflowCancellationRegistry,
+    private readonly variableService: WorkflowVariableService,
   ) {}
 
   // run 支持可选的 onEvent 回调：
@@ -137,6 +140,24 @@ export class WorkflowRunService {
       });
     });
 
+    // Step 5.5) 加载持久化变量（“记忆”）：
+    // - session 变量按 sessionId 加载（没传 sessionId 则为空，且运行内不可写 session）
+    // - global 变量按发起用户 userId 加载（跨会话永久保存的用户级记忆）
+    const sessionKey = dto.sessionId;
+    const globalKey = userId;
+    const [sessionVars, globalVars] = await Promise.all([
+      this.variableService.loadScope(
+        workflow.workspaceId,
+        WorkflowVariableScope.SESSION,
+        sessionKey,
+      ),
+      this.variableService.loadScope(
+        workflow.workspaceId,
+        WorkflowVariableScope.GLOBAL,
+        globalKey,
+      ),
+    ]);
+
     try {
       // Step 6) 真正执行工作流（当前基础版 runner 支持单路径 start->...->end）。
       // runner 内部会在节点生命周期中不断 publish 事件，上面的订阅者会实时落库。
@@ -146,6 +167,13 @@ export class WorkflowRunService {
         input: dto.input ?? {},
         eventBus,
         isCanceled: () => this.cancellationRegistry.isCanceled(run.id),
+        variableContext: {
+          workspaceId: workflow.workspaceId,
+          sessionKey,
+          globalKey,
+        },
+        sessionVars,
+        globalVars,
       });
 
       // Step 7) 所有节点执行成功后，更新 run 为 SUCCEEDED 并写最终 output。

@@ -48,6 +48,7 @@ model Workspace {
   agents                 Agent[]
   workflows    Workflow[]
   workflowRuns WorkflowRun[]
+  workflowVariables WorkflowVariable[]
   files        FileAsset[]       @relation("WorkspaceFiles")
   plugins           PluginDefinition[]
   pluginCredentials PluginCredential[]
@@ -145,6 +146,14 @@ enum WorkflowRunNodeStatus {
   SUCCEEDED
   FAILED
   SKIPPED
+}
+
+// 持久化变量作用域：
+// - SESSION：一次会话内（多轮对话）共享，scopeKey = sessionId
+// - GLOBAL：跨会话永久保存（按用户维度），scopeKey = userId
+enum WorkflowVariableScope {
+  SESSION
+  GLOBAL
 }
 
 enum PluginType {
@@ -372,6 +381,25 @@ model WorkflowRunNode {
   @@index([runId])
   @@index([runId, status])
   @@index([runId, createdAt])
+}
+
+// 工作流持久化变量：实现“记忆”能力。
+// scopeKey 区分同一作用域下的不同归属：SESSION 存 sessionId，GLOBAL 存 userId。
+// (workspaceId, scope, scopeKey, name) 唯一确定一个变量。
+model WorkflowVariable {
+  id          String                @id @default(cuid())
+  workspaceId String
+  scope       WorkflowVariableScope
+  scopeKey    String
+  name        String
+  value       Json
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, scope, scopeKey, name])
+  @@index([workspaceId, scope, scopeKey])
 }
 
 model PluginDefinition {
