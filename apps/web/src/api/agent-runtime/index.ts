@@ -160,6 +160,7 @@ export async function runAgentStream(
       temperature: params.temperature,
       maxTokens: params.maxTokens,
       knowledgeBaseId: params.knowledgeBaseId,
+      attachments: params.attachments,
       tools: params.tools,
     }),
     signal: controller.signal,

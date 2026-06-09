@@ -110,7 +110,20 @@ export function setupAuthMocks() {
     code: 0,
     message: 'ok',
     data: {
+      id: `mock-file-${Date.now()}`,
+      workspaceId: 'default-workspace',
+      ownerId: 'mock-user',
+      purpose: 'CHAT_ATTACHMENT',
+      visibility: 'PRIVATE',
+      status: 'READY',
+      originalName: 'mock-upload.txt',
+      mimeType: 'text/plain',
+      extension: '.txt',
+      size: 128,
       url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
+      deletedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
   }));
 }

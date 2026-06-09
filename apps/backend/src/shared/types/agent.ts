@@ -60,6 +60,13 @@ export interface RuntimeKnowledgeBinding {
   config?: RuntimeKnowledgeBindingConfig | null;
 }
 
+export interface RuntimeAttachment {
+  fileId: string;
+  name?: string;
+  mimeType?: string;
+  size?: number;
+}
+
 // ── Agent 配置 ──
 export interface AgentConfig {
   id: string;
@@ -168,6 +175,7 @@ export interface RunAgentCommand {
   maxTokens?: number;
   tools?: ToolDefinition[];
   knowledgeBaseId?: string;
+  attachments?: RuntimeAttachment[];
   publishedSnapshot?: {
     agent: {
       id: string;

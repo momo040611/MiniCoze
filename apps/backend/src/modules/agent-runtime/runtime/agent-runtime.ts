@@ -13,6 +13,7 @@ import type {
 } from '../../../shared/types/runtime';
 import { AGENT_EXECUTION_STRATEGY } from '../../../shared/tokens/runtime.tokens';
 import { AgentConfigFactory } from './agent-config.factory';
+import { RuntimeAttachmentService } from './runtime-attachment.service';
 import { RuntimeKnowledgeService } from './runtime-knowledge.service';
 import { RUNTIME_REPOSITORY, TOOL_EXECUTOR } from './runtime.tokens';
 
@@ -22,6 +23,7 @@ export class AgentRuntime {
     @Inject(RUNTIME_REPOSITORY)
     private readonly repository: RuntimeRepository,
     private readonly configFactory: AgentConfigFactory,
+    private readonly runtimeAttachmentService: RuntimeAttachmentService,
     private readonly runtimeKnowledgeService: RuntimeKnowledgeService,
     @Inject(AGENT_EXECUTION_STRATEGY)
     private readonly executionStrategy: AgentExecutionStrategy,
@@ -91,9 +93,16 @@ export class AgentRuntime {
           context,
           query: command.message,
         });
+      const attachmentMessage =
+        await this.runtimeAttachmentService.buildAttachmentSystemMessage({
+          attachments: command.attachments,
+          question: command.message,
+          context,
+        });
       const messages = this.composeMessages(
         agentConfig.systemPrompt,
         knowledgeMessage,
+        attachmentMessage,
         history,
         input,
       );
@@ -146,12 +155,14 @@ export class AgentRuntime {
   private composeMessages(
     systemPrompt: string,
     knowledgeMessage: ChatMessage | null,
+    attachmentMessage: ChatMessage | null,
     history: ChatMessage[],
     input: ChatMessage,
   ): ChatMessage[] {
     return [
       { role: 'system', content: systemPrompt },
       ...(knowledgeMessage ? [knowledgeMessage] : []),
+      ...(attachmentMessage ? [attachmentMessage] : []),
       ...history,
       input,
     ];

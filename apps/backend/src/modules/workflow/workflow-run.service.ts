@@ -132,6 +132,45 @@ export class WorkflowRunService {
     });
   }
 
+  async runPublishedWorkflow(input: {
+    workflowId: string;
+    workflowVersionId: string;
+    startedBy: string;
+    input?: Record<string, unknown>;
+    onEvent?: (event: WorkflowStreamEvent) => void;
+  }): Promise<WorkflowRunResponse> {
+    const workflowVersion = await this.prisma.workflowVersion.findFirst({
+      where: {
+        id: input.workflowVersionId,
+        workflowId: input.workflowId,
+        isPublished: true,
+      },
+      include: {
+        workflow: {
+          include: {
+            currentVersion: true,
+          },
+        },
+      },
+    });
+
+    if (!workflowVersion?.workflow) {
+      throw new BusinessException(
+        '工作流发布版本不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return this.executeRun({
+      userId: input.startedBy,
+      workflow: workflowVersion.workflow,
+      workflowVersion,
+      input: input.input,
+      onEvent: input.onEvent,
+    });
+  }
+
   async requestCancel(
     userId: string,
     runId: string,

@@ -17,6 +17,7 @@ import { CurrentUserInfo } from '../../common/decorators/current-user.decorator'
 import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
+import { WorkflowPublishService } from '../publish/workflow-publish.service';
 import type { WorkflowStreamEvent } from './internal/execute/workflow-run-event';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { PublishWorkflowDto } from './dto/publish-workflow.dto';
@@ -36,7 +37,8 @@ export class WorkflowController {
   constructor(
     private readonly workflowService: WorkflowService,
     private readonly workflowRunService: WorkflowRunService,
-  ) {}
+    private readonly workflowPublishService: WorkflowPublishService,
+  ) { }
 
   // 参数：
   // - body.workspaceId: 工作空间 ID（必填）
@@ -155,7 +157,11 @@ export class WorkflowController {
     @Param('workflowId') workflowId: string,
     @Body() dto: PublishWorkflowDto,
   ) {
-    return this.workflowService.publish(currentUser.id, workflowId, dto);
+    return this.workflowPublishService.publishWorkflow(
+      currentUser.id,
+      workflowId,
+      dto,
+    );
   }
 
   // 参数：
@@ -167,7 +173,10 @@ export class WorkflowController {
     @CurrentUserInfo() currentUser: CurrentUser,
     @Param('workflowId') workflowId: string,
   ) {
-    return this.workflowService.listVersions(currentUser.id, workflowId);
+    return this.workflowPublishService.listWorkflowVersions(
+      currentUser.id,
+      workflowId,
+    );
   }
 
   // 参数：
