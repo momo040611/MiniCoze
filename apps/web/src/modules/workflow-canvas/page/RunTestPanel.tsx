@@ -44,6 +44,32 @@ function stringifyJson(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
 }
 
+function getNodeTitle(canvasData: WorkflowCanvasData | null | undefined, nodeId: string, nodeType: string) {
+  const node = canvasData?.nodes.find((item) => isRecord(item) && item.id === nodeId);
+
+  if (!isRecord(node)) {
+    return nodeId || nodeType;
+  }
+
+  const data = isRecord(node.data) ? node.data : {};
+  const nodeMeta = isRecord(data.nodeMeta) ? data.nodeMeta : {};
+  const title = nodeMeta.title;
+
+  return typeof title === 'string' && title.trim() ? title.trim() : nodeId || nodeType;
+}
+
+function formatDuration(durationMs: number | null) {
+  if (durationMs === null) {
+    return '--';
+  }
+
+  if (durationMs < 1000) {
+    return `${durationMs}ms`;
+  }
+
+  return `${(durationMs / 1000).toFixed(2)}s`;
+}
+
 function getStartInputFields(canvasData?: WorkflowCanvasData | null): InputField[] {
   const startNode = canvasData?.nodes.find((node) => (
     isRecord(node) && (node.type === 'start' || node.type === 'input')
@@ -272,10 +298,17 @@ function RunTestPanel({ open, workflowId, canvasData, onClose }: RunTestPanelPro
     }
 
     if (event.type === 'run.failed') {
+      const errorMessage = event.errorMessage ?? event.error ?? '工作流运行失败';
       runFailedRef.current = true;
       setRunId(event.runId);
       setRunStatus('FAILED');
-      setRunError(event.errorMessage ?? '工作流运行失败');
+      setRunError(errorMessage);
+      activeNodeKeyRef.current = {};
+      setNodeRecords((records) => records.map((record) => (
+        record.status === 'RUNNING'
+          ? { ...record, status: 'FAILED', errorMessage }
+          : record
+      )));
       return;
     }
 
@@ -408,25 +441,46 @@ function RunTestPanel({ open, workflowId, canvasData, onClose }: RunTestPanelPro
               <div className={styles.sectionTitle}>节点执行记录</div>
               <div className={styles.nodeList}>
                 {nodeRecords.map((node) => (
-                  <div className={styles.nodeItem} key={node.key}>
-                    <div className={styles.nodeTop}>
-                      <span className={styles.nodeName}>{node.nodeId}</span>
+                  <details
+                    className={`${styles.nodeItem} ${node.status === 'FAILED' ? styles.nodeItemFailed : ''}`}
+                    key={node.key}
+                    open={node.status === 'FAILED'}
+                  >
+                    <summary className={styles.nodeSummary}>
+                      <div className={styles.nodeInfo}>
+                        <span className={styles.nodeName}>
+                          {getNodeTitle(canvasData, node.nodeId, node.nodeType)}
+                        </span>
+                        <span className={styles.nodeMeta}>
+                          {node.nodeType} · {formatDuration(node.durationMs)}
+                        </span>
+                      </div>
                       <Tag color={getStatusColor(node.status)}>{node.status}</Tag>
+                    </summary>
+
+                    <div className={styles.nodeDebug}>
+                      <div className={styles.debugBlock}>
+                        <div className={styles.debugLabel}>Input</div>
+                        <pre className={styles.pre}>{stringifyJson(node.input)}</pre>
+                      </div>
+
+                      <div className={styles.debugBlock}>
+                        <div className={styles.debugLabel}>Output</div>
+                        <pre className={styles.pre}>{stringifyJson(node.output)}</pre>
+                      </div>
+
+                      {node.errorMessage && (
+                        <div className={styles.debugBlock}>
+                          <div className={styles.debugLabel}>Error</div>
+                          <Alert
+                            showIcon
+                            type="error"
+                            message={node.errorMessage}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div className={styles.nodeMeta}>
-                      {node.nodeType}
-                      {node.durationMs !== null ? ` · ${node.durationMs}ms` : ''}
-                    </div>
-                    {node.errorMessage && (
-                      <Alert
-                        showIcon
-                        type="error"
-                        message={node.errorMessage}
-                        className={styles.resultBlock}
-                      />
-                    )}
-                    {node.output && <pre className={styles.pre}>{stringifyJson(node.output)}</pre>}
-                  </div>
+                  </details>
                 ))}
               </div>
             </div>

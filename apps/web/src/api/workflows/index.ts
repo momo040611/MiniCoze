@@ -118,6 +118,7 @@ export type WorkflowStreamEvent =
       type: 'run.failed';
       runId: string;
       errorMessage?: string;
+      error?: string;
     }
   | {
       type: 'stream.done';
@@ -526,6 +527,14 @@ export async function updateWorkflowRemote(
     ApiEnvelope<WorkflowResponseLike>,
     UpdateWorkflowRequest
   >(`workflows/${id}`, patch);
+
+  return fromWorkflowResponse(res.data);
+}
+
+export async function deleteWorkflowRemote(id: string): Promise<Workflow> {
+  const res = await http.delete<ApiEnvelope<WorkflowResponseLike>>(
+    `workflows/${id}`,
+  );
 
   return fromWorkflowResponse(res.data);
 }

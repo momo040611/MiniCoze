@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import {
   createWorkflowRemote,
+  deleteWorkflowRemote,
   getWorkflowListRemote,
   type Workflow,
 } from '../../api/workflows';
@@ -17,6 +18,7 @@ export function WorkflowsPage() {
   const [keyword, setKeyword] = useState('');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form] = Form.useForm<{ name: string; description?: string }>();
 
   async function loadWorkflows(workspaceId?: string) {
@@ -68,8 +70,24 @@ export function WorkflowsPage() {
   }
 
   async function handleDelete(id: string) {
-    console.info('Workflow delete is not wired to backend yet:', id);
-    message.warning('后端删除接口未开放，暂时无法删除工作流');
+    Modal.confirm({
+      title: '删除工作流',
+      content: '删除后该工作流将被归档，列表中不再展示。',
+      okText: '删除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      async onOk() {
+        setDeletingId(id);
+
+        try {
+          await deleteWorkflowRemote(id);
+          setWorkflowList((list) => list.filter((item) => item.id !== id));
+          message.success('工作流已删除');
+        } finally {
+          setDeletingId(null);
+        }
+      },
+    });
   }
 
   function openWorkflow(id: string) {
@@ -130,6 +148,7 @@ export function WorkflowsPage() {
           <Button
             type="link"
             danger
+            loading={deletingId === record.id}
             onClick={(event) => {
               event.stopPropagation();
               handleDelete(record.id);

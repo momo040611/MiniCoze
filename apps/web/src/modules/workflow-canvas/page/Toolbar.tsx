@@ -3,7 +3,6 @@ import {
   AimOutlined,
   AppstoreOutlined,
   DownOutlined,
-  EditOutlined,
   MessageOutlined,
   PictureOutlined,
   PlayCircleOutlined,
@@ -207,16 +206,59 @@ function buildSvgFromElement(element: HTMLElement) {
   return { svg, width, height };
 }
 
+function svgToDataUrl(svg: string) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function dataUrlToBlob(dataUrl: string) {
+  const [header, data] = dataUrl.split(',');
+  const mime = header.match(/data:(.*?);/)?.[1] ?? 'application/octet-stream';
+  const binary = window.atob(data);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type: mime });
+}
+
+function canvasToRasterBlob(
+  canvas: HTMLCanvasElement,
+  type: 'image/png' | 'image/jpeg',
+  quality?: number,
+) {
+  return new Promise<Blob>((resolve, reject) => {
+    try {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+            return;
+          }
+
+          try {
+            resolve(dataUrlToBlob(canvas.toDataURL(type, quality)));
+          } catch (error) {
+            reject(error);
+          }
+        },
+        type,
+        quality,
+      );
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 function svgToRasterBlob(svg: string, width: number, height: number, type: 'image/png' | 'image/jpeg') {
   return new Promise<Blob>((resolve, reject) => {
-    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
     const image = new Image();
     let settled = false;
 
     const cleanup = () => {
       window.clearTimeout(timeoutId);
-      URL.revokeObjectURL(url);
     };
 
     const finish = (callback: () => void) => {
@@ -235,7 +277,7 @@ function svgToRasterBlob(svg: string, width: number, height: number, type: 'imag
       });
     }, RASTER_EXPORT_TIMEOUT);
 
-    image.onload = () => {
+    image.onload = async () => {
       const canvas = document.createElement('canvas');
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -254,23 +296,19 @@ function svgToRasterBlob(svg: string, width: number, height: number, type: 'imag
       context.fillStyle = '#f3f4f8';
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.scale(pixelRatio, pixelRatio);
-      context.drawImage(image, 0, 0, width, height);
 
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            finish(() => {
-              resolve(blob);
-            });
-          } else {
-            finish(() => {
-              reject(new Error('图片生成失败'));
-            });
-          }
-        },
-        type,
-        type === 'image/jpeg' ? 0.92 : undefined,
-      );
+      try {
+        context.drawImage(image, 0, 0, width, height);
+        const blob = await canvasToRasterBlob(canvas, type, type === 'image/jpeg' ? 0.92 : undefined);
+
+        finish(() => {
+          resolve(blob);
+        });
+      } catch (error) {
+        finish(() => {
+          reject(error instanceof Error ? error : new Error('图片生成失败，请尝试导出 SVG'));
+        });
+      }
     };
 
     image.onerror = () => {
@@ -279,7 +317,8 @@ function svgToRasterBlob(svg: string, width: number, height: number, type: 'imag
       });
     };
 
-    image.src = url;
+    image.decoding = 'async';
+    image.src = svgToDataUrl(svg);
   });
 }
 
@@ -480,14 +519,6 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
           </button>
         </Dropdown>
 
-        <Tooltip text="缩略图" position="top">
-          <div>
-            <button className={styles.buttonStyles}>
-              <EditOutlined style={{ fontSize: 16 }} />
-            </button>
-          </div>
-        </Tooltip>
-
         <Popover
           content={<NodeSelectorPanel onAddNode={handleAddNode} />}
           trigger="click"
@@ -506,7 +537,7 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
       <div className={styles.run}>
         <Tooltip text="调试" position="top">
           <div>
-            <button>
+            <button type="button" onClick={handleRunTest}>
               <ToolOutlined style={{ fontSize: 14 }} />
             </button>
           </div>

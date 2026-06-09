@@ -355,25 +355,26 @@ export class WorkflowRunService {
       });
     });
 
-    // 加载持久化变量（“记忆”）：
-    // - session 变量按 sessionId 加载（没传 sessionId 则为空，且运行内不可写 session）
-    // - global 变量按发起用户 userId 加载（跨会话永久保存的用户级记忆）
-    const sessionKey = input.sessionId;
-    const globalKey = input.userId;
-    const [sessionVars, globalVars] = await Promise.all([
-      this.variableService.loadScope(
-        input.workflow.workspaceId,
-        WorkflowVariableScope.SESSION,
-        sessionKey,
-      ),
-      this.variableService.loadScope(
-        input.workflow.workspaceId,
-        WorkflowVariableScope.GLOBAL,
-        globalKey,
-      ),
-    ]);
-
     try {
+      // 加载持久化变量（“记忆”）：
+      // - session 变量按 sessionId 加载（没传 sessionId 则为空，且运行内不可写 session）
+      // - global 变量按发起用户 userId 加载（跨会话永久保存的用户级记忆）
+      // 这一步依赖新表/枚举，必须纳入运行失败收敛，否则 SSE 只收到 run.created 就会悬停。
+      const sessionKey = input.sessionId;
+      const globalKey = input.userId;
+      const [sessionVars, globalVars] = await Promise.all([
+        this.variableService.loadScope(
+          input.workflow.workspaceId,
+          WorkflowVariableScope.SESSION,
+          sessionKey,
+        ),
+        this.variableService.loadScope(
+          input.workflow.workspaceId,
+          WorkflowVariableScope.GLOBAL,
+          globalKey,
+        ),
+      ]);
+
       const runOutput = await this.workflowAsyncRunner.run({
         runId: run.id,
         definition,
@@ -439,7 +440,11 @@ export class WorkflowRunService {
         },
       });
 
-      input.onEvent?.({ type: 'run.failed', runId: run.id, error: message });
+      input.onEvent?.({
+        type: 'run.failed',
+        runId: run.id,
+        errorMessage: message,
+      });
       return this.workflowMapper.toWorkflowRunResponse(endedRun, true);
     } finally {
       this.cancellationRegistry.clear(run.id);
