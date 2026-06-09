@@ -1,5 +1,6 @@
 .card {
-  max-width: 520px;
+  width: 100%;
+  max-width: 100%;
   border: 1px solid #edf1f7;
   border-radius: 8px;
   padding: 12px;
@@ -22,6 +23,9 @@
   margin-top: 4px;
   color: #94a3b8;
   font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 .body {
