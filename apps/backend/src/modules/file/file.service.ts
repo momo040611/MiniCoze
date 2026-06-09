@@ -89,7 +89,10 @@ export class FileService {
     this.validateFile(file, uploadFileDto);
     await this.ensureUploadPermission(userId, uploadFileDto);
 
-    const extension = this.getExtension(file.originalname);
+    // Multer 按 Latin-1 解析 multipart 中的文件名，导致中文等 UTF-8 字符乱码。
+    // 这里回退解码：Latin-1 字节 → 原始 UTF-8 字符串。
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const extension = this.getExtension(originalName);
     const storageKey = this.createStorageKey(uploadFileDto.purpose, extension);
     const checksum = createHash('sha256').update(file.buffer).digest('hex');
 
@@ -106,7 +109,7 @@ export class FileService {
           purpose: uploadFileDto.purpose,
           visibility: this.getDefaultVisibility(uploadFileDto.purpose),
           status: FileStatus.READY,
-          originalName: file.originalname,
+          originalName: originalName,
           storageKey,
           mimeType: file.mimetype,
           extension,

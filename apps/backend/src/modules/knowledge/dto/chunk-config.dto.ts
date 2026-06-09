@@ -28,7 +28,7 @@ export class ChunkConfigDto {
   chunkType!: ChunkTypeLiteral;
 
   // ===== custom =====
-  @ApiPropertyOptional({ minimum: 1, example: 800 })
+  @ApiPropertyOptional({ minimum: 1, example: 512 })
   @ValidateIf((o: ChunkConfigDto) => o.chunkType === 'custom')
   @IsInt()
   @Min(1)
@@ -68,6 +68,13 @@ export class ChunkConfigDto {
   @ValidateIf((o: ChunkConfigDto) => o.chunkType === 'leveled')
   @IsBoolean()
   saveTitle?: boolean;
+
+  @ApiPropertyOptional({ minimum: 1, example: 512 })
+  @ValidateIf((o: ChunkConfigDto) => o.chunkType === 'leveled')
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxChars?: number;
 
   /**
    * 把 multipart 中传入的 JSON 字符串转成可直接给 chunk() 调度入口使用的 ChunkConfig。
@@ -140,6 +147,7 @@ export class ChunkConfigDto {
           chunkType: 'leveled',
           maxDepth: dto.maxDepth as number,
           saveTitle: dto.saveTitle as boolean,
+          maxChars: dto.maxChars ?? 512,
         };
     }
   }

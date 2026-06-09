@@ -258,22 +258,32 @@ export function PreviewChat({
               const tcDone = event as ToolCallCompletedEvent
               const startTime = toolCallStartRef.current.get(tcDone.toolCallId)
               const duration = startTime ? Math.round(performance.now() - startTime) : undefined
-              const updatedTool: ToolCallData = {
-                toolCallId: tcDone.toolCallId,
-                name: tcDone.name,
-                args: tcDone.result ? undefined : undefined, // args already shown in created
-                result: tcDone.result,
-                error: tcDone.error,
-                status: tcDone.error ? 'failed' : 'success',
-                duration,
-              }
               setCurrentToolCalls((prev) =>
-                prev.map((tc) => tc.toolCallId === tcDone.toolCallId ? updatedTool : tc)
+                prev.map((tc) =>
+                  tc.toolCallId === tcDone.toolCallId
+                    ? {
+                        ...tc,
+                        result: tcDone.result,
+                        error: tcDone.error,
+                        status: (tcDone.error ? 'failed' : 'success') as ToolCallData['status'],
+                        duration,
+                      }
+                    : tc
+                )
               )
               setMessages((prev) =>
                 prev.map((m) =>
                   m.kind === 'tool-call' && m.toolData.toolCallId === tcDone.toolCallId
-                    ? { ...m, toolData: updatedTool }
+                    ? {
+                        ...m,
+                        toolData: {
+                          ...m.toolData,
+                          result: tcDone.result,
+                          error: tcDone.error,
+                          status: (tcDone.error ? 'failed' : 'success') as ToolCallData['status'],
+                          duration,
+                        },
+                      }
                     : m
                 )
               )
@@ -333,58 +343,6 @@ export function PreviewChat({
               setSending(false)
               abortRef.current = null
               break
-
-            case 'run.failed':
-              sendingRef.current = false
-              setSending(false)
-              abortRef.current = null
-              break
-
-            case 'run.in_progress':
-              break
-
-            case 'tool.call.created': {
-              const params = event.args && typeof event.args === 'object' && !Array.isArray(event.args)
-                ? event.args as Record<string, unknown>
-                : { value: event.args }
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `tool-${event.toolCallId}`,
-                  text: '',
-                  sender: 'agent',
-                  time: timeStr,
-                  toolCall: {
-                    callId: event.toolCallId,
-                    toolName: event.name,
-                    params,
-                    status: 'running',
-                    startedAt: new Date().toISOString(),
-                  },
-                },
-              ])
-              break
-            }
-
-            case 'tool.call.completed':
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === `tool-${event.toolCallId}` && m.toolCall
-                    ? {
-                        ...m,
-                        toolCall: {
-                          ...m.toolCall,
-                          toolName: event.name,
-                          status: 'success',
-                          result: event.result,
-                          finishedAt: new Date().toISOString(),
-                        },
-                      }
-                    : m
-                )
-              )
-              break
-
 
             default:
               break

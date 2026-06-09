@@ -77,7 +77,7 @@ describe('chunkCustom', () => {
     expect(chunks.map((c) => c.content).join('')).toBe(text);
   });
 
-  it('overlap >= chunkSize 抛 BusinessException 且错误码为 KnowledgeChunkConfigInvalid', () => {
+  it('overlap 百分比 >= 100 或 < 0 抛 BusinessException 且错误码为 KnowledgeChunkConfigInvalid', () => {
     expect(() =>
       chunkCustom('abc', { ...baseCfg, chunkSize: 10, overlap: 100 }),
     ).toThrow(BusinessException);
@@ -88,6 +88,10 @@ describe('chunkCustom', () => {
         ErrorCode.KnowledgeChunkConfigInvalid,
       );
     }
+
+    expect(() =>
+      chunkCustom('abc', { ...baseCfg, chunkSize: 10, overlap: -1 }),
+    ).toThrow(BusinessException);
   });
 
   it('trimUrlAndEmail=true 移除 url 与 email', () => {

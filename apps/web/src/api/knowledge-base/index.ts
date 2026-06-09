@@ -37,12 +37,14 @@ interface BackendKnowledgeBase {
 interface BackendDocument {
   id: string;
   knowledgeBaseId: string;
-  fileName: string;
-  fileType: string;
-  chunkCount: number;
-  status: string;
+  originalName: string;
+  fileExtension: string;
+  fileSize: number;
+  chunkType: string;
+  chunkConfig: Record<string, unknown>;
+  totalChunks: number;
+  totalChars: number;
   createdAt: string;
-  updatedAt: string;
 }
 
 interface BackendChunk {
@@ -101,14 +103,14 @@ function mapDocument(doc: BackendDocument): KnowledgeDocument {
   return {
     id: doc.id,
     knowledgeBaseId: doc.knowledgeBaseId,
-    fileName: doc.fileName,
-    fileType: doc.fileType,
-    fileSize: 0,
-    status: (doc.status?.toLowerCase() || 'completed') as DocumentStatus,
-    chunkCount: doc.chunkCount ?? 0,
+    fileName: doc.originalName,
+    fileType: doc.fileExtension,
+    fileSize: doc.fileSize ?? 0,
+    status: 'completed' as DocumentStatus,
+    chunkCount: doc.totalChunks ?? 0,
     enabled: true,
     createdAt: doc.createdAt,
-    updatedAt: doc.updatedAt,
+    updatedAt: doc.createdAt,
   };
 }
 
@@ -203,9 +205,11 @@ export const knowledgeApi = {
   },
 
   async uploadDocument(knowledgeBaseId: string, file: File, parseConfig?: ParseConfig) {
+    const workspaceId = await getCurrentWorkspaceId();
     const formData = new FormData();
     formData.append('file', file);
     formData.append('purpose', 'KNOWLEDGE_DOCUMENT');
+    formData.append('workspaceId', workspaceId);
 
     const uploadRes = await http.request<ApiEnvelope<{ id: string }>>('files/upload', {
       method: 'POST',
@@ -213,20 +217,26 @@ export const knowledgeApi = {
       headers: {},
     });
 
-    const fileId = uploadRes.data.id;
+    const fileId = uploadRes.data?.id;
+    if (!fileId) throw new Error('文件上传失败：未获取到 fileId');
 
-    const res = await http.post<ApiEnvelope<{ documents: BackendDocument[] }>>(
+    const res = await http.post<ApiEnvelope<{ document: BackendDocument; chunkSummary: { totalChunks: number; totalChars: number } }>>(
       `knowledge/bases/${knowledgeBaseId}/documents`,
       {
         fileId,
-        config: parseConfig ? {
-          chunkSize: parseConfig.chunkSize,
-          chunkOverlap: parseConfig.chunkOverlap,
-        } : undefined,
+        config: parseConfig
+          ? {
+              chunkType: 'custom',
+              chunkSize: parseConfig.chunkSize,
+              overlap: parseConfig.chunkSize > 0
+                ? Math.min(99, Math.round((parseConfig.chunkOverlap / parseConfig.chunkSize) * 100))
+                : 0,
+            }
+          : { chunkType: 'default' },
       },
     );
 
-    const doc = res.data?.documents?.[0];
+    const doc = res.data?.document;
     if (!doc) throw new Error('文档上传失败');
     return ok(mapDocument(doc));
   },

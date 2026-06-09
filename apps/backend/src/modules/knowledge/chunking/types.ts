@@ -27,6 +27,8 @@ export interface LeveledConfig {
   chunkType: 'leveled';
   maxDepth: number; // 1-6
   saveTitle: boolean;
+  /** 单个 chunk 最大字符数（rune），超过则按段落进一步切分。默认 512，避免超出常见 embedding 模型 token 上限。 */
+  maxChars?: number;
 }
 
 export type ChunkConfig = DefaultConfig | CustomConfig | LeveledConfig;
@@ -50,8 +52,10 @@ export interface ChunkResult {
 }
 
 // default 策略对应的 custom 默认参数。
+// chunkSize=512 对齐常见 embedding 模型 token 上限（如 bge-large-zh = 512），
+// 中文约 1-2 token/字，512 字符在大多数模型安全范围内。
 export const DEFAULT_CUSTOM_CONFIG: Omit<CustomConfig, 'chunkType'> = {
-  chunkSize: 800,
+  chunkSize: 512,
   overlap: 10,
   separator: '\n\n',
   trimSpace: true,

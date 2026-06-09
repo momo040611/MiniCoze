@@ -87,7 +87,7 @@ function DocumentsTab({ knowledgeBaseId, onChanged, onViewChunks }: DocumentsTab
     {
       title: '文件名',
       dataIndex: 'fileName',
-      minWidth: 240,
+      width: 100,
       render: (value: string, record) => (
         <Space direction="vertical" size={2}>
           <span>{value}</span>

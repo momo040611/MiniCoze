@@ -24,13 +24,15 @@ const MAX_ARG_LENGTH = 500;
 function safeStringify(obj: unknown): string {
   try {
     const seen = new WeakSet();
-    return JSON.stringify(obj, (_key, value) => {
+    const result = JSON.stringify(obj, (_key, value) => {
       if (typeof value === 'object' && value !== null) {
         if (seen.has(value)) return '[循环引用]';
         seen.add(value);
       }
       return value;
     }, 2);
+    // JSON.stringify(undefined) 返回 undefined（原始值），不抛异常
+    return result ?? String(obj);
   } catch {
     return String(obj);
   }
