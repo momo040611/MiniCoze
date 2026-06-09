@@ -217,6 +217,8 @@ export class RuntimePrismaRepository implements RuntimeRepository {
         return 'user';
       case PrismaMessageRole.ASSISTANT:
         return 'assistant';
+      case PrismaMessageRole.TOOL:
+        return 'tool';
     }
   }
 }
