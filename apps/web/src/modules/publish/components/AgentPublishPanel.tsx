@@ -498,6 +498,32 @@ export function AgentPublishPanel() {
                             </Space>
                           </div>
                         )}
+                        {webConfig.publicPath && (
+                          <div style={{ marginTop: 4 }}>
+                            <Space>
+                              <Button
+                                size="small"
+                                type="primary"
+                                icon={<CopyOutlined />}
+                                onClick={() => {
+                                  const shareUrl = `${window.location.origin}/share/agents/${webConfig.slug}`;
+                                  copyToClipboard(shareUrl);
+                                }}
+                              >
+                                一键复制分享链接
+                              </Button>
+                              <Button
+                                size="small"
+                                icon={<LinkOutlined />}
+                                onClick={() => {
+                                  window.open(`/share/agents/${webConfig.slug}`, '_blank');
+                                }}
+                              >
+                                打开分享页面
+                              </Button>
+                            </Space>
+                          </div>
+                        )}
                         {webConfig.embedPath && (
                           <div className={styles.configRow}>
                             <Text type="secondary">嵌入地址：</Text>
@@ -577,6 +603,154 @@ export function AgentPublishPanel() {
                         <div className={styles.configRow}>
                           <Text type="secondary">每天限流：</Text>
                           <Text>{apiConfig.rateLimitPerDay} 次</Text>
+                        </div>
+
+                        {/* API 调用说明文档 */}
+                        <div className={styles.apiUsage}>
+                          <Text strong style={{ fontSize: 13, marginBottom: 8, display: 'block' }}>
+                            <ApiOutlined /> API 调用说明
+                          </Text>
+
+                          <div className={styles.codeBlock}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <strong>调用方式：</strong>通过 HTTPS POST 请求发送消息到智能体，支持流式（SSE）和非流式两种模式。
+                            </Text>
+                          </div>
+
+                          <div className={styles.codeBlock}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <strong>接口地址：</strong>
+                            </Text>
+                            <pre className={styles.preCode}>
+{`POST /api/public/agents/${webConfig?.slug ?? '{slug}'}/stream`}
+</pre>
+                          </div>
+
+                          <div className={styles.codeBlock}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <strong>认证方式：</strong>在请求头中携带 <Text code>Authorization: Bearer {'{API_KEY}'}</Text>
+                            </Text>
+                          </div>
+
+                          <div className={styles.codeBlock}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <strong>请求体：</strong>
+                            </Text>
+                            <pre className={styles.preCode}>
+{`{
+  "message": "你好，请帮我...",
+  "conversationId": "可选，用于多轮对话"
+}`}
+</pre>
+                          </div>
+
+                          <div className={styles.codeBlock}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <strong>SSE 事件类型：</strong>
+                            </Text>
+                            <pre className={styles.preCode}>
+{`event: run.created        → 运行已创建，返回 runId / conversationId
+event: message.delta       → 流式文本增量输出
+event: message.completed   → 消息生成完成
+event: tool.call.created   → 工具调用开始
+event: tool.call.completed → 工具调用结束（含结果）
+event: run.completed       → 运行完成（含 token 用量）
+event: run.failed          → 运行失败（含错误信息）
+event: stream.done         → 流结束`}
+</pre>
+                          </div>
+
+                          <div className={styles.codeBlock}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <strong>使用规则：</strong>
+                            </Text>
+                            <ul style={{ fontSize: 12, color: '#7b8ba3', paddingLeft: 18, margin: '4px 0' }}>
+                              <li>所有请求必须携带有效的 API Key，否则返回 401。</li>
+                              <li>建议使用 SSE 流式模式以获得更好的用户体验。</li>
+                              <li>每次对话可通过 <Text code>conversationId</Text> 维持多轮上下文。</li>
+                              <li>遵守限流规则：{apiConfig.rateLimitPerMinute} 次/分钟，{apiConfig.rateLimitPerDay} 次/天。</li>
+                              <li>API Key 仅生成时完整显示一次，请妥善保管。</li>
+                            </ul>
+                          </div>
+
+                          <Collapse
+                            size="small"
+                            ghost
+                            items={[
+                              {
+                                key: 'curl',
+                                label: <Text style={{ fontSize: 12 }}>cURL 示例</Text>,
+                                children: (
+                                  <pre className={styles.preCode}>
+{`curl -X POST \\
+  "https://{host}/api/public/agents/${webConfig?.slug ?? '{slug}'}/stream" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "你好，请介绍一下自己"}' \\
+  --no-buffer`}
+</pre>
+                                ),
+                              },
+                              {
+                                key: 'python',
+                                label: <Text style={{ fontSize: 12 }}>Python 示例</Text>,
+                                children: (
+                                  <pre className={styles.preCode}>
+{`import requests
+import json
+
+url = "https://{host}/api/public/agents/${webConfig?.slug ?? '{slug}'}/stream"
+headers = {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json"
+}
+data = {"message": "你好，请介绍一下自己"}
+
+response = requests.post(url, headers=headers, json=data, stream=True)
+
+for line in response.iter_lines():
+    if line:
+        line = line.decode("utf-8")
+        if line.startswith("data:"):
+            event = json.loads(line[5:])
+            if event["type"] == "message.delta":
+                print(event["content"], end="", flush=True)`}
+</pre>
+                                ),
+                              },
+                              {
+                                key: 'javascript',
+                                label: <Text style={{ fontSize: 12 }}>JavaScript 示例</Text>,
+                                children: (
+                                  <pre className={styles.preCode}>
+{`// 使用 fetch + ReadableStream 处理 SSE
+const response = await fetch(
+  "https://{host}/api/public/agents/${webConfig?.slug ?? '{slug}'}/stream",
+  {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer YOUR_API_KEY",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ message: "你好" })
+  }
+);
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+let buffer = "";
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  buffer += decoder.decode(value, { stream: true });
+  // 按 SSE 协议解析 buffer...
+}`}
+</pre>
+                                ),
+                              },
+                            ]}
+                          />
                         </div>
                       </div>
                     ) : null,
