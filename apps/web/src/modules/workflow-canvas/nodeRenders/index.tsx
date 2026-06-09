@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Field } from '@flowgram.ai/free-layout-editor';
 import styles from './nodeRenderers.module.css';
 import type { EndConfig, LLMConfig, NodeMeta, VariableInfo } from './types.ts';
@@ -18,7 +19,7 @@ const renderVariables = (fieldName: 'inputs' | 'outputs') => (
   <Field<VariableInfo[]> name={fieldName}>
     {({ field }) => (
       <div className={styles.variableList}>
-        {field.value?.map((item, index) => (
+        {(Array.isArray(field.value) ? field.value : []).map((item, index) => (
           <div className={styles.variableRow} key={`${item.name}-${index}`}>
             <span className={styles.variableLabel}>
               {fieldName === 'inputs' ? '输入' : '输出'}
@@ -42,6 +43,65 @@ const renderConfigRow = (label: string, value?: unknown) => (
     <span className={styles.configText}>{String(value || '未配置')}</span>
   </div>
 );
+
+function AnnotationEditor({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(value ?? '');
+    }
+  }, [editing, value]);
+
+  useEffect(() => {
+    if (editing) {
+      textareaRef.current?.focus();
+    }
+  }, [editing]);
+
+  if (editing) {
+    return (
+      <textarea
+        ref={textareaRef}
+        className={styles.annotationTextarea}
+        value={draft}
+        placeholder="输入要添加的注释..."
+        onPointerDown={(event) => event.stopPropagation()}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          onChange(event.target.value);
+        }}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setEditing(false);
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${styles.annotationText} ${value ? '' : styles.annotationPlaceholder}`}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        setEditing(true);
+      }}
+      title="双击编辑注释"
+    >
+      {value || '输入要添加的注释...'}
+    </div>
+  );
+}
 
 export const renderStartNode = () => (
   <div className={styles.inputNode}>
@@ -147,5 +207,30 @@ export const renderGenericNode = () => (
     {renderTitle()}
     {renderVariables('inputs')}
     {renderVariables('outputs')}
+  </div>
+);
+
+export const renderAnnotationNode = () => (
+  <div className={styles.annotationNode}>
+    <Field<NodeMeta> name="nodeMeta">
+      {({ field }) => (
+        <AnnotationEditor
+          value={field.value?.description}
+          onChange={(value) => {
+            const nextMeta = {
+              ...(field.value ?? { title: '注释' }),
+              description: value,
+            };
+            const writableField = field as typeof field & {
+              onChange?: (value: NodeMeta) => void;
+              setValue?: (value: NodeMeta) => void;
+            };
+
+            writableField.onChange?.(nextMeta);
+            writableField.setValue?.(nextMeta);
+          }}
+        />
+      )}
+    </Field>
   </div>
 );

@@ -1,12 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './agent-detail.module.css';
 import type { AgentMode, AgentDetailData } from './types';
+import { MODEL_OPTIONS } from '../../../api/agent-config/model-options';
 import { useOrchestrationConfig } from './hooks/useOrchestrationConfig';
 import { useAgentSave } from './hooks/useAgentSave';
 import { nextContentKey } from './constants';
 import { AgentDetailNavbar } from './components/AgentDetailNavbar';
 import { AgentDetailContent } from './components/AgentDetailContent';
 import { EditAgentModal } from '../components/EditAgentModal';
+import {
+  checkAgent,
+  publishAgent,
+  offlineAgent,
+} from '../../../api/publish/index';
 
 interface Props {
   agent: AgentDetailData;
@@ -23,6 +29,9 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   const [contentKey, setContentKey] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
+  const [status, setStatus] = useState(agent.status);
+  const [publishing, setPublishing] = useState(false);
+  const isPublished = status === 'ACTIVE';
 
   const {
     orchestration,
@@ -51,6 +60,8 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
     autoSaveTimerRef,
     saving,
     saved,
+    autoSaveError,
+    clearAutoSaveError,
   } = useAgentSave({ agentId: agent.id, onAgentUpdated, onSaveCompleted: () => setDirty(false) });
 
   saveStateRef.current = {
@@ -73,9 +84,10 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
       setModel(agent.model);
       setTemperature(agent.temperature);
       setContextLimit(agent.contextLimit);
+      setStatus(agent.status);
       setDirty(false);
     }
-  }, [agent.id, agent.mode, agent.persona, agent.model, agent.temperature, agent.contextLimit]);
+  }, [agent.id, agent.mode, agent.persona, agent.model, agent.temperature, agent.contextLimit, agent.status]);
 
   const handleModeChange = useCallback(
     (newMode: AgentMode) => {
@@ -105,9 +117,42 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
     };
   }, [dirty, saving, performAutoSave, autoSaveTimerRef]);
 
-  const handlePublish = () => {
-    alert(`智能体 "${agent.name}" 发布成功！`);
-  };
+  const handlePublish = useCallback(async () => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      if (isPublished) {
+        // 下线：调用专用下线接口
+        await offlineAgent(agent.id);
+        setStatus('DRAFT');
+      } else {
+        // 发布：先保存草稿，再执行发布流程
+        if (dirty) {
+          await handleSave();
+        }
+        // 1. 检查是否满足发布条件
+        const checkResult = await checkAgent(agent.id);
+        if (!checkResult.passed) {
+          const failedMessages = checkResult.items
+            .filter((item) => !item.passed)
+            .map((item) => item.message ?? item.label)
+            .join('\n');
+          alert(`发布检查未通过：\n${failedMessages}`);
+          return;
+        }
+        // 2. 执行发布（创建版本快照）
+        await publishAgent(agent.id);
+        setStatus('ACTIVE');
+      }
+      onAgentUpdated();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : '操作失败';
+      alert(isPublished ? `下线失败：${message}` : `发布失败：${message}`);
+    } finally {
+      setPublishing(false);
+    }
+  }, [agent.id, isPublished, publishing, dirty, handleSave, onAgentUpdated]);
 
   const handleModelChange = useCallback(
     (newModel: string) => {
@@ -152,7 +197,10 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
         mode={mode}
         saving={saving}
         saved={saved}
+        autoSaveError={autoSaveError}
         dirty={dirty}
+        status={status}
+        publishing={publishing}
         onBack={onBack}
         onEdit={handleEdit}
         onModeChange={handleModeChange}
@@ -165,6 +213,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
           agent={agent}
           persona={persona}
           model={model}
+          modelOptions={MODEL_OPTIONS}
           temperature={temperature}
           contextLimit={contextLimit}
           plannerConfig={plannerConfig}

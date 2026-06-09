@@ -1,14 +1,15 @@
 import React from 'react';
 import type { AgentMode, AgentDetailData, PlannerConfig, FlowConfig, MultiConfig, OpeningConfig } from '../types';
+import type { ModelOption } from '../../../../api/agent-config/model-options';
 import { SingleAgentPlanner } from '../../agent-planner/SingleAgentPlanner';
 import { SingleAgentFlow } from '../../agent-flow/SingleAgentFlow';
 import { MultiAgents } from '../../agent-multi/MultiAgents';
-
 interface AgentDetailContentProps {
   mode: AgentMode;
   agent: AgentDetailData;
   persona: string;
   model: string;
+  modelOptions: ModelOption[];
   temperature: number;
   contextLimit: number;
   plannerConfig: PlannerConfig;
@@ -30,6 +31,7 @@ export function AgentDetailContent({
   agent,
   persona,
   model,
+  modelOptions,
   temperature,
   contextLimit,
   plannerConfig,
@@ -50,6 +52,7 @@ export function AgentDetailContent({
     persona,
     setPersona: onPersonaChange,
     model,
+    modelOptions,
     onModelChange,
     temperature,
     onTemperatureChange,
@@ -59,7 +62,8 @@ export function AgentDetailContent({
     onOpeningChange,
   };
 
-  switch (mode) {
+  const modeContent = (() => {
+    switch (mode) {
     case 'chat':
       return (
         <SingleAgentPlanner
@@ -74,6 +78,8 @@ export function AgentDetailContent({
           agent={agent}
           persona={persona}
           model={model}
+          modelOptions={modelOptions}
+          onModelChange={onModelChange}
           temperature={temperature}
           contextLimit={contextLimit}
           onTemperatureChange={onTemperatureChange}
@@ -94,5 +100,8 @@ export function AgentDetailContent({
       );
     default:
       return null;
-  }
+    }
+  })();
+
+  return <>{modeContent}</>;
 }

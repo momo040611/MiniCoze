@@ -1,10 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { Agent, Prisma } from '@prisma/client';
+import { Agent, AgentStatus, Prisma } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { createPaginatedData } from '../../common/types/pagination-response.type';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
+import { parseAgentPublishSnapshot } from '../publish/agent-publish-snapshot.util';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { AgentQueryDto } from './dto/agent-query.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
@@ -39,7 +40,6 @@ export class AgentService {
         temperature: createAgentDto.temperature,
         openingMessage: createAgentDto.openingMessage,
         contextLimit: createAgentDto.contextLimit,
-        status: createAgentDto.status,
       },
     });
 
@@ -97,9 +97,61 @@ export class AgentService {
     userId: string,
     agentId: string,
   ): Promise<Agent> {
-    const agent = await this.findAgentOrThrow(agentId);
+    const agent = await this.prisma.agent.findUnique({
+      where: {
+        id: agentId,
+      },
+      include: {
+        currentVersion: true,
+      },
+    });
+
+    if (!agent) {
+      throw new BusinessException(
+        'Agent 不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
     await this.workspaceAccessService.ensureMember(userId, agent.workspaceId);
 
+    if (agent.status !== AgentStatus.ACTIVE || !agent.currentVersion) {
+      throw new BusinessException(
+        'Agent 尚未发布或已下线',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const snapshot = parseAgentPublishSnapshot(agent.currentVersion.snapshot);
+    if (!snapshot) {
+      throw new BusinessException(
+        'Agent 发布快照无效',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return {
+      ...agent,
+      name: snapshot.agent.name,
+      description: snapshot.agent.description,
+      avatarUrl: snapshot.agent.avatarUrl,
+      systemPrompt: snapshot.agent.systemPrompt,
+      model: snapshot.agent.model,
+      temperature: snapshot.agent.temperature,
+      openingMessage: snapshot.agent.openingMessage,
+      contextLimit: snapshot.agent.contextLimit,
+    };
+  }
+
+  async findPreviewAgentForUser(
+    userId: string,
+    agentId: string,
+  ): Promise<Agent> {
+    const agent = await this.findAgentOrThrow(agentId);
+    await this.workspaceAccessService.ensureMember(userId, agent.workspaceId);
     return agent;
   }
 
@@ -127,7 +179,6 @@ export class AgentService {
         temperature: updateAgentDto.temperature,
         openingMessage: updateAgentDto.openingMessage,
         contextLimit: updateAgentDto.contextLimit,
-        status: updateAgentDto.status,
       },
     });
 
@@ -150,7 +201,7 @@ export class AgentService {
     return this.toAgentResponse(deletedAgent);
   }
 
-  private async findAgentOrThrow(agentId: string) {
+  private async findAgentOrThrow(agentId: string): Promise<Agent> {
     const agent = await this.prisma.agent.findUnique({
       where: {
         id: agentId,

@@ -1,4 +1,5 @@
 import type { OrchestrationConfig, PlannerConfig, FlowConfig, MultiConfig, OpeningConfig } from './types';
+import { DEFAULT_AGENT_MODEL } from '../../../api/agent-config/model-options';
 
 export function parseOrchestration(raw: string): OrchestrationConfig {
   try {
@@ -15,13 +16,13 @@ export function serializeOrchestration(config: OrchestrationConfig): string {
   if (config.planner) cleaned.planner = config.planner;
   if (config.flow) cleaned.flow = config.flow;
   if (config.multi) cleaned.multi = config.multi;
-  if (config.opening && config.opening.openingMessage) cleaned.opening = config.opening;
+  if (config.opening && (config.opening.openingMessage || config.opening.openingQuestions?.length || config.opening.openingQuestionsEnabled)) cleaned.opening = config.opening;
   return Object.keys(cleaned).length > 0 ? JSON.stringify(cleaned) : '';
 }
 
 export function defaultPlannerConfig(): PlannerConfig {
   return {
-    selectedModel: 'deepseek-v4-flash',
+    selectedModel: DEFAULT_AGENT_MODEL,
     knowledgeEnabled: true,
     autoInvoke: true,
     plugins: [],
@@ -34,7 +35,7 @@ export function defaultPlannerConfig(): PlannerConfig {
 }
 
 export function defaultFlowConfig(): FlowConfig {
-  return { nodes: [], variables: [], databases: [] };
+  return { nodes: [], workflows: [], variables: [], databases: [] };
 }
 
 export function defaultMultiConfig(): MultiConfig {

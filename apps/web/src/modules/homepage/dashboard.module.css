@@ -1,0 +1,167 @@
+/* ═══ 工作台 Dashboard — 简约高尚设计 ═══ */
+
+/* ---- 页面容器 ---- */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100%;
+  padding-bottom: 16px;
+}
+
+/* ═══ 主内容行：活动时间线 + 侧面板 ═══ */
+
+.mainRow {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  position: relative;
+}
+
+.timelineWrap {
+  flex: 1;
+  min-width: 0;
+  transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timelineFull {
+  flex: 1;
+}
+
+.sidePanelWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* ═══ 响应式 ═══ */
+
+@media (max-width: 1200px) {
+  .mainRow {
+    flex-direction: column;
+  }
+
+  .sidePanelWrap {
+    width: 100%;
+  }
+}
+
+/* ═══ 加载骨架 ═══ */
+
+.skeletonBanner {
+  height: 80px;
+  border-radius: 16px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid rgba(104, 119, 144, 0.06);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeletonStats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.skeletonCard {
+  height: 110px;
+  border-radius: 14px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid rgba(104, 119, 144, 0.06);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeletonBody {
+  display: flex;
+  gap: 20px;
+}
+
+.skeletonMain {
+  flex: 1;
+  height: 300px;
+  border-radius: 14px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid rgba(104, 119, 144, 0.06);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeletonSide {
+  width: 320px;
+  height: 300px;
+  border-radius: 14px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid rgba(104, 119, 144, 0.06);
+  flex-shrink: 0;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (max-width: 1200px) {
+  .skeletonStats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .skeletonBody {
+    flex-direction: column;
+  }
+
+  .skeletonSide {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .skeletonStats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .skeletonStats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══ 错误态 ═══ */
+
+.errorState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+}
+
+.retryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-primary, #565fe2);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font: inherit;
+}
+
+.retryBtn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ═══ 暗色骨架 ═══ */
+
+[data-theme='dark'] .skeletonBanner,
+[data-theme='dark'] .skeletonCard,
+[data-theme='dark'] .skeletonMain,
+[data-theme='dark'] .skeletonSide {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.06);
+}

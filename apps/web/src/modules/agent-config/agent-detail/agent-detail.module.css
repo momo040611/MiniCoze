@@ -62,6 +62,36 @@
   white-space: nowrap;
 }
 
+.editBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #8896a6;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.editBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.publishedBadge {
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .navCenter {
   display: flex;
   align-items: center;
@@ -80,6 +110,12 @@
 .savedHint {
   font-size: 12px;
   color: #9ca3af;
+  white-space: nowrap;
+}
+
+.errorHint {
+  font-size: 12px;
+  color: #ef4444;
   white-space: nowrap;
 }
 

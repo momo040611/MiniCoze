@@ -52,6 +52,15 @@ export class WorkspaceController {
     return this.workspaceService.findOneForUser(currentUser.id, workspaceId);
   }
 
+  @Get(':workspaceId/dashboard')
+  @ApiOperation({ summary: '获取工作空间仪表盘摘要' })
+  getDashboardSummary(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.workspaceService.getDashboardSummary(currentUser.id, workspaceId);
+  }
+
   @Patch(':workspaceId')
   @ApiOperation({ summary: '更新工作空间' })
   update(

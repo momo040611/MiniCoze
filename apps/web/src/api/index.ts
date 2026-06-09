@@ -12,11 +12,37 @@ export * from './workflow-canvas';
 export {
   DEFAULT_WORKFLOW_CANVAS_DATA,
   createWorkflow,
+  createWorkflowRemote,
   deleteWorkflow,
+  fromWorkflowResponse,
+  getWorkflowById,
+  getWorkflowByIdRemote,
   getWorkflowDetail,
   getWorkflowList,
+  getWorkflowListRemote,
+  runWorkflowRemote,
+  runWorkflowStreamRemote,
+  saveWorkflowDraft,
+  saveWorkflowDraftRemote,
+  toCreateWorkflowRequest,
+  toRunnableWorkflowDefinition,
+  toWorkflowDefinition,
   updateWorkflow,
+  updateWorkflowRemote,
+  type CreateWorkflowParams,
+  type CreateWorkflowRequest,
+  type PaginatedWorkflowResponse,
+  type RunWorkflowRequest,
+  type UpdateWorkflowRequest,
   type Workflow,
+  type WorkflowCanvasData,
+  type WorkflowDefinition,
+  type WorkflowResponseLike,
+  type WorkflowRunNode,
+  type WorkflowRunNodeStatus,
+  type WorkflowRunResult,
+  type WorkflowRunStatus,
+  type WorkflowStreamEvent,
 } from './workflows';
 
 // 统一导出"创建知识库界面"模块 API，后续文件上传、解析、知识库管理等接口放在该模块下。
@@ -27,5 +53,8 @@ export * from './auth';
 export * from './homepage';
 // 统一导出"工作空间"模块 API。
 export * from './workspace';
+// 统一导出"工作台 Dashboard"模块 API。
+export * from './dashboard';
 // 统一导出"Agent 运行时"模块 API（SSE 流式对话）。
 export * from './agent-runtime';
+export * from './plugins';

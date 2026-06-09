@@ -6,6 +6,10 @@ import type {
   AgentExecutionStrategy,
 } from '../../shared/types/runtime';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
+import {
+  isWorkflowToolName,
+  parseWorkflowToolName,
+} from '../workflow/workflow-tool.util';
 
 @Injectable()
 export class SingleAgentRunner implements AgentExecutionStrategy {
@@ -128,11 +132,21 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
   }
 
   private parseFunctionName(name: string): {
+    toolKind?: 'plugin' | 'workflow';
     pluginCode?: string;
     toolCode?: string;
+    workflowVersionId?: string;
   } {
+    if (isWorkflowToolName(name)) {
+      return {
+        toolKind: 'workflow',
+        workflowVersionId: parseWorkflowToolName(name) ?? undefined,
+      };
+    }
+
     const [pluginCode, toolCode] = name.split('__');
     return {
+      toolKind: 'plugin',
       pluginCode,
       toolCode,
     };

@@ -197,13 +197,33 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 24px;
   border-bottom: 1px solid var(--sidebar-border-color);
   background: var(--header-bg);
 }
 
+.headerLeft {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.headerCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .workspaceSelect {
-  width: 260px;
+  width: 220px;
 }
 
 .content {
@@ -225,22 +245,68 @@
   }
 }
 
+/* 移动端菜单按钮 - 默认隐藏 */
+.mobileMenuBtn {
+  display: none;
+}
+
+/* 移动端遮罩层 */
+.sidebarMask {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .sidebar {
-    width: 76px;
+    position: fixed;
+    left: -228px;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+    width: 228px;
+    transition: left 0.3s ease;
+    box-shadow: none;
+  }
+
+  .sidebarMobileOpen {
+    left: 0;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebarCollapsed {
+    width: 228px;
+  }
+
+  .sidebarMask {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+
+  .sidebarMaskVisible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .mobileMenuBtn {
+    display: flex;
   }
 
   .brand {
-    justify-content: center;
-    padding: 0 12px;
+    justify-content: flex-start;
+    padding: 0 18px;
   }
 
   .brandText {
-    display: none;
+    display: block;
   }
 
   .sidebarTop .collapseButton {
-    display: none;
+    display: flex;
   }
 
   .header {
@@ -250,16 +316,25 @@
 
   .sidebarUser {
     display: flex;
-    justify-content: center;
-    padding: 12px 0;
+    flex-direction: column;
+    padding: 12px;
   }
 
   .sidebarUser .userName,
   .sidebarUser .userArrow {
-    display: none;
+    display: block;
   }
 
   .content {
     padding: 16px;
   }
+}
+
+/* 暗色主题遮罩层 */
+[data-theme='dark'] .sidebarMask {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .sidebarMobileOpen {
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
 }

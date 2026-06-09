@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Form, Input, InputNumber, Select, Switch } from 'antd';
+import { Alert, Button, Drawer, Form, Input, InputNumber, Select, Switch } from 'antd';
 import {
   FlowNodeFormData,
   WorkflowContentChangeType,
   getNodeForm,
   type WorkflowNodeEntity,
 } from '@flowgram.ai/free-layout-editor';
+import type { WorkflowCanvasData } from '../../../api/workflows';
 import type { EndConfig, LLMConfig, NodeMeta, VariableInfo } from '../nodeRenders/types';
+import type { NodeValidationError } from '../utils/validateWorkflow';
 import styles from './NodeConfigPanel.module.css';
 
 type NodeConfig = LLMConfig & EndConfig & Record<string, unknown>;
@@ -20,8 +22,12 @@ type NodeData = {
 
 type NodeConfigPanelProps = {
   selectedNode: WorkflowNodeEntity | null;
+  validationErrors?: NodeValidationError[];
   onClose: () => void;
+  onNodeDataChange?: (canvasData: WorkflowCanvasData) => void;
 };
+
+const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const VARIABLE_TYPE_OPTIONS = [
   { label: 'string', value: 'string' },
@@ -160,7 +166,7 @@ function getTypeDefaults(type?: string): Pick<NodeData, 'inputs' | 'outputs' | '
         model: 'deepseek-chat',
         temperature: 0.7,
         systemPrompt: '你是一个简洁、可靠的助手。',
-        prompt: '请根据输入生成回答。',
+        prompt: '请回答用户问题：{{input.query}}',
       },
     };
   }
@@ -252,7 +258,13 @@ function VariableList({ name, title }: { name: 'inputs' | 'outputs'; title: stri
                 <Form.Item
                   label="变量名"
                   name={[field.name, 'name']}
-                  rules={[{ required: true, message: '请输入变量名' }]}
+                  rules={[
+                    { required: true, message: '请输入变量名' },
+                    {
+                      pattern: VARIABLE_NAME_PATTERN,
+                      message: '变量名只能使用字母、数字和下划线，且不能以数字开头',
+                    },
+                  ]}
                 >
                   <Input placeholder="query" />
                 </Form.Item>
@@ -289,16 +301,28 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
     return (
       <div className={styles.section}>
         <div className={styles.sectionTitle}>模型配置</div>
-        <Form.Item label="模型" name={['config', 'model']}>
+        <Form.Item
+          label="模型"
+          name={['config', 'model']}
+          rules={[{ required: true, message: '请选择模型' }]}
+        >
           <Select options={MODEL_OPTIONS} placeholder="请选择模型" />
         </Form.Item>
-        <Form.Item label="温度" name={['config', 'temperature']}>
+        <Form.Item
+          label="温度"
+          name={['config', 'temperature']}
+          rules={[{ type: 'number', min: 0, max: 2, message: '温度必须在 0 到 2 之间' }]}
+        >
           <InputNumber min={0} max={2} step={0.1} className={styles.fullWidth} />
         </Form.Item>
         <Form.Item label="System Prompt" name={['config', 'systemPrompt']}>
           <Input.TextArea rows={4} placeholder="设置模型角色和约束" />
         </Form.Item>
-        <Form.Item label="Prompt" name={['config', 'prompt']}>
+        <Form.Item
+          label="Prompt"
+          name={['config', 'prompt']}
+          rules={[{ required: true, message: '请输入 Prompt' }]}
+        >
           <Input.TextArea rows={5} placeholder="输入模型执行任务的提示词" />
         </Form.Item>
       </div>
@@ -309,13 +333,47 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
     return (
       <div className={styles.section}>
         <div className={styles.sectionTitle}>条件配置</div>
-        <Form.Item label="判断方式" name={['config', 'operator']}>
+        <Form.Item
+          label="判断方式"
+          name={['config', 'operator']}
+          rules={[{ required: true, message: '请选择判断方式' }]}
+        >
           <Select options={CONDITION_OPERATOR_OPTIONS} />
         </Form.Item>
-        <Form.Item label="比较值" name={['config', 'compareValue']}>
+        <Form.Item
+          label="比较值"
+          name={['config', 'compareValue']}
+          dependencies={[['config', 'operator']]}
+          rules={[
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (getFieldValue(['config', 'operator']) === 'expression' || String(value ?? '').trim()) {
+                  return Promise.resolve();
+                }
+
+                return Promise.reject(new Error('请输入比较值'));
+              },
+            }),
+          ]}
+        >
           <Input placeholder="请输入比较值" />
         </Form.Item>
-        <Form.Item label="自定义表达式" name={['config', 'expression']}>
+        <Form.Item
+          label="自定义表达式"
+          name={['config', 'expression']}
+          dependencies={[['config', 'operator']]}
+          rules={[
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (getFieldValue(['config', 'operator']) !== 'expression' || String(value ?? '').trim()) {
+                  return Promise.resolve();
+                }
+
+                return Promise.reject(new Error('请输入自定义表达式'));
+              },
+            }),
+          ]}
+        >
           <Input.TextArea rows={3} placeholder="例如：input.status === 'success'" />
         </Form.Item>
       </div>
@@ -326,10 +384,18 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
     return (
       <div className={styles.section}>
         <div className={styles.sectionTitle}>插件配置</div>
-        <Form.Item label="插件 ID" name={['config', 'pluginId']}>
+        <Form.Item
+          label="插件 ID"
+          name={['config', 'pluginId']}
+          rules={[{ required: true, message: '请输入插件 ID' }]}
+        >
           <Input placeholder="plugin.weather" />
         </Form.Item>
-        <Form.Item label="调用动作" name={['config', 'action']}>
+        <Form.Item
+          label="调用动作"
+          name={['config', 'action']}
+          rules={[{ required: true, message: '请输入调用动作' }]}
+        >
           <Input placeholder="search / run / query" />
         </Form.Item>
         <Form.Item label="超时时间（秒）" name={['config', 'timeout']}>
@@ -343,13 +409,21 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
     return (
       <div className={styles.section}>
         <div className={styles.sectionTitle}>数据库配置</div>
-        <Form.Item label="数据源" name={['config', 'source']}>
+        <Form.Item
+          label="数据源"
+          name={['config', 'source']}
+          rules={[{ required: true, message: '请输入数据源' }]}
+        >
           <Input placeholder="请选择或输入数据源" />
         </Form.Item>
         <Form.Item label="只读查询" name={['config', 'readonly']} valuePropName="checked">
           <Switch />
         </Form.Item>
-        <Form.Item label="查询语句" name={['config', 'query']}>
+        <Form.Item
+          label="查询语句"
+          name={['config', 'query']}
+          rules={[{ required: true, message: '请输入查询语句' }]}
+        >
           <Input.TextArea rows={5} placeholder="SELECT * FROM table WHERE id = :id" />
         </Form.Item>
       </div>
@@ -360,7 +434,11 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
     return (
       <div className={styles.section}>
         <div className={styles.sectionTitle}>输出配置</div>
-        <Form.Item label="输出方式" name={['config', 'outputMode']}>
+        <Form.Item
+          label="输出方式"
+          name={['config', 'outputMode']}
+          rules={[{ required: true, message: '请选择输出方式' }]}
+        >
           <Select
             options={[
               { label: '返回变量', value: '返回变量' },
@@ -375,7 +453,12 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
   return null;
 }
 
-function NodeConfigPanel({ selectedNode, onClose }: NodeConfigPanelProps) {
+function NodeConfigPanel({
+  selectedNode,
+  validationErrors = [],
+  onClose,
+  onNodeDataChange,
+}: NodeConfigPanelProps) {
   const [form] = Form.useForm<NodeData>();
   const [panelTitle, setPanelTitle] = useState('节点配置');
   const nodeType = String(selectedNode?.flowNodeType ?? '');
@@ -407,6 +490,17 @@ function NodeConfigPanel({ selectedNode, onClose }: NodeConfigPanelProps) {
 
     setPanelTitle(`${nextData.nodeMeta?.title ?? '节点'} 配置`);
     syncFlowGramForm(selectedNode, nextData);
+
+    const nodeAny = selectedNode as unknown as {
+      document?: {
+        toJSON?: () => WorkflowCanvasData;
+      };
+    };
+    const nextCanvasData = nodeAny.document?.toJSON?.();
+
+    if (nextCanvasData) {
+      onNodeDataChange?.(nextCanvasData);
+    }
   }
 
   return (
@@ -425,6 +519,22 @@ function NodeConfigPanel({ selectedNode, onClose }: NodeConfigPanelProps) {
       className={styles.drawer}
       rootClassName={styles.drawerRoot}
     >
+      {validationErrors.length > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          message="当前节点配置有误"
+          description={
+            <ul className={styles.errorList}>
+              {validationErrors.map((error) => (
+                <li key={`${error.field}-${error.message}`}>{error.message}</li>
+              ))}
+            </ul>
+          }
+          className={styles.errorAlert}
+        />
+      )}
+
       <Form
         form={form}
         layout="vertical"

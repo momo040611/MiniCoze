@@ -3,28 +3,34 @@ import { Button, Empty, Form, Input, Modal, Space, Table, Tag, message } from 'a
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import {
-  createWorkflow,
-  deleteWorkflow,
-  getWorkflowList,
+  createWorkflowRemote,
+  getWorkflowListRemote,
   type Workflow,
 } from '../../api/workflows';
+import { useWorkspace } from '../workspace/use-workspace';
 import styles from './index.module.css';
 
 export function WorkflowsPage() {
   const navigate = useNavigate();
+  const { currentWorkspace } = useWorkspace();
   const [workflowList, setWorkflowList] = useState<Workflow[]>([]);
   const [keyword, setKeyword] = useState('');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm<{ name: string; description?: string }>();
 
-  async function loadWorkflows() {
-    setWorkflowList(await getWorkflowList());
+  async function loadWorkflows(workspaceId?: string) {
+    if (!workspaceId) {
+      setWorkflowList([]);
+      return;
+    }
+
+    setWorkflowList(await getWorkflowListRemote(workspaceId));
   }
 
   useEffect(() => {
-    loadWorkflows();
-  }, []);
+    loadWorkflows(currentWorkspace?.id);
+  }, [currentWorkspace?.id]);
 
   const filteredList = useMemo(() => {
     const value = keyword.trim();
@@ -44,7 +50,14 @@ export function WorkflowsPage() {
     setLoading(true);
 
     try {
-      const workflow = await createWorkflow(values);
+      if (!currentWorkspace?.id) {
+        message.error('请先选择工作区');
+        return;
+      }
+      const workflow = await createWorkflowRemote({
+        ...values,
+        workspaceId: currentWorkspace?.id,
+      });
       message.success('工作流创建成功');
       setOpen(false);
       form.resetFields();
@@ -55,9 +68,8 @@ export function WorkflowsPage() {
   }
 
   async function handleDelete(id: string) {
-    await deleteWorkflow(id);
-    message.success('删除成功');
-    loadWorkflows();
+    console.info('Workflow delete is not wired to backend yet:', id);
+    message.warning('后端删除接口未开放，暂时无法删除工作流');
   }
 
   function openWorkflow(id: string) {

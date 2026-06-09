@@ -6,6 +6,7 @@ import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.dec
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
 import { AgentRuntimeService } from './agent-runtime.service';
+import { writeRuntimeEventStream } from './runtime-event-stream.writer';
 import { RunAgentDto } from './runtime/dto/run-agent.dto';
 
 @ApiTags('agent-runtime')
@@ -23,23 +24,11 @@ export class AgentRuntimeController {
     @Body() dto: RunAgentDto,
     @Res() res: Response,
   ) {
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders?.();
-
     const events = this.agentRuntimeService.run({
       ...dto,
       userId: currentUser.id,
     });
 
-    try {
-      for await (const event of events) {
-        res.write(`event: ${event.type}\n`);
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-      }
-    } finally {
-      res.end();
-    }
+    await writeRuntimeEventStream(res, events);
   }
 }

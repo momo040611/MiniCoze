@@ -199,17 +199,24 @@ export async function request<TResponse, TBody = unknown>(
   let mockHandler = mockHandlers.get(mockKey);
 
   // 未命中精确匹配时，尝试 RESTful 前缀匹配（如 GET:agents 匹配 GET:agents/some-id）
+  // 按路径长度降序排列，确保更具体的路径（如 workspaces/default-workspace）优先于短路径（如 workspaces）
   if (!mockHandler) {
-    for (const [key, handler] of mockHandlers) {
-      const sepIdx = key.indexOf(':');
-      if (sepIdx !== -1) {
+    const candidates = Array.from(mockHandlers.entries())
+      .filter(([key]) => {
+        const sepIdx = key.indexOf(':');
+        if (sepIdx === -1) return false;
         const keyMethod = key.slice(0, sepIdx);
         const keyPath = key.slice(sepIdx + 1);
-        if (keyMethod === method && path.startsWith(`${keyPath}/`)) {
-          mockHandler = handler;
-          break;
-        }
-      }
+        return keyMethod === method && path.startsWith(`${keyPath}/`);
+      })
+      .sort((a, b) => {
+        const lenA = a[0].indexOf(':') !== -1 ? a[0].slice(a[0].indexOf(':') + 1).length : 0;
+        const lenB = b[0].indexOf(':') !== -1 ? b[0].slice(b[0].indexOf(':') + 1).length : 0;
+        return lenB - lenA; // 降序：最长（最具体）路径优先
+      });
+
+    if (candidates.length > 0) {
+      mockHandler = candidates[0][1];
     }
   }
 

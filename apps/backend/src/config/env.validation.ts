@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  ValidateIf,
   validateSync,
 } from 'class-validator';
 
@@ -13,6 +14,11 @@ enum NodeEnv {
   Development = 'development',
   Production = 'production',
   Test = 'test',
+}
+
+enum FileStorageDriver {
+  Local = 'local',
+  Cos = 'cos',
 }
 
 class EnvironmentVariables {
@@ -52,6 +58,11 @@ class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  @IsEnum(FileStorageDriver)
+  FILE_STORAGE_DRIVER: FileStorageDriver = FileStorageDriver.Local;
+
+  @IsString()
+  @IsOptional()
   FILE_UPLOAD_DIR = 'storage/uploads';
 
   @IsString()
@@ -67,6 +78,42 @@ class EnvironmentVariables {
   @IsInt()
   @Min(1)
   FILE_MAX_DOCUMENT_SIZE = 52428800;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_SECRET_ID?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_SECRET_KEY?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_BUCKET?: string;
+
+  @ValidateIf(
+    (env: EnvironmentVariables) =>
+      env.FILE_STORAGE_DRIVER === FileStorageDriver.Cos,
+  )
+  @IsString()
+  @IsNotEmpty()
+  COS_REGION?: string;
+
+  @IsString()
+  @IsOptional()
+  COS_PUBLIC_BASE_URL?: string;
 
   @IsString()
   @IsOptional()

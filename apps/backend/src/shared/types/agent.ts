@@ -38,9 +38,26 @@ export interface ToolResult {
 }
 
 export interface RuntimeToolMetadata {
+  toolKind?: 'plugin' | 'workflow';
   pluginId?: string;
   pluginCode?: string;
   toolCode?: string;
+  workflowId?: string;
+  workflowVersionId?: string;
+  workflowBindingId?: string;
+  workflowName?: string;
+}
+
+export interface RuntimeKnowledgeBindingConfig {
+  topK?: number;
+  minScore?: number;
+}
+
+export interface RuntimeKnowledgeBinding {
+  bindingId: string;
+  knowledgeBaseId: string;
+  enabled: boolean;
+  config?: RuntimeKnowledgeBindingConfig | null;
 }
 
 // ── Agent 配置 ──
@@ -53,6 +70,7 @@ export interface AgentConfig {
   maxTokens: number;
   contextLimit: number;
   tools: ToolDefinition[];
+  knowledgeBindings?: RuntimeKnowledgeBinding[];
 }
 
 // ── 流式事件 ──
@@ -90,6 +108,10 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+export type KnowledgeBoundStatus =
+  | { bound: false }
+  | { bound: true; knowledgeName: string; retrievedCount?: number };
+
 export type RuntimeEvent =
   | { type: 'run.created'; runId: string; conversationId: string }
   | { type: 'run.in_progress'; runId: string }
@@ -113,6 +135,7 @@ export type RuntimeEvent =
       toolCallId: string;
       name: string;
       result: unknown;
+      error?: string;
     } & RuntimeToolMetadata)
   | ({
       type: 'tool.call.failed';
@@ -121,6 +144,11 @@ export type RuntimeEvent =
       name: string;
       error: string;
     } & RuntimeToolMetadata)
+  | {
+      type: 'knowledge.status';
+      runId: string;
+      knowledge: KnowledgeBoundStatus;
+    }
   | { type: 'run.completed'; runId: string; usage?: TokenUsage }
   | { type: 'run.failed'; runId: string; error: string }
   | { type: 'stream.done'; runId: string };
@@ -130,10 +158,27 @@ export interface RunAgentCommand {
   userId: string;
   message: string;
   conversationId?: string;
+  publicAccess?: {
+    conversationIdPrefix: string;
+  };
   preview?: boolean;
   model?: string;
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
   tools?: ToolDefinition[];
+  knowledgeBaseId?: string;
+  publishedSnapshot?: {
+    agent: {
+      id: string;
+      workspaceId: string;
+      name: string;
+      systemPrompt: string;
+      model: string;
+      temperature: number;
+      contextLimit: number;
+    };
+    tools?: ToolDefinition[];
+    knowledgeBindings?: RuntimeKnowledgeBinding[];
+  };
 }

@@ -1,11 +1,17 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import styles from '../agent-detail/agent-detail.module.css'
 import multiStyles from './MultiAgents.module.css'
+import plannerStyles from '../agent-planner/SingleAgentPlanner.module.css'
 import type { AgentDetailData, MultiConfig, OpeningConfig } from '../agent-detail'
+import type { ModelOption } from '../../../api/agent-config/model-options'
 import { OpeningMessageEditor } from '../components/OpeningMessageEditor'
 import { PreviewChat } from '../components/PreviewChat'
-import { SelectModal } from '../components/SelectModal'
+import { KnowledgeSelectModal } from '../components/KnowledgeSelectModal'
+import { DatabaseTags } from '../components/DatabaseTags'
+import { WorkflowSelectModal } from '../components/WorkflowSelectModal'
+import { WorkflowTags } from '../components/WorkflowTags'
+import { AddPluginModal } from '../components/AddPluginModal'
+import type { IPlugin } from '../../../api/plugins'
 import { useCanvas } from './hooks/useCanvas'
 import { calculateBezierPath, getPortPosition } from './utils'
 import { MIN_SCALE, MAX_SCALE } from './constants'
@@ -17,6 +23,8 @@ interface Props {
   persona: string
   setPersona: (v: string) => void
   model: string
+  modelOptions: ModelOption[]
+  onModelChange: (v: string) => void
   temperature: number
   contextLimit: number
   onTemperatureChange: (v: number) => void
@@ -46,19 +54,24 @@ function CollapsePanel({ title, defaultOpen = true, children }: { title: string;
 
 function ConfigPanel({
   persona, setPersona,
+  model, modelOptions, onModelChange, modelOpen, setModelOpen,
   temperature, contextLimit,
   onTemperatureChange, onContextLimitChange,
   config, onConfigChange,
   openingConfig, onOpeningChange,
   agent, setDialogFlow, setDatabase,
+  setPluginModalOpen,
 }: {
   persona: string; setPersona: (v: string) => void
+  model: string; modelOptions: ModelOption[]; onModelChange: (v: string) => void
+  modelOpen: boolean; setModelOpen: (v: boolean) => void
   temperature: number; contextLimit: number
   onTemperatureChange: (v: number) => void; onContextLimitChange: (v: number) => void
   config: MultiConfig; onConfigChange: (config: MultiConfig) => void
   openingConfig: OpeningConfig; onOpeningChange: (config: OpeningConfig) => void
   agent: AgentDetailData
   setDialogFlow: (v: boolean) => void; setDatabase: (v: boolean) => void
+  setPluginModalOpen: (v: boolean) => void
 }) {
   return (
     <div className={styles.col} style={{ flex: '0 0 320px', minWidth: 280 }}>
@@ -78,6 +91,35 @@ function ConfigPanel({
         </CollapsePanel>
 
         <CollapsePanel title="模型参数">
+          <div className={plannerStyles.modelSelector}>
+            <div
+              className={plannerStyles.modelTrigger}
+              onClick={() => setModelOpen(!modelOpen)}
+            >
+              <span className={plannerStyles.modelName}>{modelOptions.find(m => m.value === model)?.label ?? model}</span>
+              <span className={`${plannerStyles.modelArrow} ${modelOpen ? plannerStyles.modelArrowOpen : ''}`}>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </div>
+            {modelOpen && (
+              <div className={plannerStyles.modelDropdown}>
+                {modelOptions.map((m) => (
+                  <button
+                    key={m.value}
+                    className={`${plannerStyles.modelOption} ${m.value === model ? plannerStyles.modelOptionActive : ''}`}
+                    onClick={() => {
+                      onModelChange(m.value)
+                      setModelOpen(false)
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className={styles.configRow}>
             <div className={styles.configRowInfo}>
               <div className={styles.configRowText}>
@@ -116,12 +158,30 @@ function ConfigPanel({
 
         <CollapsePanel title="技能">
           <div className={styles.configRow}>
-            <div className={styles.configRowInfo}><div className={styles.configRowText}><span className={styles.configRowName}>插件</span></div></div>
-            <div className={styles.configRowRight}><button className={styles.addBtn}><span>+</span></button></div>
+            <div className={styles.configRowInfo}>
+              <div className={styles.configRowText}>
+                <span className={styles.configRowName}>插件</span>
+                <span className={styles.configRowDesc}>添加 AI 能力插件</span>
+              </div>
+            </div>
+            <div className={styles.configRowRight}>
+              {config.plugins.length > 0 && (
+                <span className={styles.configRowCount}>{config.plugins.length} 个插件</span>
+              )}
+              <button className={styles.addBtn} onClick={() => setPluginModalOpen(true)}>
+                <span>+</span>
+              </button>
+            </div>
           </div>
           <div className={styles.configRow}>
             <div className={styles.configRowInfo}><div className={styles.configRowText}><span className={styles.configRowName}>工作流</span></div></div>
-            <div className={styles.configRowRight}><button className={styles.addBtn} onClick={() => setDialogFlow(true)}><span>+</span></button></div>
+            <div className={styles.configRowRight}>
+              <WorkflowTags
+                ids={config.workflows}
+                onRemove={(id) => onConfigChange({ ...config, workflows: config.workflows.filter(w => w !== id) })}
+                onAdd={() => setDialogFlow(true)}
+              />
+            </div>
           </div>
         </CollapsePanel>
 
@@ -143,8 +203,14 @@ function ConfigPanel({
             <div className={styles.configRowRight}><button className={styles.addBtn}><span>+</span></button></div>
           </div>
           <div className={styles.configRow}>
-            <div className={styles.configRowInfo}><div className={styles.configRowText}><span className={styles.configRowName}>数据库</span></div></div>
-            <div className={styles.configRowRight}><button className={styles.addBtn} onClick={() => setDatabase(true)}><span>+</span></button></div>
+            <div className={styles.configRowInfo}><div className={styles.configRowText}><span className={styles.configRowName}>知识库</span></div></div>
+            <div className={styles.configRowRight}>
+              <DatabaseTags
+                ids={config.databases}
+                onRemove={(id) => onConfigChange({ ...config, databases: config.databases.filter(d => d !== id) })}
+                onAdd={() => setDatabase(true)}
+              />
+            </div>
           </div>
           <div className={styles.configRow}>
             <div className={styles.configRowInfo}><div className={styles.configRowText}><span className={styles.configRowName}>长期记忆</span></div></div>
@@ -167,14 +233,15 @@ function ConfigPanel({
 
 export function MultiAgents({
   agent, persona, setPersona,
-  model, temperature, contextLimit,
+  model, modelOptions, onModelChange, temperature, contextLimit,
   onTemperatureChange, onContextLimitChange,
   config, onConfigChange,
   openingConfig, onOpeningChange,
 }: Props) {
-  const navigate = useNavigate()
   const [database, setDatabase] = useState(false)
   const [dialogFlow, setDialogFlow] = useState(false)
+  const [pluginModalOpen, setPluginModalOpen] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
 
   const canvas = useCanvas({ agent, subAgents: config.subAgents })
 
@@ -194,6 +261,7 @@ export function MultiAgents({
     onNodeMouseDown: canvas.handleNodeMouseDown,
     onPortMouseDown: canvas.handlePortMouseDown,
     onPortMouseUp: canvas.handlePortMouseUp,
+    onNodeResize: canvas.setNodeHeight,
     getNodeClass,
   }
 
@@ -201,12 +269,14 @@ export function MultiAgents({
     <>
       <ConfigPanel
         persona={persona} setPersona={setPersona}
+        model={model} modelOptions={modelOptions} onModelChange={onModelChange} modelOpen={modelOpen} setModelOpen={setModelOpen}
         temperature={temperature} contextLimit={contextLimit}
         onTemperatureChange={onTemperatureChange} onContextLimitChange={onContextLimitChange}
         config={config} onConfigChange={onConfigChange}
         openingConfig={openingConfig} onOpeningChange={onOpeningChange}
         agent={agent}
         setDialogFlow={setDialogFlow} setDatabase={setDatabase}
+        setPluginModalOpen={setPluginModalOpen}
       />
 
       <div className={styles.col} style={{ flex: 1, minWidth: 400 }}>
@@ -222,7 +292,6 @@ export function MultiAgents({
               onMouseMove={canvas.handleViewportMouseMove}
               onMouseUp={canvas.handleViewportMouseUp}
               onMouseLeave={canvas.handleViewportMouseUp}
-              onWheel={canvas.handleWheel}
               onClick={canvas.handleCanvasMouseUp}
             >
               <div
@@ -233,30 +302,38 @@ export function MultiAgents({
 
                 <svg className={multiStyles.canvasSvg}>
                   <defs>
-                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                      <polygon points="0 0, 10 3.5, 0 7" className={multiStyles.connectionArrow} />
+                    <marker id="arrowhead" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                      <path d="M0,0 L6,2.5 L0,5 Z" fill="#3b82f6" />
                     </marker>
                   </defs>
                   {canvas.connections.map(conn => {
                     const fromNode = canvas.nodeMap.get(conn.fromNodeId)
                     const toNode = canvas.nodeMap.get(conn.toNodeId)
                     if (!fromNode || !toNode) return null
-                    const fromPos = getPortPosition(fromNode, 'output')
-                    const toPos = getPortPosition(toNode, 'input')
+                    const fromH = canvas.nodeHeightsRef.current.get(fromNode.id)
+                    const toH = canvas.nodeHeightsRef.current.get(toNode.id)
+                    const fromPos = getPortPosition(fromNode, 'output', fromH)
+                    const toPos = getPortPosition(toNode, 'input', toH)
+                    const d = calculateBezierPath(fromPos.x, fromPos.y, toPos.x, toPos.y)
                     return (
-                      <path
-                        key={conn.id}
-                        d={calculateBezierPath(fromPos.x, fromPos.y, toPos.x, toPos.y)}
-                        className={multiStyles.connectionLine}
-                        markerEnd="url(#arrowhead)"
-                        onClick={() => canvas.handleConnectionClick()}
-                      />
+                      <g key={conn.id}>
+                        <path
+                          d={d}
+                          className={multiStyles.connectionHit}
+                        />
+                        <path
+                          d={d}
+                          className={multiStyles.connectionLine}
+                          markerEnd="url(#arrowhead)"
+                        />
+                      </g>
                     )
                   })}
                   {canvas.connectingFrom && (
                     <path
-                      d={calculateBezierPath(canvas.connectingFrom.x, canvas.connectingFrom.y, canvas.connectingFrom.x + 100, canvas.connectingFrom.y)}
+                      d={calculateBezierPath(canvas.connectingFrom.x, canvas.connectingFrom.y, canvas.connectingFrom.x + 200, canvas.connectingFrom.y)}
                       className={multiStyles.tempConnection}
+                      markerEnd="url(#arrowhead)"
                     />
                   )}
                 </svg>
@@ -390,22 +467,37 @@ export function MultiAgents({
             model={model}
             temperature={temperature}
             openingConfig={openingConfig}
+            knowledgeBaseId={config.databases[0]}
           />
-          <SelectModal
+          <WorkflowSelectModal
             visible={dialogFlow}
-            title="添加对话流"
-            emptyText="暂无对话流"
-            createLabel="添加对话流"
             onClose={() => setDialogFlow(false)}
-            onCreate={() => navigate('/workflows')}
+            selectedIds={config.workflows}
+            onRemove={(id) => onConfigChange({ ...config, workflows: config.workflows.filter(w => w !== id) })}
+            onSelect={(wf) => {
+              if (!config.workflows.includes(wf.id)) {
+                onConfigChange({ ...config, workflows: [...config.workflows, wf.id] })
+              }
+            }}
           />
-          <SelectModal
+          <KnowledgeSelectModal
             visible={database}
-            title="添加知识库"
-            emptyText="暂无知识库"
-            createLabel="添加知识库"
             onClose={() => setDatabase(false)}
-            onCreate={() => navigate('/knowledge-bases/document')}
+            selectedIds={config.databases}
+            onRemove={(id) => onConfigChange({ ...config, databases: config.databases.filter(d => d !== id) })}
+            onSelect={(kb) => {
+              if (!config.databases.includes(kb.id)) {
+                onConfigChange({ ...config, databases: [...config.databases, kb.id] })
+              }
+            }}
+          />
+          <AddPluginModal
+            visible={pluginModalOpen}
+            onClose={() => setPluginModalOpen(false)}
+            selectedIds={config.plugins}
+            onSelect={(selectedPlugins: IPlugin[]) => {
+              onConfigChange({ ...config, plugins: selectedPlugins.map((p) => p.id) })
+            }}
           />
         </div>
       </div>
