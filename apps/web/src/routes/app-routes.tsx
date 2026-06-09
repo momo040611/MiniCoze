@@ -22,6 +22,7 @@ const WorkflowsPage = lazy(() => import('../modules/workflows').then(m => ({ def
 const PluginsPage = lazy(() => import('../modules/plugins').then(m => ({ default: m.PluginsPage })));
 const PluginDetail = lazy(() => import('../modules/plugins').then(m => ({ default: m.PluginDetail })));
 const PublishPage = lazy(() => import('../modules/publish').then(m => ({ default: m.PublishPage })));
+const SharePage = lazy(() => import('../modules/publish/components/SharePage').then(m => ({ default: m.SharePage })));
 const SettingsPage = lazy(() => import('../modules/settings').then(m => ({ default: m.SettingsPage })));
 const ArchitecturePage = lazy(() => import('../modules/architecture').then(m => ({ default: m.ArchitecturePage })));
 const WorkflowCanvasPage = lazy(() => import('../modules/workflow-canvas').then(m => ({ default: m.WorkflowCanvasPage })));
@@ -74,6 +75,7 @@ export function AppRoutes() {
       <ErrorBoundary>
       <Routes>
         <Route path="/" element={<RootRedirect />} />
+        <Route path="/share/agents/:slug" element={withSuspense(SharePage)} />
         <Route
           path="/welcome"
           element={
