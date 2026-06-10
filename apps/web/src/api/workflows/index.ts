@@ -644,3 +644,18 @@ export async function runWorkflowStreamRemote(
 export async function deleteWorkflow(id: string): Promise<void> {
   writeWorkflows(readWorkflows().filter((item) => item.id !== id));
 }
+
+export async function replaceAgentWorkflowBindings(
+  agentId: string,
+  bindings: Array<{
+    workflowId: string;
+    workflowVersionId?: string;
+    enabled?: boolean;
+  }>,
+) {
+  const response = await http.put<ApiEnvelope<unknown[]>>(
+    `agents/${agentId}/workflows`,
+    { bindings },
+  );
+  return response.data;
+}

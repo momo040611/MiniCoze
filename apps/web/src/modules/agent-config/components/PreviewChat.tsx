@@ -17,6 +17,7 @@ import type { OpeningConfig } from '../agent-detail'
 import { deleteConversation } from '../../../api/homepage'
 import { uploadChatAttachment, type UploadedFileAsset } from '../../../api/files'
 import { getCurrentWorkspaceId } from '../../../api/workspace'
+import { getAuthToken } from '../../../api/http'
 import { formatFileSize } from '../../homepage/utils/format'
 import { ToolCallCard, type ToolCallData } from './ToolCallCard'
 import { KnowledgeStatus } from './KnowledgeStatus'
@@ -98,6 +99,81 @@ function isSupportedChatAttachment(file: File) {
   return extension ? SUPPORTED_TEXT_EXTENSIONS.has(extension) : false;
 }
 
+type ImageBlobCacheRef = React.MutableRefObject<Map<string, string>>;
+
+function PersistentImage({
+  src,
+  alt,
+  className,
+  cacheRef,
+}: {
+  src: string | null | undefined;
+  alt: string;
+  className?: string;
+  cacheRef: ImageBlobCacheRef;
+}) {
+  const [blobUrl, setBlobUrl] = useState('');
+
+  useEffect(() => {
+    if (!src) return;
+
+    if (src.startsWith('blob:')) {
+      setBlobUrl(src);
+      return;
+    }
+
+    const cached = cacheRef.current.get(src);
+    if (cached) {
+      setBlobUrl(cached);
+      return;
+    }
+
+    let cancelled = false;
+    const token = getAuthToken();
+
+    fetch(src, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        cacheRef.current.set(src, url);
+        setBlobUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setBlobUrl('');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src, cacheRef]);
+
+  if (!blobUrl) return null;
+  return <img src={blobUrl} alt={alt} className={className} />;
+}
+
+function renderStatusIcon(status: ChatMessage['status']) {
+  switch (status) {
+    case 'sending':
+      return <LoadingOutlined style={{ fontSize: 12, color: '#6b7280' }} />;
+    case 'streaming':
+      return (
+        <LoadingOutlined spin style={{ fontSize: 12, color: '#7c3aed' }} />
+      );
+    case 'success':
+      return <CheckCircleFilled style={{ fontSize: 12, color: '#22c55e' }} />;
+    case 'failed':
+      return <CloseCircleFilled style={{ fontSize: 12, color: '#ef4444' }} />;
+    default:
+      return null;
+  }
+}
+
 // ---- sessionStorage 工具 ----
 
 const STORAGE_PREFIX = 'preview_chat_'
@@ -162,6 +238,7 @@ export function PreviewChat({
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadSeqRef = useRef(0);
+  const imageBlobCache = useRef<Map<string, string>>(new Map());
 
   // 自动滚动
   useEffect(() => {
@@ -172,6 +249,8 @@ export function PreviewChat({
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      imageBlobCache.current.forEach((url) => URL.revokeObjectURL(url));
+      imageBlobCache.current.clear();
     };
   }, []);
 
@@ -490,7 +569,7 @@ export function PreviewChat({
             mimeType: selectedFile.uploadedFile.mimeType,
             size: selectedFile.uploadedFile.size,
             sizeText: selectedFile.size,
-            preview: selectedFile.preview,
+            preview: selectedFile.uploadedFile.url ?? undefined,
             isImage: selectedFile.isImage,
           },
         ]
@@ -569,25 +648,6 @@ export function PreviewChat({
     setSelectedFile(null);
   };
 
-  // ---- 渲染消息状态图标 ----
-
-  function StatusIcon({ status }: { status: ChatMessage['status'] }) {
-    switch (status) {
-      case 'sending':
-        return <LoadingOutlined style={{ fontSize: 12, color: '#6b7280' }} />;
-      case 'streaming':
-        return (
-          <LoadingOutlined spin style={{ fontSize: 12, color: '#7c3aed' }} />
-        );
-      case 'success':
-        return <CheckCircleFilled style={{ fontSize: 12, color: '#22c55e' }} />;
-      case 'failed':
-        return <CloseCircleFilled style={{ fontSize: 12, color: '#ef4444' }} />;
-      default:
-        return null;
-    }
-  }
-
   // ---- 渲染单条消息 ----
 
   function renderMessage(item: PreviewItem) {
@@ -621,10 +681,11 @@ export function PreviewChat({
                     className={styles.messageAttachment}
                   >
                     {attachment.isImage && attachment.preview ? (
-                      <img
+                      <PersistentImage
                         src={attachment.preview}
                         alt={attachment.name}
                         className={styles.messageAttachmentThumb}
+                        cacheRef={imageBlobCache}
                       />
                     ) : (
                       <span className={styles.messageAttachmentIcon}>TXT</span>
@@ -644,7 +705,7 @@ export function PreviewChat({
             <div className={styles.previewMsg}>{msg.text}</div>
             <div className={styles.previewMeta}>
               <span>{msg.time}</span>
-              <StatusIcon status={msg.status} />
+              {renderStatusIcon(msg.status)}
             </div>
           </div>
         </div>
@@ -667,7 +728,7 @@ export function PreviewChat({
           </div>
           <div className={styles.previewMeta}>
             <span>{msg.time}</span>
-            <StatusIcon status={msg.status} />
+            {renderStatusIcon(msg.status)}
             {msg.status === 'failed' && msg.errorText && (
               <span style={{ color: '#ef4444', fontSize: 11 }}>
                 {msg.errorText}

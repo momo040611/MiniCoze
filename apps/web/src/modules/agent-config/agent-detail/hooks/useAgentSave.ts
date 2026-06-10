@@ -2,6 +2,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { AgentMode } from '../types';
 import { updateAgent } from '../../../../api/agent-config/index';
 import { bindAgentTools, getPluginDetail } from '../../../../api/plugins';
+import { knowledgeApi } from '../../../../api/knowledge-base';
+import { replaceAgentWorkflowBindings } from '../../../../api/workflows';
 import { parseOrchestration } from '../utils';
 import type { OrchestrationConfig } from '../types';
 
@@ -24,12 +26,24 @@ interface UseAgentSaveOptions {
 /** 从编排配置中提取所有插件 ID（去重） */
 function collectPluginIds(config: OrchestrationConfig): string[] {
   const ids = new Set<string>();
+  for (const section of [config.planner, config.multi]) {
+    section?.plugins.forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
+}
+
+function collectKnowledgeBaseIds(config: OrchestrationConfig): string[] {
+  const ids = new Set<string>();
   for (const section of [config.planner, config.flow, config.multi]) {
-    if (section?.plugins) {
-      for (const id of section.plugins) {
-        ids.add(id);
-      }
-    }
+    section?.databases.forEach((id) => ids.add(id));
+  }
+  return Array.from(ids);
+}
+
+function collectWorkflowIds(config: OrchestrationConfig): string[] {
+  const ids = new Set<string>();
+  for (const section of [config.planner, config.flow, config.multi]) {
+    section?.workflows.forEach((id) => ids.add(id));
   }
   return Array.from(ids);
 }
@@ -52,6 +66,34 @@ async function syncPluginBindings(agentId: string, orchestration: string): Promi
   } catch (err) {
     console.error('[插件绑定同步失败]', err);
   }
+}
+
+/** 同步知识库绑定到后端（静默失败，不影响主保存流程） */
+async function syncKnowledgeBindings(agentId: string, orchestration: string): Promise<void> {
+  const config = parseOrchestration(orchestration);
+  const knowledgeBaseIds = collectKnowledgeBaseIds(config);
+
+  await knowledgeApi.replaceAgentKnowledgeBindings(
+    agentId,
+    knowledgeBaseIds.map((id) => ({
+      knowledgeBaseId: id,
+      enabled: true,
+    })),
+  );
+}
+
+/** 同步工作流绑定到后端（静默失败，不影响主保存流程） */
+async function syncWorkflowBindings(agentId: string, orchestration: string): Promise<void> {
+  const config = parseOrchestration(orchestration);
+  const workflowIds = collectWorkflowIds(config);
+
+  await replaceAgentWorkflowBindings(
+    agentId,
+    workflowIds.map((id) => ({
+      workflowId: id,
+      enabled: true,
+    })),
+  );
 }
 
 export function useAgentSave({ agentId, onAgentUpdated, onSaveCompleted }: UseAgentSaveOptions) {
@@ -82,8 +124,12 @@ export function useAgentSave({ agentId, onAgentUpdated, onSaveCompleted }: UseAg
       openingMessage: current.openingMessage,
       contextLimit: current.contextLimit,
     });
-    // 同步插件绑定到后端（独立于 updateAgent，失败不影响保存成功提示）
-    syncPluginBindings(agentId, current.orchestration);
+    await Promise.all([
+      // 插件绑定失败仍保持原有静默策略；资源绑定失败会阻止保存成功提示和后续发布。
+      syncPluginBindings(agentId, current.orchestration),
+      syncKnowledgeBindings(agentId, current.orchestration),
+      syncWorkflowBindings(agentId, current.orchestration),
+    ]);
     setSaved(true);
     setAutoSaveError(false);
     setTimeout(() => setSaved(false), 2000);
