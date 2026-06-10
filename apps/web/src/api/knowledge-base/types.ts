@@ -152,6 +152,7 @@ export type KnowledgeChunk = {
   id: string;
   knowledgeBaseId: string;
   documentId: string;
+  chunkIndex?: number;
   documentName: string;
   content: string;
   tokenCount: number;

@@ -58,6 +58,22 @@ type BackendPage<T> = {
   pageSize?: number;
 };
 
+type BackendKnowledgeChunkConfig =
+  | { chunkType: 'default' }
+  | {
+    chunkType: 'custom';
+    chunkSize: number;
+    overlap: number;
+    separator: string;
+    trimSpace: boolean;
+    trimUrlAndEmail: boolean;
+  }
+  | {
+    chunkType: 'leveled';
+    maxDepth: number;
+    saveTitle: boolean;
+  };
+
 type KnowledgeBaseOverrides = Record<string, Partial<KnowledgeBase>>;
 
 type KnowledgeBaseListParams = ListParams & {
@@ -119,6 +135,32 @@ function getBackendList<T>(value: T[] | BackendPage<T>): T[] {
   if (Array.isArray(value)) return value;
 
   return value.list ?? value.items ?? value.records ?? value.chunks ?? value.results ?? value.data ?? [];
+}
+
+function toBackendChunkConfig(config: KnowledgeChunkConfigDto): BackendKnowledgeChunkConfig {
+  if (config.chunkType === 'leveled') {
+    return {
+      chunkType: 'leveled',
+      maxDepth: 3,
+      saveTitle: true,
+    };
+  }
+
+  if (config.chunkType === 'custom') {
+    const chunkSize = Math.max(1, Number(config.chunkSize) || 1);
+    const chunkOverlap = Math.max(0, Number(config.chunkOverlap) || 0);
+
+    return {
+      chunkType: 'custom',
+      chunkSize,
+      overlap: Math.min(99, Math.round((chunkOverlap / chunkSize) * 100)),
+      separator: config.separator ?? '\n\n',
+      trimSpace: true,
+      trimUrlAndEmail: false,
+    };
+  }
+
+  return { chunkType: 'default' };
 }
 
 function toPageResult<T>(list: T[], params?: ListParams, total = list.length): PageResult<T> {
@@ -416,12 +458,12 @@ async function previewKnowledgeChunks(payload: PreviewKnowledgeChunksPayload) {
     ]);
   }
 
-  const chunkConfig = payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig);
-  const response = await http.post<ApiEnvelope<unknown[] | BackendPage<unknown>>, { fileId: string; chunkConfig: KnowledgeChunkConfigDto }>(
+  const chunkConfig = toBackendChunkConfig(payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig));
+  const response = await http.post<ApiEnvelope<unknown[] | BackendPage<unknown>>, { fileId: string; config: BackendKnowledgeChunkConfig }>(
     'knowledge/chunk',
     {
       fileId: payload.fileId,
-      chunkConfig,
+      config: chunkConfig,
     },
     { timeout: 60000 },
   );
@@ -450,18 +492,22 @@ async function createKnowledgeDocument(knowledgeBaseId: string, payload: CreateK
     });
   }
 
-  const chunkConfig = payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig);
-  const response = await http.post<ApiEnvelope<KnowledgeDocumentDto>, { fileId: string; chunkConfig: KnowledgeChunkConfigDto }>(
+  const chunkConfig = toBackendChunkConfig(payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig));
+  const response = await http.post<ApiEnvelope<KnowledgeDocumentDto | { document?: KnowledgeDocumentDto }>, { fileId: string; config: BackendKnowledgeChunkConfig }>(
     `knowledge/bases/${knowledgeBaseId}/documents`,
     {
       fileId: payload.fileId,
-      chunkConfig,
+      config: chunkConfig,
     },
     { timeout: 60000 },
   );
+  const data = unwrap(response);
+  const backendDocument = isRecord(data) && isRecord(data.document)
+    ? data.document as KnowledgeDocumentDto
+    : data as KnowledgeDocumentDto;
   const documentDto = {
     ...(payload.fileAsset ? createFileAssetDocumentDto(payload.fileAsset, payload.fileId) : {}),
-    ...unwrap(response),
+    ...backendDocument,
   };
 
   return ok(mapKnowledgeDocumentDtoToViewModel(documentDto, knowledgeBaseId, payload.parseConfig), 'created');
