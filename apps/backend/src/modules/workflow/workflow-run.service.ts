@@ -3,6 +3,7 @@ import {
   Prisma,
   WorkflowRunNodeStatus,
   WorkflowRunStatus,
+  WorkflowVariableScope,
 } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
@@ -16,6 +17,7 @@ import {
   WorkflowCanceledError,
   WorkflowCancellationRegistry,
 } from './internal/execute/workflow-cancellation.registry';
+import { WorkflowVariableService } from './internal/variable/workflow-variable.service';
 import {
   WorkflowRunEvent,
   WorkflowStreamEvent,
@@ -32,14 +34,6 @@ type WorkflowWithCurrentVersion = Prisma.WorkflowGetPayload<{
   include: { currentVersion: true };
 }>;
 
-type WorkflowVersionWithWorkflow = Prisma.WorkflowVersionGetPayload<{
-  include: {
-    workflow: {
-      include: { currentVersion: true };
-    };
-  };
-}>;
-
 @Injectable()
 export class WorkflowRunService {
   constructor(
@@ -48,6 +42,7 @@ export class WorkflowRunService {
     private readonly workflowAsyncRunner: WorkflowAsyncRunner,
     private readonly workflowMapper: WorkflowMapper,
     private readonly cancellationRegistry: WorkflowCancellationRegistry,
+    private readonly variableService: WorkflowVariableService,
   ) {}
 
   // run 支持可选的 onEvent 回调：
@@ -79,6 +74,7 @@ export class WorkflowRunService {
       workflow,
       workflowVersion,
       input: dto.input,
+      sessionId: dto.sessionId,
       onEvent,
     });
   }
@@ -283,6 +279,9 @@ export class WorkflowRunService {
     agentId?: string;
     conversationId?: string;
     messageId?: string;
+    // 会话 ID：用于隔离 session 变量（多轮对话记忆）。仅 run 入口会传，
+    // runWithVersionId 等不传则本次运行无会话上下文，session 变量不可写。
+    sessionId?: string;
     onEvent?: (event: WorkflowStreamEvent) => void;
   }): Promise<WorkflowRunResponse> {
     const definitionSource =
@@ -356,6 +355,24 @@ export class WorkflowRunService {
       });
     });
 
+    // 加载持久化变量（“记忆”）：
+    // - session 变量按 sessionId 加载（没传 sessionId 则为空，且运行内不可写 session）
+    // - global 变量按发起用户 userId 加载（跨会话永久保存的用户级记忆）
+    const sessionKey = input.sessionId;
+    const globalKey = input.userId;
+    const [sessionVars, globalVars] = await Promise.all([
+      this.variableService.loadScope(
+        input.workflow.workspaceId,
+        WorkflowVariableScope.SESSION,
+        sessionKey,
+      ),
+      this.variableService.loadScope(
+        input.workflow.workspaceId,
+        WorkflowVariableScope.GLOBAL,
+        globalKey,
+      ),
+    ]);
+
     try {
       const runOutput = await this.workflowAsyncRunner.run({
         runId: run.id,
@@ -363,6 +380,13 @@ export class WorkflowRunService {
         input: input.input ?? {},
         eventBus,
         isCanceled: () => this.cancellationRegistry.isCanceled(run.id),
+        variableContext: {
+          workspaceId: input.workflow.workspaceId,
+          sessionKey,
+          globalKey,
+        },
+        sessionVars,
+        globalVars,
       });
 
       const finalOutput = {

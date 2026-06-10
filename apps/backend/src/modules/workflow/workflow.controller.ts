@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -105,6 +106,18 @@ export class WorkflowController {
     @Body() dto: UpdateWorkflowDto,
   ) {
     return this.workflowService.update(currentUser.id, workflowId, dto);
+  }
+
+  // 参数：
+  // - path.workflowId: 工作流 ID
+  // 作用：软删除工作流（置为 ARCHIVED）。保留版本与运行历史，列表默认不再展示。
+  @Delete(':workflowId')
+  @ApiOperation({ summary: '删除工作流（软删除）' })
+  remove(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('workflowId') workflowId: string,
+  ) {
+    return this.workflowService.remove(currentUser.id, workflowId);
   }
 
   // 参数：

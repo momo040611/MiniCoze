@@ -23,7 +23,9 @@ import {
   WorkflowNodeExecutionResult,
   WorkflowNodeExecutor,
   WorkflowRuntimeState,
+  WorkflowVariableContext,
 } from '../nodes/workflow-node-executor';
+import { VariableNodeExecutor } from '../nodes/variable-node.executor';
 
 export interface WorkflowAsyncRunInput {
   runId: string;
@@ -32,6 +34,10 @@ export interface WorkflowAsyncRunInput {
   eventBus: WorkflowRunEventBus;
   // 取消检查：每个节点执行前调用，返回 true 则中断运行（抛 WorkflowCanceledError）。
   isCanceled?: () => boolean;
+  // 持久化变量：运行开始前从库加载的会话级/全局级变量，以及它们的归属上下文。
+  variableContext: WorkflowVariableContext;
+  sessionVars?: Record<string, unknown>;
+  globalVars?: Record<string, unknown>;
 }
 
 export interface WorkflowAsyncRunOutput {
@@ -68,6 +74,7 @@ export class WorkflowAsyncRunner {
     selectorNodeExecutor: SelectorNodeExecutor,
     codeNodeExecutor: CodeNodeExecutor,
     httpNodeExecutor: HttpNodeExecutor,
+    variableNodeExecutor: VariableNodeExecutor,
   ) {
     this.executors = new Map<string, WorkflowNodeExecutor>([
       [startNodeExecutor.type, startNodeExecutor],
@@ -76,6 +83,7 @@ export class WorkflowAsyncRunner {
       [selectorNodeExecutor.type, selectorNodeExecutor],
       [codeNodeExecutor.type, codeNodeExecutor],
       [httpNodeExecutor.type, httpNodeExecutor],
+      [variableNodeExecutor.type, variableNodeExecutor],
     ]);
   }
 
@@ -87,6 +95,10 @@ export class WorkflowAsyncRunner {
       originalInput: input.input,
       currentText: '',
       nodeOutputs: {},
+      // 持久化变量的内存副本：从库加载的初值，运行内会被 set 节点就地更新。
+      sessionVars: input.sessionVars ?? {},
+      globalVars: input.globalVars ?? {},
+      variableContext: input.variableContext,
     };
 
     // 顶层图必须有 start 作为唯一入口。
@@ -527,6 +539,10 @@ export class WorkflowAsyncRunner {
       originalInput: state.originalInput,
       currentText: state.currentText,
       nodeOutputs: { ...state.nodeOutputs },
+      // 持久化变量是“共享状态”，各迭代共用同一份引用（set 对全局可见）。
+      sessionVars: state.sessionVars,
+      globalVars: state.globalVars,
+      variableContext: state.variableContext,
     };
   }
 
@@ -559,6 +575,9 @@ export class WorkflowAsyncRunner {
       input: state.originalInput,
       nodeOutputs: state.nodeOutputs,
       loop: loopScope,
+      // 持久化变量：支持 {{session.x}} / {{global.x}} 引用。
+      session: state.sessionVars,
+      global: state.globalVars,
     };
   }
 
