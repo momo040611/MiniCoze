@@ -72,9 +72,8 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
       });
 
       for (const toolCall of toolCalls) {
-        const parsedArgs = this.maskPreviewArgs(
-          this.safeParse(toolCall.function.arguments),
-        );
+        const rawArgs = this.safeParse(toolCall.function.arguments);
+        const parsedArgs = this.maskPreviewArgs(rawArgs) ?? {};
         const initialMetadata = this.parseFunctionName(toolCall.function.name);
         yield {
           type: 'tool.call.created',

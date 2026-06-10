@@ -20,8 +20,11 @@ interface Props {
 
 const MAX_ARG_LENGTH = 500;
 
-/** 安全的 JSON.stringify，处理循环引用 */
+/** 安全的 JSON.stringify，处理循环引用、null 和 undefined */
 function safeStringify(obj: unknown): string {
+  if (obj === undefined || obj === null) {
+    return '{}';
+  }
   try {
     const seen = new WeakSet();
     return JSON.stringify(obj, (_key, value) => {
