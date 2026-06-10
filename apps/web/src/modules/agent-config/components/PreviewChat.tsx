@@ -14,7 +14,9 @@ import type {
 } from '../../../api/agent-runtime'
 import type { IToolCallRecord } from '../../../api/plugins'
 import type { OpeningConfig } from '../agent-detail'
-import { deleteConversation, getConversation, getConversations } from '../../../api/homepage'
+import { deleteConversation } from '../../../api/homepage'
+import { uploadChatAttachment, type UploadedFileAsset } from '../../../api/files'
+import { getCurrentWorkspaceId } from '../../../api/workspace'
 import { formatFileSize } from '../../homepage/utils/format'
 import { ToolCallCard, type ToolCallData } from './ToolCallCard'
 import { KnowledgeStatus } from './KnowledgeStatus'
@@ -33,6 +35,7 @@ interface ChatMessage extends BaseMessage {
   text: string
   sender: 'user' | 'agent'
   status: 'sending' | 'streaming' | 'success' | 'failed'
+  attachments?: ChatMessageAttachment[]
   errorText?: string
 }
 
@@ -477,6 +480,7 @@ export function PreviewChat({
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     if (!text) return;
+    if (selectedFile?.uploadStatus === 'failed') return;
     const attachments: ChatMessageAttachment[] =
       selectedFile?.uploadStatus === 'success' && selectedFile.uploadedFile
         ? [
@@ -838,7 +842,7 @@ export function PreviewChat({
       <input
         type='file'
         ref={fileInputRef}
-        accept='image/png,image/jpg,image/jpeg,image/gif,image/webp,.txt,.md,.pdf,.doc,.docx,.xlsx,.pptx'
+        accept='image/png,image/jpg,image/jpeg,image/gif,image/webp,.txt,.md'
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
@@ -851,7 +855,11 @@ export function PreviewChat({
           onClick={() => fileInputRef.current?.click()}
           aria-label='文件上传'
           className={styles.previewAttachBtn}
-          disabled={sending || selectedFile?.uploadStatus === 'uploading'}
+          disabled={
+            sending ||
+            selectedFile?.uploadStatus === 'uploading' ||
+            selectedFile?.uploadStatus === 'failed'
+          }
         />
         <input
           className={styles.previewInput}
@@ -867,9 +875,15 @@ export function PreviewChat({
           disabled={sending || selectedFile?.uploadStatus === 'uploading'}
           style={{
             opacity:
-              sending || selectedFile?.uploadStatus === 'uploading' ? 0.5 : 1,
+              sending ||
+              selectedFile?.uploadStatus === 'uploading' ||
+              selectedFile?.uploadStatus === 'failed'
+                ? 0.5
+                : 1,
             cursor:
-              sending || selectedFile?.uploadStatus === 'uploading'
+              sending ||
+              selectedFile?.uploadStatus === 'uploading' ||
+              selectedFile?.uploadStatus === 'failed'
                 ? 'not-allowed'
                 : 'pointer',
           }}

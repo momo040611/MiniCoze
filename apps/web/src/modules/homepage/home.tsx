@@ -17,6 +17,8 @@ import type {
   KnowledgeStatusEvent,
 } from '../../api/agent-runtime'
 import { getAgentList } from '../../api/agent-config'
+import { uploadChatAttachment, type UploadedFileAsset } from '../../api/files'
+import { getCurrentWorkspaceId } from '../../api/workspace'
 import { formatFileSize } from './utils/format'
 import { ToolCallCard, type ToolCallData } from '../agent-config/components/ToolCallCard'
 import { DebugInfoPanel } from '../agent-config/components/DebugInfoPanel'
@@ -45,6 +47,16 @@ interface ChatMessage {
   fileIsImage?: boolean;
 }
 
+interface SelectedAttachment {
+  file: File;
+  preview: string;
+  isImage: boolean;
+  size: string;
+  uploadStatus: 'uploading' | 'success' | 'failed';
+  uploadedFile?: UploadedFileAsset;
+  errorText?: string;
+}
+
 interface ErrorMessage {
   kind: 'error';
   id: string;
@@ -61,6 +73,20 @@ interface AgentSessionState {
 }
 
 const NavPlaceholderText = '请输入指令...'
+const CHAT_ATTACHMENT_ACCEPT = 'image/png,image/jpg,image/jpeg,image/gif,image/webp,.txt,.md'
+const SUPPORTED_TEXT_EXTENSIONS = new Set(['txt', 'md'])
+const SUPPORTED_TEXT_MIME_TYPES = new Set([
+  'text/plain',
+  'text/markdown',
+  'text/x-markdown',
+])
+
+function isSupportedChatAttachment(file: File) {
+  if (file.type.startsWith('image/')) return true
+  if (SUPPORTED_TEXT_MIME_TYPES.has(file.type)) return true
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  return extension ? SUPPORTED_TEXT_EXTENSIONS.has(extension) : false
+}
 
 // 引用消息接口
 interface QuotedMessage {
@@ -78,7 +104,7 @@ export function HomepageIndex() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<{ file: File; preview: string; isImage: boolean; size: string } | null>(null)
+  const [selectedFile, setSelectedFile] = useState<SelectedAttachment | null>(null)
   const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number; orchestration: string }[]>([])
   const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number; orchestration: string } | null>(null)
   const [agentLoadError, setAgentLoadError] = useState(false)
@@ -88,6 +114,8 @@ export function HomepageIndex() {
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const uploadSeqRef = useRef(0)
+  const selectedFileRef = useRef<SelectedAttachment | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const sendingRef = useRef(false)
   const lastContentRef = useRef('')
@@ -330,12 +358,16 @@ export function HomepageIndex() {
   }, [allAgents, selectedAgent, conversationId, messages])
 
   useEffect(() => {
+    selectedFileRef.current = selectedFile
+  }, [selectedFile])
+
+  useEffect(() => {
     return () => {
-      if (selectedFile?.preview) {
-        URL.revokeObjectURL(selectedFile.preview)
+      if (selectedFileRef.current?.preview) {
+        URL.revokeObjectURL(selectedFileRef.current.preview)
       }
     }
-  }, [selectedFile])
+  }, [])
 
   const scrollToBottom = (smooth = true) => {
     userScrolledUpRef.current = false // 重置滚动标志
@@ -384,23 +416,16 @@ export function HomepageIndex() {
   const sendMessage = useCallback(async (overrideText?: string) => {
     const text = (overrideText ?? inputValue).trim()
     if (!text || sendingRef.current || !selectedAgent) return
-
-    // 文件内容提取：.txt 文件读取内容拼接
-    let messageText = text
-    if (selectedFile) {
-      const fileName = selectedFile.file.name
-      const isTextFile = selectedFile.file.type === 'text/plain' || fileName.endsWith('.txt')
-      if (isTextFile) {
-        try {
-          const fileContent = await selectedFile.file.text()
-          messageText = `[文件: ${fileName}]\n${fileContent}\n\n---\n用户问题: ${text}`
-        } catch {
-          messageText = text + `\n\n[已上传文件: ${fileName} (${selectedFile.size})]`
-        }
-      } else {
-        messageText = text + `\n\n[已上传文件: ${fileName} (${selectedFile.size})]`
-      }
+    if (selectedFile?.uploadStatus === 'uploading') {
+      message.warning('附件上传中，请稍后再发送')
+      return
     }
+    if (selectedFile?.uploadStatus === 'failed') {
+      message.error(selectedFile.errorText ?? '附件上传失败，请删除后重新选择')
+      return
+    }
+
+    let messageText = text
 
     // 添加引用前缀
     if (quotedMessage) {
@@ -444,7 +469,8 @@ export function HomepageIndex() {
 
     setMessages((prev) => [...prev, userMsg, agentMsg])
     if (!overrideText) setInputValue('')
-    handleFileRemove()
+    uploadSeqRef.current += 1
+    setSelectedFile(null)
     setQuotedMessage(null) // 清除引用
     setSending(true)
     sendingRef.current = true
@@ -478,6 +504,16 @@ export function HomepageIndex() {
         temperature: selectedAgent.temperature,
         maxTokens: 4096,
         knowledgeBaseId,
+        attachments: selectedFile?.uploadedFile
+          ? [
+              {
+                fileId: selectedFile.uploadedFile.id,
+                name: selectedFile.uploadedFile.originalName,
+                mimeType: selectedFile.uploadedFile.mimeType,
+                size: selectedFile.uploadedFile.size,
+              },
+            ]
+          : undefined,
       },
       {
         onEvent: (event: RuntimeEvent) => {
@@ -671,22 +707,70 @@ export function HomepageIndex() {
     loadConversations()
   }, [loadConversations])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  const uploadSelectedFile = useCallback(async (file: File) => {
     const isImage = file.type.startsWith('image/')
     const preview = isImage ? URL.createObjectURL(file) : ''
     const size = formatFileSize(file.size)
 
-    setSelectedFile({ file, preview, isImage, size })
+    if (selectedFile?.preview) {
+      URL.revokeObjectURL(selectedFile.preview)
+    }
+
+    const uploadSeq = uploadSeqRef.current + 1
+    uploadSeqRef.current = uploadSeq
+
+    if (!isSupportedChatAttachment(file)) {
+      if (preview) URL.revokeObjectURL(preview)
+      message.error('当前聊天附件仅支持图片和 txt/md 文本')
+      setSelectedFile(null)
+      return
+    }
+
+    setSelectedFile({
+      file,
+      preview,
+      isImage,
+      size,
+      uploadStatus: 'uploading',
+    })
+
+    try {
+      const workspaceId = await getCurrentWorkspaceId()
+      const uploadedFile = await uploadChatAttachment(file, workspaceId)
+      if (uploadSeqRef.current !== uploadSeq) return
+      setSelectedFile({
+        file,
+        preview,
+        isImage,
+        size,
+        uploadStatus: 'success',
+        uploadedFile,
+      })
+    } catch (error) {
+      if (uploadSeqRef.current !== uploadSeq) return
+      setSelectedFile({
+        file,
+        preview,
+        isImage,
+        size,
+        uploadStatus: 'failed',
+        errorText: error instanceof Error ? error.message : '附件上传失败',
+      })
+    }
+  }, [selectedFile])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
+    void uploadSelectedFile(file)
   }
 
   const handleFileRemove = () => {
+    uploadSeqRef.current += 1
     if (selectedFile?.preview) {
       URL.revokeObjectURL(selectedFile.preview)
     }
@@ -732,13 +816,9 @@ export function HomepageIndex() {
     // 检查文件类型
     const allowedTypes = [
       'image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp',
-      'application/pdf',
-      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain', 'text/markdown', 'text/x-markdown',
     ]
-    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.pdf', '.doc', '.docx', '.txt', '.xlsx', '.pptx']
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.txt', '.md']
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
 
     if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
@@ -746,12 +826,8 @@ export function HomepageIndex() {
       return
     }
 
-    const isImage = file.type.startsWith('image/')
-    const preview = isImage ? URL.createObjectURL(file) : ''
-    const size = formatFileSize(file.size)
-
-    setSelectedFile({ file, preview, isImage, size })
-  }, [])
+    void uploadSelectedFile(file)
+  }, [uploadSelectedFile])
 
   const handleRegenerate = useCallback(() => {
     if (!lastUserMessageRef.current || sending) return
@@ -1113,7 +1189,15 @@ export function HomepageIndex() {
                 )}
                 <div className={styles.filePreviewInfo}>
                   <span className={styles.filePreviewName}>{selectedFile.file.name}</span>
-                  <span className={styles.filePreviewSize}>{selectedFile.size}</span>
+                  <span className={styles.filePreviewSize}>
+                    {selectedFile.size}
+                    {' · '}
+                    {selectedFile.uploadStatus === 'uploading'
+                      ? '上传中'
+                      : selectedFile.uploadStatus === 'success'
+                        ? '已上传'
+                        : (selectedFile.errorText ?? '上传失败')}
+                  </span>
                 </div>
                 <Button
                   icon={<CloseOutlined />}
@@ -1146,7 +1230,7 @@ export function HomepageIndex() {
             <input
               type="file"
               ref={fileInputRef}
-              accept="image/png,image/jpg,image/jpeg,image/gif,image/webp,.pdf,.doc,.docx,.txt,.xlsx,.pptx"
+              accept={CHAT_ATTACHMENT_ACCEPT}
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
@@ -1154,6 +1238,7 @@ export function HomepageIndex() {
               <Button
                 icon={<PaperClipOutlined />}
                 type="text"
+                disabled={sending || selectedFile?.uploadStatus === 'uploading'}
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="文件上传"
               />
@@ -1180,7 +1265,11 @@ export function HomepageIndex() {
                   type="primary"
                   shape="circle"
                   onClick={() => sendMessage()}
-                  disabled={!inputValue.trim() && !selectedFile}
+                  disabled={
+                    (!inputValue.trim() && !selectedFile) ||
+                    selectedFile?.uploadStatus === 'uploading' ||
+                    selectedFile?.uploadStatus === 'failed'
+                  }
                   aria-label="发送信息"
                 />
               )}

@@ -5,6 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { message, Button, Avatar } from 'antd';
 import {
+  PaperClipOutlined,
+  CloseOutlined,
   CopyOutlined,
   SendOutlined,
   LoadingOutlined,
@@ -13,8 +15,15 @@ import {
   UserOutlined,
   RobotOutlined,
 } from '@ant-design/icons';
-import { getPublicAgent, runPublicAgentStream, type PublicAgentInfo } from '../api';
+import {
+  getPublicAgent,
+  runPublicAgentStream,
+  uploadPublicChatAttachment,
+  type PublicAgentInfo,
+} from '../api';
+import type { UploadedFileAsset } from '../../../api/files';
 import type { RuntimeEvent, MessageDeltaEvent } from '../../../api/agent-runtime/index';
+import { formatFileSize } from '../../homepage/utils/format';
 import { MarkdownRenderer } from '../../homepage/components/chat/MarkdownRenderer';
 import styles from '../index.module.css';
 
@@ -28,7 +37,43 @@ interface ChatMessage {
   sender: 'user' | 'agent';
   status: MessageStatus;
   time: string;
+  attachments?: ChatMessageAttachment[];
   errorText?: string;
+}
+
+interface ChatMessageAttachment {
+  fileId?: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  sizeText: string;
+  preview?: string;
+  isImage: boolean;
+}
+
+interface SelectedAttachment {
+  file: File;
+  preview: string;
+  isImage: boolean;
+  size: string;
+  uploadStatus: 'uploading' | 'success' | 'failed';
+  uploadedFile?: UploadedFileAsset;
+  errorText?: string;
+}
+
+const CHAT_ATTACHMENT_ACCEPT = 'image/png,image/jpg,image/jpeg,image/gif,image/webp,.txt,.md';
+const SUPPORTED_TEXT_EXTENSIONS = new Set(['txt', 'md']);
+const SUPPORTED_TEXT_MIME_TYPES = new Set([
+  'text/plain',
+  'text/markdown',
+  'text/x-markdown',
+]);
+
+function isSupportedChatAttachment(file: File) {
+  if (file.type.startsWith('image/')) return true;
+  if (SUPPORTED_TEXT_MIME_TYPES.has(file.type)) return true;
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  return extension ? SUPPORTED_TEXT_EXTENSIONS.has(extension) : false;
 }
 
 // ==================== visitorId 持久化 ====================
@@ -76,10 +121,14 @@ export function SharePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<SelectedAttachment | null>(null);
 
   const [conversationId, setConversationId] = useState<string | null>(null);
   const sendingRef = useRef(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadSeqRef = useRef(0);
+  const selectedFileRef = useRef<SelectedAttachment | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // 加载智能体信息
@@ -105,9 +154,21 @@ export function SharePage() {
     return () => abortRef.current?.abort();
   }, []);
 
+  useEffect(() => {
+    selectedFileRef.current = selectedFile;
+  }, [selectedFile]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedFileRef.current?.preview) {
+        URL.revokeObjectURL(selectedFileRef.current.preview);
+      }
+    };
+  }, []);
+
   // ---- 发送消息 ----
   const doSend = useCallback(
-    (text: string) => {
+    (text: string, attachments: ChatMessageAttachment[] = []) => {
       if (!slug || sendingRef.current) return;
 
       sendingRef.current = true;
@@ -121,6 +182,7 @@ export function SharePage() {
         sender: 'user',
         time: timeStr,
         status: 'success',
+        attachments,
       };
 
       const agentMsgId = `agent-${Date.now()}`;
@@ -141,6 +203,14 @@ export function SharePage() {
           message: text,
           conversationId: conversationId ?? undefined,
           visitorId: visitorId.current,
+          attachments: attachments
+            .filter((item) => item.fileId)
+            .map((item) => ({
+              fileId: item.fileId!,
+              name: item.name,
+              mimeType: item.mimeType,
+              size: item.size,
+            })),
         },
         {
           onEvent: (event: RuntimeEvent) => {
@@ -221,8 +291,32 @@ export function SharePage() {
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     if (!text) return;
-    doSend(text);
-  }, [inputValue, doSend]);
+    if (selectedFile?.uploadStatus === 'uploading') {
+      message.warning('附件上传中，请稍后再发送');
+      return;
+    }
+    if (selectedFile?.uploadStatus === 'failed') {
+      message.error(selectedFile.errorText ?? '附件上传失败，请删除后重新选择');
+      return;
+    }
+    const attachments: ChatMessageAttachment[] =
+      selectedFile?.uploadStatus === 'success' && selectedFile.uploadedFile
+        ? [
+            {
+              fileId: selectedFile.uploadedFile.id,
+              name: selectedFile.uploadedFile.originalName,
+              mimeType: selectedFile.uploadedFile.mimeType,
+              size: selectedFile.uploadedFile.size,
+              sizeText: selectedFile.size,
+              preview: selectedFile.preview,
+              isImage: selectedFile.isImage,
+            },
+          ]
+        : [];
+    doSend(text, attachments);
+    uploadSeqRef.current += 1;
+    setSelectedFile(null);
+  }, [inputValue, doSend, selectedFile]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -232,6 +326,77 @@ export function SharePage() {
   };
 
   // ---- 一键复制分享链接 ----
+  const uploadSelectedFile = useCallback(async (file: File) => {
+    if (!slug) return;
+
+    const isImage = file.type.startsWith('image/');
+    const preview = isImage ? URL.createObjectURL(file) : '';
+    const size = formatFileSize(file.size);
+
+    if (selectedFile?.preview) {
+      URL.revokeObjectURL(selectedFile.preview);
+    }
+
+    const uploadSeq = uploadSeqRef.current + 1;
+    uploadSeqRef.current = uploadSeq;
+
+    if (!isSupportedChatAttachment(file)) {
+      if (preview) URL.revokeObjectURL(preview);
+      message.error('当前公开聊天附件仅支持图片和 txt/md 文本');
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile({
+      file,
+      preview,
+      isImage,
+      size,
+      uploadStatus: 'uploading',
+    });
+
+    try {
+      const uploadedFile = await uploadPublicChatAttachment(slug, file);
+      if (uploadSeqRef.current !== uploadSeq) return;
+      setSelectedFile({
+        file,
+        preview,
+        isImage,
+        size,
+        uploadStatus: 'success',
+        uploadedFile,
+      });
+    } catch (error) {
+      if (uploadSeqRef.current !== uploadSeq) return;
+      setSelectedFile({
+        file,
+        preview,
+        isImage,
+        size,
+        uploadStatus: 'failed',
+        errorText: error instanceof Error ? error.message : '附件上传失败',
+      });
+    }
+  }, [selectedFile, slug]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    void uploadSelectedFile(file);
+  };
+
+  const handleFileRemove = () => {
+    uploadSeqRef.current += 1;
+    if (selectedFile?.preview) {
+      URL.revokeObjectURL(selectedFile.preview);
+    }
+    setSelectedFile(null);
+  };
+
   const handleCopyLink = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url).then(
@@ -260,6 +425,34 @@ export function SharePage() {
 
         {/* 消息内容 */}
         <div className={styles.shareBubbleContent}>
+          {isUser && msg.attachments && msg.attachments.length > 0 && (
+            <div className={styles.shareAttachments}>
+              {msg.attachments.map((attachment) => (
+                <div
+                  key={attachment.fileId ?? attachment.name}
+                  className={styles.shareAttachment}
+                >
+                  {attachment.isImage && attachment.preview ? (
+                    <img
+                      src={attachment.preview}
+                      alt={attachment.name}
+                      className={styles.shareAttachmentThumb}
+                    />
+                  ) : (
+                    <span className={styles.shareAttachmentIcon}>TXT</span>
+                  )}
+                  <div className={styles.shareAttachmentInfo}>
+                    <span className={styles.shareAttachmentName}>
+                      {attachment.name}
+                    </span>
+                    <span className={styles.shareAttachmentSize}>
+                      {attachment.sizeText}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <div className={isUser ? styles.shareBubbleText : undefined}>
             {isUser ? (
               msg.text
@@ -362,6 +555,58 @@ export function SharePage() {
 
       {/* 输入栏 */}
       <div className={styles.shareInputBar}>
+        {selectedFile && (
+          <div className={styles.shareFilePreviewBar}>
+            {selectedFile.isImage ? (
+              <img
+                src={selectedFile.preview}
+                alt={selectedFile.file.name}
+                className={styles.shareFilePreviewThumb}
+              />
+            ) : (
+              <span className={styles.shareFileDocIcon}>TXT</span>
+            )}
+            <div className={styles.shareFilePreviewInfo}>
+              <span className={styles.shareFilePreviewName}>
+                {selectedFile.file.name}
+              </span>
+              <span className={styles.shareFilePreviewSize}>
+                {selectedFile.size}
+                {' · '}
+                {selectedFile.uploadStatus === 'uploading'
+                  ? '上传中'
+                  : selectedFile.uploadStatus === 'success'
+                    ? '已上传'
+                    : (selectedFile.errorText ?? '上传失败')}
+              </span>
+            </div>
+            <button
+              type="button"
+              className={styles.shareFileRemoveBtn}
+              onClick={handleFileRemove}
+              aria-label="删除附件"
+            >
+              <CloseOutlined />
+            </button>
+          </div>
+        )}
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept={CHAT_ATTACHMENT_ACCEPT}
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+        <div className={styles.shareInputRow}>
+        <button
+          type="button"
+          className={styles.shareAttachBtn}
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending || selectedFile?.uploadStatus === 'uploading'}
+          aria-label="上传文件"
+        >
+          <PaperClipOutlined />
+        </button>
         <textarea
           className={styles.shareInput}
           placeholder={`向 ${agent.name} 发送消息...`}
@@ -374,11 +619,17 @@ export function SharePage() {
         <button
           className={styles.shareSendBtn}
           onClick={handleSend}
-          disabled={sending || !inputValue.trim()}
+          disabled={
+            sending ||
+            !inputValue.trim() ||
+            selectedFile?.uploadStatus === 'uploading' ||
+            selectedFile?.uploadStatus === 'failed'
+          }
           title="发送"
         >
           {sending ? <LoadingOutlined /> : <SendOutlined />}
         </button>
+        </div>
       </div>
 
       {/* 页脚 */}

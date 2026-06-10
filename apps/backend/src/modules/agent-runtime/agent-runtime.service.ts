@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   RunAgentCommand,
+  RuntimeAttachment,
   RuntimeEvent,
   ToolDefinition,
 } from '../../shared/types/agent';
@@ -12,6 +13,7 @@ export interface RunPublishedAgentCommand {
   userId: string;
   message: string;
   conversationId?: string;
+  attachments?: RuntimeAttachment[];
   publicAccess: {
     conversationIdPrefix: string;
   };
@@ -34,6 +36,7 @@ export class AgentRuntimeService {
       userId: command.userId,
       message: command.message,
       conversationId: command.conversationId,
+      attachments: command.attachments,
       publicAccess: command.publicAccess,
       publishedSnapshot: {
         agent: command.snapshot.agent,
