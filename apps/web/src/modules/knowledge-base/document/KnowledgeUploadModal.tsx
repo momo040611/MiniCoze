@@ -13,8 +13,8 @@ import {
 import { knowledgePipelineApi } from '../../../api/knowledge-pipeline';
 import styles from './KnowledgeUploadModal.module.css';
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = new Set(['pdf', 'docx', 'txt', 'md', 'markdown', 'csv', 'json']);
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const ACCEPTED_EXTENSIONS = new Set(['txt', 'md']);
 
 type UploadQueueItem = {
   id: string;
@@ -53,7 +53,7 @@ function isValidFile(file: File) {
     return `不支持 ${extension || 'unknown'} 文件类型`;
   }
   if (file.size > MAX_FILE_SIZE) {
-    return '文件大小不能超过 20MB';
+    return '文件大小不能超过 50MB';
   }
   return '';
 }
@@ -280,14 +280,14 @@ function KnowledgeUploadModal({
         <div>
           <InboxOutlined style={{ fontSize: 30, color: '#1677ff', marginBottom: 10 }} />
           <strong>拖拽文件到此处，或点击选择文件</strong>
-          <span>支持 PDF / DOCX / TXT / Markdown / CSV / JSON，单文件最大 20MB</span>
+          <span>支持 TXT / Markdown，单文件最大 50MB</span>
         </div>
         <input
           ref={inputRef}
           hidden
           multiple
           type="file"
-          accept=".pdf,.docx,.txt,.md,.markdown,.csv,.json"
+          accept=".txt,.md"
           onChange={(event) => {
             addFiles(Array.from(event.target.files ?? []));
             event.currentTarget.value = '';
