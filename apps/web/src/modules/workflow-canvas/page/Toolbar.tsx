@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  AimOutlined,
   AppstoreOutlined,
   DownOutlined,
   MessageOutlined,
@@ -467,13 +466,6 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
   return (
     <div>
       <div className={styles.tool}>
-        <Tooltip text="鼠标友好模式" position="top">
-          <div className={styles.MouseModeSwitch}>
-            <AimOutlined style={{ fontSize: 16 }} />
-            <DownOutlined style={{ fontSize: 16 }} />
-          </div>
-        </Tooltip>
-
         <Dropdown
           menu={{ items: scaleItems, onClick: handleScaleClick }}
           trigger={['click']}
@@ -535,13 +527,11 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
       </div>
 
       <div className={styles.run}>
-        <Tooltip text="调试" position="top">
-          <div>
-            <button type="button" onClick={handleRunTest}>
-              <ToolOutlined style={{ fontSize: 14 }} />
-            </button>
-          </div>
-        </Tooltip>
+        <div>
+          <button type="button" onClick={handleRunTest}>
+            <ToolOutlined style={{ fontSize: 14 }} />
+          </button>
+        </div>
 
         <div className={styles.RunTest}>
           <button type="button" onClick={handleRunTest}>
