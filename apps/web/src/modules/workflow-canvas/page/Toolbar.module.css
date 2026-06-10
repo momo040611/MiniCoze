@@ -36,14 +36,6 @@
     z-index: 10000;
 }
 
-.MouseModeSwitch {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-left: 10px;
-}
-
 .ViewScaleControl {
     display: flex;
     align-items: center;

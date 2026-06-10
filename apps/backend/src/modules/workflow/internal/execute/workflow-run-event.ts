@@ -19,6 +19,6 @@ export interface WorkflowRunEvent {
 export type WorkflowStreamEvent =
   | { type: 'run.created'; runId: string }
   | { type: 'run.completed'; runId: string; output: Record<string, unknown> }
-  | { type: 'run.failed'; runId: string; error: string }
+  | { type: 'run.failed'; runId: string; errorMessage: string }
   | { type: 'stream.done'; runId: string }
   | WorkflowRunEvent;
