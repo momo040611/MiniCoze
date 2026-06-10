@@ -46,6 +46,7 @@ export {
 
 import { http, type ApiEnvelope, API_BASE_URL } from '../../api/http';
 import type { RuntimeEvent } from '../../api/agent-runtime';
+import type { UploadedFileAsset } from '../../api/files';
 
 /** 公开智能体信息（对应后端 GET /public/agents/:slug） */
 export interface PublicAgentInfo {
@@ -64,6 +65,22 @@ export async function getPublicAgent(slug: string): Promise<PublicAgentInfo> {
   return res.data;
 }
 
+export async function uploadPublicChatAttachment(slug: string, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await http.request<ApiEnvelope<UploadedFileAsset>>(
+    `public/agents/${slug}/files/upload`,
+    {
+      method: 'POST',
+      body: formData,
+      auth: false,
+    },
+  );
+
+  return res.data;
+}
+
 /** 公开聊天 SSE 流 — 对应后端 POST /public/agents/:slug/chat/stream */
 export async function runPublicAgentStream(
   params: {
@@ -71,6 +88,12 @@ export async function runPublicAgentStream(
     message: string;
     conversationId?: string;
     visitorId?: string;
+    attachments?: Array<{
+      fileId: string;
+      name?: string;
+      mimeType?: string;
+      size?: number;
+    }>;
   },
   callbacks: {
     onEvent: (event: RuntimeEvent) => void;
@@ -87,6 +110,7 @@ export async function runPublicAgentStream(
       message: params.message,
       conversationId: params.conversationId,
       visitorId: params.visitorId,
+      attachments: params.attachments,
     }),
     signal: controller.signal,
   })

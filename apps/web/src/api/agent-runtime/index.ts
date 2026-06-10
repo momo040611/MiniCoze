@@ -118,6 +118,12 @@ export interface RunAgentParams {
   temperature?: number;
   maxTokens?: number;
   knowledgeBaseId?: string;
+  attachments?: Array<{
+    fileId: string;
+    name?: string;
+    mimeType?: string;
+    size?: number;
+  }>;
   tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>;
 }
 

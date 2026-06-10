@@ -86,7 +86,7 @@ export class RuntimeAttachmentService {
       );
     }
 
-    const title = `附件 ${input.index}：${fileAsset.originalName} (${fileAsset.mimeType}, ${fileAsset.size} bytes)`;
+    const title = `附件 ${input.index}：${fileAsset.originalName} (fileId: ${fileAsset.id}, ${fileAsset.mimeType}, ${fileAsset.size} bytes)`;
 
     if (fileAsset.mimeType.startsWith('image/')) {
       const result = await this.imageUnderstandingClient.describeScene(
@@ -98,7 +98,11 @@ export class RuntimeAttachmentService {
         input.context,
       );
 
-      return [title, '图片理解结果：', this.stringifyResult(result)].join('\n');
+      return [
+        title,
+        '(系统已自动完成图片理解，以下结果可直接使用。如需对同一图片执行 OCR、截图解析或图表分析，可引用上方的 fileId 调用对应工具，不需要重复分析。)\n图片理解结果：',
+        this.stringifyResult(result),
+      ].join('\n');
     }
 
     if (this.isTextFile(fileAsset)) {

@@ -22,4 +22,18 @@ describe('decodeMultipartFilename', () => {
     const mojibake = Buffer.from(original, 'utf8').toString('latin1');
     expect(decodeMultipartFilename(mojibake)).toBe(original);
   });
+
+  it('已正确解码的中文文件名 → 不被二次污染', () => {
+    // 现代浏览器 + RFC 5987 编码，busboy 已正确解码
+    expect(decodeMultipartFilename('歌曲分析报告.txt')).toBe(
+      '歌曲分析报告.txt',
+    );
+    expect(decodeMultipartFilename('测试文档.pdf')).toBe('测试文档.pdf');
+  });
+
+  it('拉丁字符文件名 → 也能正确恢复', () => {
+    const original = 'café.txt';
+    const mojibake = Buffer.from(original, 'utf8').toString('latin1');
+    expect(decodeMultipartFilename(mojibake)).toBe(original);
+  });
 });

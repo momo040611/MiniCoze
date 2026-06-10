@@ -21,6 +21,7 @@ import { UploadFileDto } from './dto/upload-file.dto';
 import { FileListResponse, FileResponse } from './types/file-response.type';
 import { UploadedFile } from './types/uploaded-file.type';
 import { FILE_STORAGE } from './storage/storage.interface';
+import { decodeMultipartFilename } from '../../common/utils/multipart-filename';
 import type { StorageService } from './storage/storage.interface';
 
 @Injectable()
@@ -85,6 +86,9 @@ export class FileService {
         HttpStatus.BAD_REQUEST,
       );
     }
+
+    // 修复 multer/busboy 中文文件名乱码：将 latin1 错解字节还原为 UTF-8
+    file.originalname = decodeMultipartFilename(file.originalname);
 
     this.validateFile(file, uploadFileDto);
     await this.ensureUploadPermission(userId, uploadFileDto);

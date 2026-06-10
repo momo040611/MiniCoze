@@ -19,6 +19,7 @@ interface AgentDetailNavbarProps {
   onModeChange: (mode: AgentMode) => void;
   onSave: () => void;
   onPublish: () => void;
+  onOffline: () => void;
 }
 
 export function AgentDetailNavbar({
@@ -36,6 +37,7 @@ export function AgentDetailNavbar({
   onModeChange,
   onSave,
   onPublish,
+  onOffline,
 }: AgentDetailNavbarProps) {
   const isPublished = status === 'ACTIVE';
 
@@ -96,13 +98,29 @@ export function AgentDetailNavbar({
           </>
         )}
         {isPublished && (
-          <button
-            className={styles.publishBtn}
-            onClick={onPublish}
-            disabled={publishing}
-          >
-            {publishing ? '下线中...' : '下线'}
-          </button>
+          <>
+            <button
+              className={styles.saveBtn}
+              onClick={onSave}
+              disabled={saving}
+            >
+              {saving ? '保存中...' : '保存'}
+            </button>
+            <button
+              className={styles.publishBtn}
+              onClick={onPublish}
+              disabled={publishing}
+            >
+              {publishing ? '发布中...' : '重新发布'}
+            </button>
+            <button
+              className={styles.unpublishBtn}
+              onClick={onOffline}
+              disabled={publishing}
+            >
+              下线
+            </button>
+          </>
         )}
       </div>
     </div>

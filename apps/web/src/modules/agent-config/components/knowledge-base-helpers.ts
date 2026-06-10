@@ -1,5 +1,10 @@
 import type { KnowledgeBase } from '../../../api/knowledge-base';
-import { KnowledgeStatus } from '../../../api/knowledge-base/types';
+import {
+  ChunkMode,
+  IndexMode,
+  KnowledgeStatus,
+  RetrievalMode,
+} from '../../../api/knowledge-base/types';
 import type { ApiEnvelope } from '../../../api/http';
 import { http } from '../../../api/http';
 import { getCurrentWorkspaceId } from '../../../api/workspace';
@@ -26,9 +31,9 @@ export function mapBackendKnowledgeBase(item: BackendKnowledgeBase): KnowledgeBa
     sourceType: 'local_file',
     documentCount: 0,
     chunkCount: 0,
-    indexMode: 'high_quality' as const,
+    indexMode: IndexMode.HighQuality,
     chunkConfig: {
-      chunkMode: 'general' as const,
+      chunkMode: ChunkMode.General,
       chunkSize: 500,
       chunkOverlap: 50,
       separator: '\n',
@@ -40,7 +45,7 @@ export function mapBackendKnowledgeBase(item: BackendKnowledgeBase): KnowledgeBa
       language: 'zh',
     },
     retrievalConfig: {
-      retrievalMode: 'vector' as const,
+      retrievalMode: RetrievalMode.Vector,
       topK: 5,
       scoreThreshold: 0.5,
       rerankEnabled: false,
