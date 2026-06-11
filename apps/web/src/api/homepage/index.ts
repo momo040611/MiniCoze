@@ -22,6 +22,7 @@ export interface BackendMessage {
   content: string
   model: string | null
   tokenUsage: unknown
+  metadata: unknown
   errorMessage: string | null
   createdAt: string
 }

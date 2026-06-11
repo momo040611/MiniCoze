@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Select, Input, Button, Tag, Skeleton, Empty, message, Modal, Avatar } from 'antd'
+import { Select, Input, Button, Skeleton, Empty, message, Modal, Avatar } from 'antd'
 import {
   PaperClipOutlined, SendOutlined, CloseOutlined, PlusOutlined,
   MessageOutlined, DeleteOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
@@ -8,63 +8,18 @@ import {
   DownOutlined, PauseOutlined,
 } from '@ant-design/icons'
 import styles from './home.module.css'
-import { getConversations, getConversation, deleteConversation } from '../../api/homepage'
+import { getConversations, deleteConversation } from '../../api/homepage'
 import type { Conversation } from '../../api/homepage'
-import { runAgentStream } from '../../api/agent-runtime'
-import type {
-  RuntimeEvent, TokenUsage,
-  ToolCallCreatedEvent, ToolCallCompletedEvent,
-  KnowledgeStatusEvent,
-} from '../../api/agent-runtime'
 import { getAgentList } from '../../api/agent-config'
-import { uploadChatAttachment, type UploadedFileAsset } from '../../api/files'
-import { getCurrentWorkspaceId } from '../../api/workspace'
-import { formatFileSize } from './utils/format'
-import { ToolCallCard, type ToolCallData } from '../agent-config/components/ToolCallCard'
+import { ToolCallCard } from '../agent-config/components/ToolCallCard'
 import { DebugInfoPanel } from '../agent-config/components/DebugInfoPanel'
 import { KnowledgeStatus } from '../agent-config/components/KnowledgeStatus'
 import { MarkdownRenderer } from './components/chat/MarkdownRenderer'
 import { copyToClipboard } from '../../utils/clipboard'
-
-interface ToolCallMessage {
-  kind: 'tool-call';
-  id: string;
-  toolData: ToolCallData;
-}
-
-interface ChatMessage {
-  kind: 'message';
-  id: string;
-  text: string;
-  sender: 'user' | 'agent';
-  time: string;
-  status: 'sending' | 'streaming' | 'success' | 'failed';
-  agentName?: string;
-  agentIcon?: string;
-  messageId?: string;
-  fileName?: string;
-  filePreview?: string;
-  fileIsImage?: boolean;
-}
-
-interface SelectedAttachment {
-  file: File;
-  preview: string;
-  isImage: boolean;
-  size: string;
-  uploadStatus: 'uploading' | 'success' | 'failed';
-  uploadedFile?: UploadedFileAsset;
-  errorText?: string;
-}
-
-interface ErrorMessage {
-  kind: 'error';
-  id: string;
-  errorText: string;
-  retryText: string;
-}
-
-type ChatItem = ChatMessage | ToolCallMessage | ErrorMessage;
+import { ChatAttachmentList } from '../chat/components/ChatAttachmentList'
+import { useAgentChat } from '../chat/hooks/useAgentChat'
+import { CHAT_ATTACHMENT_ACCEPT, useChatAttachments } from '../chat/hooks/useChatAttachments'
+import type { ChatItem } from '../chat/types'
 
 // 智能体会话缓存
 interface AgentSessionState {
@@ -73,20 +28,6 @@ interface AgentSessionState {
 }
 
 const NavPlaceholderText = '请输入指令...'
-const CHAT_ATTACHMENT_ACCEPT = 'image/png,image/jpg,image/jpeg,image/gif,image/webp,.txt,.md'
-const SUPPORTED_TEXT_EXTENSIONS = new Set(['txt', 'md'])
-const SUPPORTED_TEXT_MIME_TYPES = new Set([
-  'text/plain',
-  'text/markdown',
-  'text/x-markdown',
-])
-
-function isSupportedChatAttachment(file: File) {
-  if (file.type.startsWith('image/')) return true
-  if (SUPPORTED_TEXT_MIME_TYPES.has(file.type)) return true
-  const extension = file.name.split('.').pop()?.toLowerCase()
-  return extension ? SUPPORTED_TEXT_EXTENSIONS.has(extension) : false
-}
 
 // 引用消息接口
 interface QuotedMessage {
@@ -96,43 +37,78 @@ interface QuotedMessage {
   agentName?: string;
 }
 
+function getAgentKnowledgeBaseId(orchestration: string) {
+  try {
+    const parsed = JSON.parse(orchestration || '{}') as {
+      planner?: { databases?: unknown };
+    };
+    return Array.isArray(parsed.planner?.databases) && parsed.planner.databases.length > 0
+      ? String(parsed.planner.databases[0])
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function HomepageIndex() {
   const [searchParams] = useSearchParams();
 
-  const [messages, setMessages] = useState<ChatItem[]>([])
   const [inputValue, setInputValue] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const chatListRef = useRef<HTMLDivElement>(null)
   const [showScrollBottom, setShowScrollBottom] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<SelectedAttachment | null>(null)
   const [allAgents, setAllAgents] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number; orchestration: string }[]>([])
   const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; icon: string; persona: string; model: string; temperature: number; orchestration: string } | null>(null)
   const [agentLoadError, setAgentLoadError] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
-  const [sending, setSending] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const uploadSeqRef = useRef(0)
-  const selectedFileRef = useRef<SelectedAttachment | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
-  const sendingRef = useRef(false)
-  const lastContentRef = useRef('')
-  const conversationIdRef = useRef<string | null>(null)
 
-  const [currentRunId, setCurrentRunId] = useState('')
-  const [currentLatency, setCurrentLatency] = useState(0)
-  const [currentUsage, setCurrentUsage] = useState<TokenUsage | null>(null)
-  const [currentToolCalls, setCurrentToolCalls] = useState<ToolCallData[]>([])
-  const [knowledgeEvent, setKnowledgeEvent] = useState<{ type: string; runId: string; knowledge: { bound: boolean; knowledgeName?: string; retrievedCount?: number } } | null>(null)
   const [knowledgeDismissed, setKnowledgeDismissed] = useState(false)
-  const runStartRef = useRef(0)
   const lastUserMessageRef = useRef('')
+  const loadConversationsRef = useRef<() => void>(() => undefined)
+  const handleChatRunFinished = useCallback(() => {
+    loadConversationsRef.current()
+  }, [])
+  const {
+    selectedAttachment: selectedFile,
+    readyAttachments,
+    selectFile,
+    clearAttachments,
+    uploading: attachmentUploading,
+    failed: attachmentFailed,
+  } = useChatAttachments()
+  const {
+    items: messages,
+    setItems: setMessages,
+    conversationId,
+    sending,
+    currentRunId,
+    currentLatency,
+    currentUsage,
+    currentToolCalls,
+    knowledgeEvent,
+    sendMessage: sendChatMessage,
+    stop: stopChat,
+    loadConversation: loadChatConversation,
+    replaceSession,
+    startNewConversation,
+  } = useAgentChat({
+    agentId: selectedAgent?.id ?? null,
+    preview: false,
+    model: selectedAgent?.model,
+    systemPrompt: selectedAgent?.persona,
+    temperature: selectedAgent?.temperature,
+    maxTokens: 4096,
+    knowledgeBaseId: selectedAgent ? getAgentKnowledgeBaseId(selectedAgent.orchestration) : undefined,
+    agentName: selectedAgent?.name,
+    agentIcon: selectedAgent?.icon,
+    appendErrorItems: true,
+    onRunFinished: handleChatRunFinished,
+  })
 
   // 流式输出渲染节流：使用 rAF 批量更新
-  const flushRafRef = useRef(0)
-  const pendingTextRef = useRef('')
 
   // 用户是否主动向上滚动（用于控制自动滚动）
   const userScrolledUpRef = useRef(false)
@@ -149,29 +125,8 @@ export function HomepageIndex() {
   const [quotedMessage, setQuotedMessage] = useState<QuotedMessage | null>(null)
 
   const loadConversationMessages = useCallback(async (convId: string) => {
-    setConversationId(convId)
-    conversationIdRef.current = convId
-    setMessages([])
-
-    const detail = await getConversation(convId)
-    if (!detail) {
-      message.error('对话不存在')
-      return
-    }
-
-    const msgs: ChatItem[] = detail.messages
-      .filter((m) => m.role === 'USER' || m.role === 'ASSISTANT')
-      .map((m): ChatItem => ({
-        kind: 'message',
-        id: m.id,
-        text: m.content,
-        time: new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-        sender: (m.role === 'USER' ? 'user' : 'agent') as 'user' | 'agent',
-        status: 'success',
-        agentName: m.role === 'ASSISTANT' && detail.agent ? detail.agent.name : undefined,
-      }))
-    setMessages(msgs)
-  }, [])
+    await loadChatConversation(convId)
+  }, [loadChatConversation])
 
   const loadConversations = useCallback((options?: { autoOpenLatest?: boolean }) => {
     if (!selectedAgent) return Promise.resolve([] as Conversation[])
@@ -187,8 +142,7 @@ export function HomepageIndex() {
           if (latest) {
             await loadConversationMessages(latest.id)
           } else {
-            setConversationId(null)
-            setMessages([])
+            startNewConversation()
           }
         }
 
@@ -202,7 +156,11 @@ export function HomepageIndex() {
       .finally(() => {
         setLoadingConversations(false)
       })
-  }, [loadConversationMessages, selectedAgent])
+  }, [loadConversationMessages, selectedAgent, startNewConversation])
+
+  loadConversationsRef.current = () => {
+    void loadConversations()
+  }
 
   const loadAgents = useCallback(() => {
     setAgentLoadError(false)
@@ -235,8 +193,7 @@ export function HomepageIndex() {
     // 检查是否有缓存的会话状态
     const cached = agentSessionsRef.current.get(selectedAgent.id)
     if (cached) {
-      setConversationId(cached.conversationId)
-      setMessages(cached.messages)
+      replaceSession(cached.conversationId, cached.messages)
       loadConversations()
       return
     }
@@ -244,8 +201,7 @@ export function HomepageIndex() {
     // 从 URL 获取 conversationId，验证是否属于当前智能体
     const conversationIdFromUrl = searchParams.get('conversationId')
     if (conversationIdFromUrl) {
-      setConversationId(null)
-      setMessages([])
+      startNewConversation()
       // 先加载对话列表，验证 conversationId 是否属于当前智能体
       loadConversations().then((list) => {
         const conversationBelongsToAgent = list.some((c) => c.id === conversationIdFromUrl)
@@ -253,59 +209,39 @@ export function HomepageIndex() {
           // 对话属于当前智能体，加载该对话
           loadConversationMessages(conversationIdFromUrl).catch(() => {
             // 如果加载失败，显示新对话
-            setConversationId(null)
-            setMessages([])
+            startNewConversation()
           })
         } else {
           // 对话不属于当前智能体，显示新对话
-          setConversationId(null)
-          setMessages([])
+          startNewConversation()
         }
       })
     } else {
       // 默认显示新对话，不自动加载最近对话
-      setConversationId(null)
-      setMessages([])
+      startNewConversation()
       loadConversations()
     }
 
-  }, [loadConversations, loadConversationMessages, selectedAgent, searchParams])
+  }, [loadConversations, loadConversationMessages, replaceSession, selectedAgent, searchParams, startNewConversation])
 
   const handleNewChat = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
-    }
-    setConversationId(null)
-    conversationIdRef.current = null
-    setMessages([])
-    setSending(false)
-    sendingRef.current = false
+    stopChat()
+    startNewConversation()
+    clearAttachments()
     userScrolledUpRef.current = false // 重置滚动标志
-    // 重置调试状态
-    setCurrentRunId('')
-    setCurrentLatency(0)
-    setCurrentUsage(null)
-    setCurrentToolCalls([])
-    setKnowledgeEvent(null)
     setKnowledgeDismissed(false)
-  }, [])
+  }, [clearAttachments, startNewConversation, stopChat])
 
   const handleSelectConversation = useCallback(async (convId: string) => {
     if (convId === conversationId) return
-    if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
-    }
-    setSending(false)
-    sendingRef.current = false
+    stopChat()
     try {
       await loadConversationMessages(convId)
     } catch (e) {
       console.error(e)
       message.error('加载对话详情失败')
     }
-  }, [conversationId, loadConversationMessages])
+  }, [conversationId, loadConversationMessages, stopChat])
 
   const handleDeleteConversation = useCallback((e: React.MouseEvent, convId: string) => {
     e.stopPropagation()
@@ -320,8 +256,7 @@ export function HomepageIndex() {
           await deleteConversation(convId)
           message.success('已删除')
           if (convId === conversationId) {
-            setConversationId(null)
-            setMessages([])
+            startNewConversation()
           }
           loadConversations()
         } catch (err) {
@@ -330,7 +265,7 @@ export function HomepageIndex() {
         }
       },
     })
-  }, [conversationId, loadConversations, setMessages])
+  }, [conversationId, loadConversations, startNewConversation])
 
   // C2: 智能体切换时保存/恢复会话状态
   const handleAgentSwitch = useCallback((agentId: string) => {
@@ -346,28 +281,11 @@ export function HomepageIndex() {
     }
 
     // 中止当前流
-    if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
-    }
-    setSending(false)
-    sendingRef.current = false
+    stopChat()
 
     // 切换智能体
     setSelectedAgent(agent)
-  }, [allAgents, selectedAgent, conversationId, messages])
-
-  useEffect(() => {
-    selectedFileRef.current = selectedFile
-  }, [selectedFile])
-
-  useEffect(() => {
-    return () => {
-      if (selectedFileRef.current?.preview) {
-        URL.revokeObjectURL(selectedFileRef.current.preview)
-      }
-    }
-  }, [])
+  }, [allAgents, selectedAgent, conversationId, messages, stopChat])
 
   const scrollToBottom = (smooth = true) => {
     userScrolledUpRef.current = false // 重置滚动标志
@@ -411,23 +329,20 @@ export function HomepageIndex() {
     }
   }, [messages])
 
-  const toolCallStartRef = useRef(new Map<string, number>())
-
   const sendMessage = useCallback(async (overrideText?: string) => {
     const text = (overrideText ?? inputValue).trim()
-    if (!text || sendingRef.current || !selectedAgent) return
-    if (selectedFile?.uploadStatus === 'uploading') {
+    if (!text || !selectedAgent || sending) return
+
+    if (attachmentUploading) {
       message.warning('附件上传中，请稍后再发送')
       return
     }
-    if (selectedFile?.uploadStatus === 'failed') {
-      message.error(selectedFile.errorText ?? '附件上传失败，请删除后重新选择')
+    if (attachmentFailed) {
+      message.error(selectedFile?.errorText ?? '附件上传失败，请删除后重新选择')
       return
     }
 
     let messageText = text
-
-    // 添加引用前缀
     if (quotedMessage) {
       const quotePrefix = quotedMessage.sender === 'user'
         ? `> 引用你的消息：${quotedMessage.text}\n\n`
@@ -436,249 +351,30 @@ export function HomepageIndex() {
     }
 
     lastUserMessageRef.current = text
+    const sent = await sendChatMessage({
+      content: messageText,
+      displayContent: text,
+      attachments: readyAttachments,
+    })
 
-    const now = new Date()
-    const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
-
-    const userMsg: ChatMessage = {
-      kind: 'message',
-      id: `user-${Date.now()}`,
-      text: text,
-      time: timestamp,
-      sender: 'user',
-      status: 'success',
-      agentName: selectedAgent.name,
+    if (sent) {
+      if (!overrideText) setInputValue('')
+      clearAttachments()
+      setQuotedMessage(null)
+      setKnowledgeDismissed(false)
     }
-
-    if (selectedFile) {
-      userMsg.fileName = selectedFile.file.name
-      userMsg.filePreview = selectedFile.preview
-      userMsg.fileIsImage = selectedFile.isImage
-    }
-
-    const agentMsgId = `agent-${Date.now()}`
-    const agentMsg: ChatMessage = {
-      kind: 'message',
-      id: agentMsgId,
-      text: '',
-      time: timestamp,
-      sender: 'agent',
-      status: 'sending',
-      agentName: selectedAgent.name,
-    }
-
-    setMessages((prev) => [...prev, userMsg, agentMsg])
-    if (!overrideText) setInputValue('')
-    uploadSeqRef.current += 1
-    setSelectedFile(null)
-    setQuotedMessage(null) // 清除引用
-    setSending(true)
-    sendingRef.current = true
-    lastContentRef.current = ''
-
-    // B4: 重置调试状态
-    setCurrentRunId('')
-    setCurrentLatency(0)
-    setCurrentUsage(null)
-    setCurrentToolCalls([])
-    setKnowledgeEvent(null)
-    setKnowledgeDismissed(false)
-    runStartRef.current = performance.now()
-
-    let knowledgeBaseId: string | undefined
-    try {
-      const orchestration = JSON.parse(selectedAgent.orchestration || '{}')
-      const planner = orchestration?.planner
-      if (planner && Array.isArray(planner.databases) && planner.databases.length > 0) {
-        knowledgeBaseId = planner.databases[0]
-      }
-    } catch {}
-
-    const abortController = await runAgentStream(
-      {
-        agentId: selectedAgent.id,
-        message: messageText,
-        conversationId: conversationId ?? undefined,
-        systemPrompt: selectedAgent.persona || undefined,
-        model: selectedAgent.model || undefined,
-        temperature: selectedAgent.temperature,
-        maxTokens: 4096,
-        knowledgeBaseId,
-        attachments: selectedFile?.uploadedFile
-          ? [
-              {
-                fileId: selectedFile.uploadedFile.id,
-                name: selectedFile.uploadedFile.originalName,
-                mimeType: selectedFile.uploadedFile.mimeType,
-                size: selectedFile.uploadedFile.size,
-              },
-            ]
-          : undefined,
-      },
-      {
-        onEvent: (event: RuntimeEvent) => {
-          switch (event.type) {
-            case 'run.created':
-              setCurrentRunId(event.runId)
-              if (!conversationIdRef.current) {
-                conversationIdRef.current = event.conversationId
-                setConversationId(event.conversationId)
-              }
-              break
-
-            case 'knowledge.status': {
-              const ksEvent = event as KnowledgeStatusEvent
-              setKnowledgeEvent({
-                type: ksEvent.type,
-                runId: ksEvent.runId,
-                knowledge: ksEvent.knowledge,
-              })
-              setKnowledgeDismissed(false)
-              break
-            }
-
-            case 'message.delta': {
-              // 流式输出渲染节流：累积文本，通过 rAF 批量刷新
-              lastContentRef.current += event.content
-              pendingTextRef.current = lastContentRef.current
-
-              if (flushRafRef.current) cancelAnimationFrame(flushRafRef.current)
-              flushRafRef.current = requestAnimationFrame(() => {
-                const text = pendingTextRef.current
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.kind === 'message' && m.id === agentMsgId
-                      ? { ...m, text, status: 'streaming' as const, messageId: event.messageId }
-                      : m
-                  )
-                )
-              })
-              break
-            }
-
-            case 'message.completed':
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.kind === 'message' && m.id === agentMsgId
-                    ? { ...m, text: event.content, status: 'success' as const, id: event.messageId, messageId: event.messageId }
-                    : m
-                )
-              )
-              break
-
-            case 'tool.call.created': {
-              const tcEvent = event as ToolCallCreatedEvent
-              toolCallStartRef.current.set(tcEvent.toolCallId, performance.now())
-              const newToolCall: ToolCallData = {
-                toolCallId: tcEvent.toolCallId,
-                name: tcEvent.name,
-                args: tcEvent.args,
-                status: 'executing',
-              }
-              setCurrentToolCalls((prev) => [...prev, newToolCall])
-              setMessages((prev) => [...prev, {
-                kind: 'tool-call',
-                id: `tool-${tcEvent.toolCallId}`,
-                toolData: newToolCall,
-              }])
-              break
-            }
-
-            case 'tool.call.completed': {
-              const tcCompleteEvent = event as ToolCallCompletedEvent & { error?: string }
-              const startTime = toolCallStartRef.current.get(tcCompleteEvent.toolCallId)
-              const duration = startTime ? Math.round(performance.now() - startTime) : undefined
-              toolCallStartRef.current.delete(tcCompleteEvent.toolCallId)
-              const isFailed = !!tcCompleteEvent.error
-              setCurrentToolCalls((prev) =>
-                prev.map((tc) =>
-                  tc.toolCallId === tcCompleteEvent.toolCallId
-                    ? { ...tc, status: isFailed ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration }
-                    : tc
-                )
-              )
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.kind === 'tool-call' && m.id === `tool-${tcCompleteEvent.toolCallId}`
-                    ? { ...m, toolData: { ...m.toolData, status: isFailed ? 'failed' : 'success', result: tcCompleteEvent.result, error: tcCompleteEvent.error, duration } }
-                    : m
-                )
-              )
-              break
-            }
-
-            case 'run.completed':
-              setCurrentUsage(event.usage ?? null)
-              setCurrentLatency(Math.round(performance.now() - runStartRef.current))
-              setSending(false)
-              sendingRef.current = false
-              abortRef.current = null
-              toolCallStartRef.current.clear()
-              loadConversations()
-              break
-
-            case 'stream.done':
-              // 仅在 run.completed 未触发时执行（防止重复调用）
-              if (sendingRef.current) {
-                setSending(false)
-                sendingRef.current = false
-                abortRef.current = null
-                toolCallStartRef.current.clear()
-                loadConversations()
-              }
-              break
-
-            case 'run.failed': {
-              const errMsg: ErrorMessage = {
-                kind: 'error',
-                id: `err-${Date.now()}`,
-                errorText: `运行失败: ${event.error}`,
-                retryText: lastUserMessageRef.current || text,
-              }
-              setMessages((prev) => prev.map((m) =>
-                m.kind === 'message' && m.id === agentMsgId
-                  ? { ...m, status: 'failed' as const }
-                  : m
-              ))
-              setMessages((prev) => [...prev, errMsg])
-              message.error(`运行失败: ${event.error}`)
-              setSending(false)
-              sendingRef.current = false
-              abortRef.current = null
-              break
-            }
-
-            case 'run.in_progress':
-              break
-
-            default:
-              break
-          }
-        },
-        onError: (err) => {
-          console.error(err)
-          const errMsg: ErrorMessage = {
-            kind: 'error',
-            id: `err-${Date.now()}`,
-            errorText: `发送消息失败: ${err.message}`,
-            retryText: lastUserMessageRef.current || text,
-          }
-          setMessages((prev) => prev.map((m) =>
-            m.kind === 'message' && m.id === agentMsgId
-              ? { ...m, status: 'failed' as const }
-              : m
-          ))
-          setMessages((prev) => [...prev, errMsg])
-          message.error('发送消息失败，请重试')
-          setSending(false)
-          sendingRef.current = false
-          abortRef.current = null
-        },
-      },
-    )
-
-    abortRef.current = abortController
-  }, [inputValue, selectedAgent, conversationId, selectedFile, loadConversations])
+  }, [
+    attachmentFailed,
+    attachmentUploading,
+    clearAttachments,
+    inputValue,
+    quotedMessage,
+    readyAttachments,
+    selectedAgent,
+    selectedFile?.errorText,
+    sendChatMessage,
+    sending,
+  ])
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -689,75 +385,8 @@ export function HomepageIndex() {
 
   // 停止生成
   const handleStopGeneration = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort()
-      abortRef.current = null
-    }
-    setSending(false)
-    sendingRef.current = false
-    toolCallStartRef.current.clear()
-    // 标记当前 AI 消息为已完成（保留已生成的内容）
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.kind === 'message' && m.status === 'streaming'
-          ? { ...m, status: 'success' as const }
-          : m
-      )
-    )
-    loadConversations()
-  }, [loadConversations])
-
-  const uploadSelectedFile = useCallback(async (file: File) => {
-    const isImage = file.type.startsWith('image/')
-    const preview = isImage ? URL.createObjectURL(file) : ''
-    const size = formatFileSize(file.size)
-
-    if (selectedFile?.preview) {
-      URL.revokeObjectURL(selectedFile.preview)
-    }
-
-    const uploadSeq = uploadSeqRef.current + 1
-    uploadSeqRef.current = uploadSeq
-
-    if (!isSupportedChatAttachment(file)) {
-      if (preview) URL.revokeObjectURL(preview)
-      message.error('当前聊天附件仅支持图片和 txt/md 文本')
-      setSelectedFile(null)
-      return
-    }
-
-    setSelectedFile({
-      file,
-      preview,
-      isImage,
-      size,
-      uploadStatus: 'uploading',
-    })
-
-    try {
-      const workspaceId = await getCurrentWorkspaceId()
-      const uploadedFile = await uploadChatAttachment(file, workspaceId)
-      if (uploadSeqRef.current !== uploadSeq) return
-      setSelectedFile({
-        file,
-        preview,
-        isImage,
-        size,
-        uploadStatus: 'success',
-        uploadedFile,
-      })
-    } catch (error) {
-      if (uploadSeqRef.current !== uploadSeq) return
-      setSelectedFile({
-        file,
-        preview,
-        isImage,
-        size,
-        uploadStatus: 'failed',
-        errorText: error instanceof Error ? error.message : '附件上传失败',
-      })
-    }
-  }, [selectedFile])
+    stopChat()
+  }, [stopChat])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -766,15 +395,11 @@ export function HomepageIndex() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-    void uploadSelectedFile(file)
+    void selectFile(file)
   }
 
   const handleFileRemove = () => {
-    uploadSeqRef.current += 1
-    if (selectedFile?.preview) {
-      URL.revokeObjectURL(selectedFile.preview)
-    }
-    setSelectedFile(null)
+    clearAttachments()
   }
 
   // 拖拽上传状态
@@ -826,8 +451,8 @@ export function HomepageIndex() {
       return
     }
 
-    void uploadSelectedFile(file)
-  }, [uploadSelectedFile])
+    void selectFile(file)
+  }, [selectFile])
 
   const handleRegenerate = useCallback(() => {
     if (!lastUserMessageRef.current || sending) return
@@ -904,6 +529,10 @@ export function HomepageIndex() {
       return <ToolCallCard key={item.id} data={item.toolData} />
     }
 
+    if (item.kind === 'knowledge' || item.kind === 'debug') {
+      return null
+    }
+
     // 聊天消息
     const isUser = item.sender === 'user'
     const isStreaming = item.status === 'streaming'
@@ -952,23 +581,23 @@ export function HomepageIndex() {
               title="双击编辑消息"
             >
               <span className={styles.messageText}>{item.text}</span>
-              {item.fileName && item.filePreview && item.fileIsImage && (
-                <img src={item.filePreview} alt={item.fileName} className={styles.messageFile} />
-              )}
-              {item.fileName && !item.fileIsImage && (
-                <Tag className={styles.messageFileTag}>{item.fileName}</Tag>
-              )}
+              <ChatAttachmentList
+                attachments={item.attachments}
+                imageClassName={styles.messageFile}
+                itemClassName={styles.messageFileTag}
+                compact
+              />
               <EditOutlined className={styles.editHint} />
             </div>
           ) : (
             <>
               <MarkdownRenderer content={item.text} isStreaming={isStreaming} />
-              {item.fileName && item.filePreview && item.fileIsImage && (
-                <img src={item.filePreview} alt={item.fileName} className={styles.messageFile} />
-              )}
-              {item.fileName && !item.fileIsImage && (
-                <Tag className={styles.messageFileTag}>{item.fileName}</Tag>
-              )}
+              <ChatAttachmentList
+                attachments={item.attachments}
+                imageClassName={styles.messageFile}
+                itemClassName={styles.messageFileTag}
+                compact
+              />
             </>
           )}
 
@@ -1183,14 +812,14 @@ export function HomepageIndex() {
             {selectedFile && !isDragging && (
               <div className={styles.filePreviewBar}>
                 {selectedFile.isImage ? (
-                  <img src={selectedFile.preview} alt={selectedFile.file.name} className={styles.filePreviewThumb} />
+                  <img src={selectedFile.previewUrl} alt={selectedFile.file.name} className={styles.filePreviewThumb} />
                 ) : (
                   <span className={styles.docIcon}>📄</span>
                 )}
                 <div className={styles.filePreviewInfo}>
                   <span className={styles.filePreviewName}>{selectedFile.file.name}</span>
                   <span className={styles.filePreviewSize}>
-                    {selectedFile.size}
+                    {selectedFile.sizeText}
                     {' · '}
                     {selectedFile.uploadStatus === 'uploading'
                       ? '上传中'

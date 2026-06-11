@@ -142,6 +142,13 @@ export class RuntimePrismaRepository implements RuntimeRepository {
     const role = this.toPrismaRole(message.role);
     if (!role) return;
 
+    const attachments = context.attachments?.map((attachment) => ({
+      fileId: attachment.fileId,
+      ...(attachment.name ? { name: attachment.name } : {}),
+      ...(attachment.mimeType ? { mimeType: attachment.mimeType } : {}),
+      ...(attachment.size !== undefined ? { size: attachment.size } : {}),
+    }));
+
     await this.prisma.$transaction([
       this.prisma.message.create({
         data: {
@@ -151,6 +158,10 @@ export class RuntimePrismaRepository implements RuntimeRepository {
           model:
             message.role === 'assistant'
               ? context.agentConfig.model
+              : undefined,
+          metadata:
+            message.role === 'user' && attachments?.length
+              ? { attachments }
               : undefined,
           errorMessage,
         },

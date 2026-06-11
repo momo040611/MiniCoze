@@ -51,6 +51,7 @@ export class AgentRuntime {
       status: 'created',
       isPreview: command.preview ?? false,
       input,
+      attachments: command.attachments,
       history: [],
       agentConfig,
     };
