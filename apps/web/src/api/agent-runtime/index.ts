@@ -143,6 +143,12 @@ export interface RunAgentParams {
   maxTokens?: number;
   knowledgeBaseId?: string;
   timeout?: number;
+  attachments?: Array<{
+    fileId: string;
+    name?: string;
+    mimeType?: string;
+    size?: number;
+  }>;
   tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>;
 }
 
@@ -189,6 +195,7 @@ export async function runAgentStream(
       temperature: params.temperature,
       maxTokens: params.maxTokens,
       knowledgeBaseId: params.knowledgeBaseId,
+      attachments: params.attachments,
       tools: params.tools,
     }),
     signal: controller.signal,

@@ -58,6 +58,22 @@ type BackendPage<T> = {
   pageSize?: number;
 };
 
+type BackendKnowledgeChunkConfig =
+  | { chunkType: 'default' }
+  | {
+    chunkType: 'custom';
+    chunkSize: number;
+    overlap: number;
+    separator: string;
+    trimSpace: boolean;
+    trimUrlAndEmail: boolean;
+  }
+  | {
+    chunkType: 'leveled';
+    maxDepth: number;
+    saveTitle: boolean;
+  };
+
 type KnowledgeBaseOverrides = Record<string, Partial<KnowledgeBase>>;
 
 type KnowledgeBaseListParams = ListParams & {
@@ -87,6 +103,8 @@ export type RetrieveKnowledgePayload = {
 
 const KNOWLEDGE_BASE_OVERRIDES_KEY = 'miniCoze_knowledge_base_overrides_v1';
 const RETRIEVAL_HISTORY_KEY = 'miniCoze_knowledge_retrieval_history_v1';
+
+const BACKEND_MAX_PAGE_SIZE = 100;
 
 const env = (import.meta as ImportMeta & {
   env?: {
@@ -119,6 +137,32 @@ function getBackendList<T>(value: T[] | BackendPage<T>): T[] {
   if (Array.isArray(value)) return value;
 
   return value.list ?? value.items ?? value.records ?? value.chunks ?? value.results ?? value.data ?? [];
+}
+
+function toBackendChunkConfig(config: KnowledgeChunkConfigDto): BackendKnowledgeChunkConfig {
+  if (config.chunkType === 'leveled') {
+    return {
+      chunkType: 'leveled',
+      maxDepth: 3,
+      saveTitle: true,
+    };
+  }
+
+  if (config.chunkType === 'custom') {
+    const chunkSize = Math.max(1, Number(config.chunkSize) || 1);
+    const chunkOverlap = Math.max(0, Number(config.chunkOverlap) || 0);
+
+    return {
+      chunkType: 'custom',
+      chunkSize,
+      overlap: Math.min(99, Math.round((chunkOverlap / chunkSize) * 100)),
+      separator: config.separator ?? '\n\n',
+      trimSpace: true,
+      trimUrlAndEmail: false,
+    };
+  }
+
+  return { chunkType: 'default' };
 }
 
 function toPageResult<T>(list: T[], params?: ListParams, total = list.length): PageResult<T> {
@@ -416,12 +460,12 @@ async function previewKnowledgeChunks(payload: PreviewKnowledgeChunksPayload) {
     ]);
   }
 
-  const chunkConfig = payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig);
-  const response = await http.post<ApiEnvelope<unknown[] | BackendPage<unknown>>, { fileId: string; chunkConfig: KnowledgeChunkConfigDto }>(
+  const chunkConfig = toBackendChunkConfig(payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig));
+  const response = await http.post<ApiEnvelope<unknown[] | BackendPage<unknown>>, { fileId: string; config: BackendKnowledgeChunkConfig }>(
     'knowledge/chunk',
     {
       fileId: payload.fileId,
-      chunkConfig,
+      config: chunkConfig,
     },
     { timeout: 60000 },
   );
@@ -450,18 +494,23 @@ async function createKnowledgeDocument(knowledgeBaseId: string, payload: CreateK
     });
   }
 
-  const chunkConfig = payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig);
-  const response = await http.post<ApiEnvelope<KnowledgeDocumentDto>, { fileId: string; chunkConfig: KnowledgeChunkConfigDto }>(
+  const chunkConfig = toBackendChunkConfig(payload.chunkConfig ?? mapParseConfigToChunkConfig(payload.parseConfig));
+  const response = await http.post<ApiEnvelope<KnowledgeDocumentDto | { document?: KnowledgeDocumentDto }>, { fileId: string; config: BackendKnowledgeChunkConfig }>(
     `knowledge/bases/${knowledgeBaseId}/documents`,
     {
       fileId: payload.fileId,
-      chunkConfig,
+      config: chunkConfig,
     },
     { timeout: 60000 },
   );
+  const data = unwrap(response);
+  const dataRecord = isRecord(data) ? data as { document?: unknown } : null;
+  const backendDocument = dataRecord && isRecord(dataRecord.document)
+    ? dataRecord.document as KnowledgeDocumentDto
+    : data as KnowledgeDocumentDto;
   const documentDto = {
     ...(payload.fileAsset ? createFileAssetDocumentDto(payload.fileAsset, payload.fileId) : {}),
-    ...unwrap(response),
+    ...backendDocument,
   };
 
   return ok(mapKnowledgeDocumentDtoToViewModel(documentDto, knowledgeBaseId, payload.parseConfig), 'created');
@@ -539,13 +588,31 @@ async function getDocumentChunks(documentId: string, params?: ChunkListParams & 
     return ok(toPageResult(chunks, params));
   }
 
-  const response = await http.get<ApiEnvelope<KnowledgeChunkDto[] | BackendPage<KnowledgeChunkDto>>>(
+  // 自动分页：后端 pageSize 上限 100，这里循环拉取全部切片后再做客户端筛选分页
+  const firstResponse = await http.get<ApiEnvelope<KnowledgeChunkDto[] | BackendPage<KnowledgeChunkDto>>>(
     `knowledge/documents/${documentId}/chunks/page`,
-    { query: { page: params?.page, pageSize: params?.pageSize } },
+    { query: { page: 1, pageSize: BACKEND_MAX_PAGE_SIZE } },
   );
-  const payload = unwrap(response);
-  const rawList = getBackendList(payload);
-  const mapped = rawList.map((item, index) =>
+  const firstPayload = unwrap(firstResponse);
+  const firstList = getBackendList(firstPayload);
+  const total = (firstPayload as BackendPage<unknown>).total ?? firstList.length;
+
+  let allRawChunks: unknown[] = firstList;
+
+  if (total > BACKEND_MAX_PAGE_SIZE) {
+    const totalPages = Math.ceil(total / BACKEND_MAX_PAGE_SIZE);
+    const remainingRequests = Array.from({ length: totalPages - 1 }, (_, i) =>
+      http.get<ApiEnvelope<KnowledgeChunkDto[] | BackendPage<KnowledgeChunkDto>>>(
+        `knowledge/documents/${documentId}/chunks/page`,
+        { query: { page: i + 2, pageSize: BACKEND_MAX_PAGE_SIZE } },
+      ),
+    );
+    const remainingResponses = await Promise.all(remainingRequests);
+    const remainingChunks = remainingResponses.flatMap((res) => getBackendList(unwrap(res)));
+    allRawChunks = allRawChunks.concat(remainingChunks);
+  }
+
+  const mapped = (allRawChunks as KnowledgeChunkDto[]).map((item, index) =>
     mapChunkDtoToViewModel(item, {
       knowledgeBaseId: params?.knowledgeBaseId,
       documentId,
@@ -748,6 +815,36 @@ async function reindexKnowledgeBase(id: string, force = false) {
   return ok(unwrap(response));
 }
 
+// Agent 知识库绑定
+
+async function getAgentKnowledgeBindings(agentId: string) {
+  if (useKnowledgeMock) {
+    return ok([]);
+  }
+
+  const response = await http.get<ApiEnvelope<unknown[]>>(`agents/${agentId}/knowledges`);
+  return ok(unwrap(response));
+}
+
+async function replaceAgentKnowledgeBindings(
+  agentId: string,
+  bindings: Array<{
+    knowledgeBaseId: string;
+    enabled?: boolean;
+    config?: { topK?: number; minScore?: number };
+  }>,
+) {
+  if (useKnowledgeMock) {
+    return ok([]);
+  }
+
+  const response = await http.put<ApiEnvelope<unknown[]>>(
+    `agents/${agentId}/knowledges`,
+    { bindings },
+  );
+  return ok(unwrap(response));
+}
+
 export const knowledgeApi = {
   getKnowledgeBases,
   getKnowledgeBaseById,
@@ -757,6 +854,9 @@ export const knowledgeApi = {
   updateKnowledgeBaseEnabled,
   updateKnowledgeBaseOrder,
   updateKnowledgeSettings: updateKnowledgeBase,
+
+  getAgentKnowledgeBindings,
+  replaceAgentKnowledgeBindings,
 
   uploadKnowledgeFile,
   previewKnowledgeChunks,

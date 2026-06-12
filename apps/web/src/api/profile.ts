@@ -39,6 +39,7 @@ export interface IPinnedAgent {
 
 const PINNED_KEY = 'minicoze_profile_pinned_agents';
 const FAVORITES_KEY = 'minicoze_profile_favorite_agents';
+const useProfileMock = import.meta.env.VITE_USE_AUTH_MOCK === 'true';
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -74,109 +75,113 @@ async function getAgentListOrEmpty(): Promise<AgentConfig[]> {
 }
 
 export async function getUserStats(): Promise<IUserStats> {
-  try {
+  if (useProfileMock) {
     const res = await http.get<ApiEnvelope<IUserStats>>('profile/stats');
     return res.data;
-  } catch {
-    const agents = await getAgentListOrEmpty();
-    return {
-      fans: 0,
-      likes: 0,
-      conversations: 0,
-      agentsCreated: agents.length,
-      satisfaction: 0,
-      monthlyEarnings: 0,
-    };
   }
+
+  const agents = await getAgentListOrEmpty();
+  return {
+    fans: 0,
+    likes: 0,
+    conversations: 0,
+    agentsCreated: agents.length,
+    satisfaction: 0,
+    monthlyEarnings: 0,
+  };
 }
 
 export async function getUserBadges(): Promise<IBadge[]> {
-  try {
+  if (useProfileMock) {
     const res = await http.get<ApiEnvelope<IBadge[]>>('profile/badges');
     return res.data;
-  } catch {
-    return [];
   }
+
+  return [];
 }
 
 export async function getFavoriteAgents(): Promise<IFavoriteAgent[]> {
-  try {
+  if (useProfileMock) {
     const res = await http.get<ApiEnvelope<IFavoriteAgent[]>>('profile/favorites');
     return res.data;
-  } catch {
-    const [agents, favoriteIds] = await Promise.all([
-      getAgentListOrEmpty(),
-      Promise.resolve(readFavoriteAgentIds()),
-    ]);
-    const agentMap = new Map(agents.map((agent) => [agent.id, agent]));
-    return favoriteIds.flatMap((agentId, index) => {
-      const agent = agentMap.get(agentId);
-      if (!agent) return [];
-
-      return {
-        id: `local-favorite-${agentId}`,
-        agentId,
-        agent,
-        favoritedAt: new Date(Date.now() - index * 1000).toISOString(),
-      };
-    });
   }
+
+  const [agents, favoriteIds] = await Promise.all([
+    getAgentListOrEmpty(),
+    Promise.resolve(readFavoriteAgentIds()),
+  ]);
+  const agentMap = new Map(agents.map((agent) => [agent.id, agent]));
+  return favoriteIds.flatMap((agentId, index) => {
+    const agent = agentMap.get(agentId);
+    if (!agent) return [];
+
+    return {
+      id: `local-favorite-${agentId}`,
+      agentId,
+      agent,
+      favoritedAt: new Date(Date.now() - index * 1000).toISOString(),
+    };
+  });
 }
 
 export async function getUserActivities(page = 1): Promise<{ list: IActivity[]; total: number }> {
-  try {
+  if (useProfileMock) {
     const res = await http.get<ApiEnvelope<{ list: IActivity[]; total: number }>>('profile/activities', {
       query: { page },
     });
     return res.data;
-  } catch {
-    return { list: [], total: 0 };
   }
+
+  return { list: [], total: 0 };
 }
 
 export async function pinAgent(agentId: string): Promise<void> {
-  try {
+  if (useProfileMock) {
     await http.post<ApiEnvelope<unknown>>(`profile/pinned-agents/${agentId}`);
-  } catch {
-    const next = [
-      { agentId, pinnedAt: new Date().toISOString() },
-      ...readPinnedAgents().filter((item) => item.agentId !== agentId),
-    ];
-    writeJson(PINNED_KEY, next);
+    return;
   }
+
+  const next = [
+    { agentId, pinnedAt: new Date().toISOString() },
+    ...readPinnedAgents().filter((item) => item.agentId !== agentId),
+  ];
+  writeJson(PINNED_KEY, next);
 }
 
 export async function unpinAgent(agentId: string): Promise<void> {
-  try {
+  if (useProfileMock) {
     await http.delete<ApiEnvelope<unknown>>(`profile/pinned-agents/${agentId}`);
-  } catch {
-    writeJson(PINNED_KEY, readPinnedAgents().filter((item) => item.agentId !== agentId));
+    return;
   }
+
+  writeJson(PINNED_KEY, readPinnedAgents().filter((item) => item.agentId !== agentId));
 }
 
 export async function getPinnedAgents(): Promise<IPinnedAgent[]> {
-  try {
+  if (useProfileMock) {
     const res = await http.get<ApiEnvelope<IPinnedAgent[]>>('profile/pinned-agents');
     return res.data;
-  } catch {
-    return readPinnedAgents();
   }
+
+  return readPinnedAgents();
 }
 
 export async function favoriteAgent(agentId: string): Promise<void> {
-  try {
+  if (useProfileMock) {
     await http.post<ApiEnvelope<unknown>>(`profile/favorites/${agentId}`);
-  } catch {
-    writeJson(FAVORITES_KEY, Array.from(new Set([...readFavoriteAgentIds(), agentId])));
+    return;
   }
+
+  writeJson(FAVORITES_KEY, Array.from(new Set([...readFavoriteAgentIds(), agentId])));
 }
 
 export async function unfavoriteAgent(agentId: string): Promise<void> {
-  try {
+  if (useProfileMock) {
     await http.delete<ApiEnvelope<unknown>>(`profile/favorites/${agentId}`);
-  } catch {
-    writeJson(FAVORITES_KEY, readFavoriteAgentIds().filter((id) => id !== agentId));
+    return;
   }
+
+  writeJson(FAVORITES_KEY, readFavoriteAgentIds().filter((id) => id !== agentId));
 }
 
 export { setupProfileMocks } from './profile/setup-mocks';

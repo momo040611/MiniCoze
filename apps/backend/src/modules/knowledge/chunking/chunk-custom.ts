@@ -50,9 +50,9 @@ export function chunkCustom(
   text: string,
   cfg: Omit<CustomConfig, 'chunkType'> & { chunkType?: 'custom' },
 ): Chunk[] {
-  if (cfg.overlap >= cfg.chunkSize) {
+  if (cfg.overlap < 0 || cfg.overlap >= 100) {
     throw new BusinessException(
-      'overlap must be smaller than chunkSize',
+      'overlap must be between 0 and 99',
       ErrorCode.KnowledgeChunkConfigInvalid,
     );
   }

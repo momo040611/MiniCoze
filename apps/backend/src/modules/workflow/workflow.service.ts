@@ -64,7 +64,9 @@ export class WorkflowService {
 
     const where: Prisma.WorkflowWhereInput = {
       workspaceId,
-      status,
+      // 软删除：未显式指定 status 时，默认隐藏已归档（被删除）的工作流；
+      // 若调用方主动按 status 过滤（含 ARCHIVED），则尊重其选择。
+      ...(status ? { status } : { status: { not: WorkflowStatus.ARCHIVED } }),
       ...(keyword
         ? {
             OR: [
@@ -269,6 +271,31 @@ export class WorkflowService {
     return versions.map((version) =>
       this.workflowMapper.toWorkflowVersionResponse(version),
     );
+  }
+
+  // 软删除工作流：
+  // - userId: 当前用户（需管理权限）
+  // - workflowId: 工作流 ID
+  // 实现：仅把 status 置为 ARCHIVED（保留版本与运行历史，可恢复），
+  // 列表默认不再展示。已归档则幂等返回，不重复操作。
+  async remove(userId: string, workflowId: string): Promise<WorkflowResponse> {
+    const workflow = await this.findWorkflowOrThrow(workflowId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      workflow.workspaceId,
+    );
+
+    if (workflow.status === WorkflowStatus.ARCHIVED) {
+      return this.workflowMapper.toWorkflowResponse(workflow);
+    }
+
+    const archived = await this.prisma.workflow.update({
+      where: { id: workflowId },
+      data: { status: WorkflowStatus.ARCHIVED },
+      include: { currentVersion: true },
+    });
+
+    return this.workflowMapper.toWorkflowResponse(archived);
   }
 
   private async findWorkflowOrThrow(workflowId: string) {

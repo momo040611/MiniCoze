@@ -3,6 +3,7 @@ import {
   Prisma,
   WorkflowRunNodeStatus,
   WorkflowRunStatus,
+  WorkflowVariableScope,
 } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
@@ -16,6 +17,7 @@ import {
   WorkflowCanceledError,
   WorkflowCancellationRegistry,
 } from './internal/execute/workflow-cancellation.registry';
+import { WorkflowVariableService } from './internal/variable/workflow-variable.service';
 import {
   WorkflowRunEvent,
   WorkflowStreamEvent,
@@ -32,14 +34,6 @@ type WorkflowWithCurrentVersion = Prisma.WorkflowGetPayload<{
   include: { currentVersion: true };
 }>;
 
-type WorkflowVersionWithWorkflow = Prisma.WorkflowVersionGetPayload<{
-  include: {
-    workflow: {
-      include: { currentVersion: true };
-    };
-  };
-}>;
-
 @Injectable()
 export class WorkflowRunService {
   constructor(
@@ -48,6 +42,7 @@ export class WorkflowRunService {
     private readonly workflowAsyncRunner: WorkflowAsyncRunner,
     private readonly workflowMapper: WorkflowMapper,
     private readonly cancellationRegistry: WorkflowCancellationRegistry,
+    private readonly variableService: WorkflowVariableService,
   ) {}
 
   // run 支持可选的 onEvent 回调：
@@ -79,6 +74,7 @@ export class WorkflowRunService {
       workflow,
       workflowVersion,
       input: dto.input,
+      sessionId: dto.sessionId,
       onEvent,
     });
   }
@@ -132,6 +128,45 @@ export class WorkflowRunService {
       agentId: input.agentId,
       conversationId: input.conversationId,
       messageId: input.messageId,
+      onEvent: input.onEvent,
+    });
+  }
+
+  async runPublishedWorkflow(input: {
+    workflowId: string;
+    workflowVersionId: string;
+    startedBy: string;
+    input?: Record<string, unknown>;
+    onEvent?: (event: WorkflowStreamEvent) => void;
+  }): Promise<WorkflowRunResponse> {
+    const workflowVersion = await this.prisma.workflowVersion.findFirst({
+      where: {
+        id: input.workflowVersionId,
+        workflowId: input.workflowId,
+        isPublished: true,
+      },
+      include: {
+        workflow: {
+          include: {
+            currentVersion: true,
+          },
+        },
+      },
+    });
+
+    if (!workflowVersion?.workflow) {
+      throw new BusinessException(
+        '工作流发布版本不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return this.executeRun({
+      userId: input.startedBy,
+      workflow: workflowVersion.workflow,
+      workflowVersion,
+      input: input.input,
       onEvent: input.onEvent,
     });
   }
@@ -244,6 +279,9 @@ export class WorkflowRunService {
     agentId?: string;
     conversationId?: string;
     messageId?: string;
+    // 会话 ID：用于隔离 session 变量（多轮对话记忆）。仅 run 入口会传，
+    // runWithVersionId 等不传则本次运行无会话上下文，session 变量不可写。
+    sessionId?: string;
     onEvent?: (event: WorkflowStreamEvent) => void;
   }): Promise<WorkflowRunResponse> {
     const definitionSource =
@@ -318,12 +356,38 @@ export class WorkflowRunService {
     });
 
     try {
+      // 加载持久化变量（“记忆”）：
+      // - session 变量按 sessionId 加载（没传 sessionId 则为空，且运行内不可写 session）
+      // - global 变量按发起用户 userId 加载（跨会话永久保存的用户级记忆）
+      // 这一步依赖新表/枚举，必须纳入运行失败收敛，否则 SSE 只收到 run.created 就会悬停。
+      const sessionKey = input.sessionId;
+      const globalKey = input.userId;
+      const [sessionVars, globalVars] = await Promise.all([
+        this.variableService.loadScope(
+          input.workflow.workspaceId,
+          WorkflowVariableScope.SESSION,
+          sessionKey,
+        ),
+        this.variableService.loadScope(
+          input.workflow.workspaceId,
+          WorkflowVariableScope.GLOBAL,
+          globalKey,
+        ),
+      ]);
+
       const runOutput = await this.workflowAsyncRunner.run({
         runId: run.id,
         definition,
         input: input.input ?? {},
         eventBus,
         isCanceled: () => this.cancellationRegistry.isCanceled(run.id),
+        variableContext: {
+          workspaceId: input.workflow.workspaceId,
+          sessionKey,
+          globalKey,
+        },
+        sessionVars,
+        globalVars,
       });
 
       const finalOutput = {
@@ -376,7 +440,11 @@ export class WorkflowRunService {
         },
       });
 
-      input.onEvent?.({ type: 'run.failed', runId: run.id, error: message });
+      input.onEvent?.({
+        type: 'run.failed',
+        runId: run.id,
+        errorMessage: message,
+      });
       return this.workflowMapper.toWorkflowRunResponse(endedRun, true);
     } finally {
       this.cancellationRegistry.clear(run.id);

@@ -173,6 +173,28 @@
   background: #6d28d9;
 }
 
+.unpublishBtn {
+  padding: 6px 18px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 6px;
+  background: #fff;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.unpublishBtn:hover {
+  background: #fef2f2;
+  border-color: rgba(239, 68, 68, 0.6);
+}
+
+.unpublishBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ============================================
    B — 多栏固定布局（共用）
    ============================================ */

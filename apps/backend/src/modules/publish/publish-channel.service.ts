@@ -105,6 +105,228 @@ export class PublishChannelService {
     }
   }
 
+  async ensureDefaultWorkflowApiChannel(
+    tx: Prisma.TransactionClient,
+    workflow: { id: string; workspaceId: string },
+  ): Promise<void> {
+    const existingChannel = await tx.publishChannel.findUnique({
+      where: {
+        targetType_targetId_channel: {
+          targetType: PublishTargetType.WORKFLOW,
+          targetId: workflow.id,
+          channel: PublishChannelType.API,
+        },
+      },
+    });
+
+    if (existingChannel) {
+      return;
+    }
+
+    await tx.publishChannel.create({
+      data: {
+        workspaceId: workflow.workspaceId,
+        targetType: PublishTargetType.WORKFLOW,
+        targetId: workflow.id,
+        channel: PublishChannelType.API,
+        enabled: false,
+        config: this.toInputJsonValue(this.createDefaultApiConfig()),
+      },
+    });
+  }
+
+  async listWorkflowChannels(
+    userId: string,
+    workflowId: string,
+  ): Promise<PublishChannelResponse[]> {
+    const workflow = await this.findWorkflowOrThrow(workflowId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      workflow.workspaceId,
+    );
+
+    const channels = await this.prisma.publishChannel.findMany({
+      where: {
+        targetType: PublishTargetType.WORKFLOW,
+        targetId: workflowId,
+      },
+      orderBy: { channel: 'asc' },
+    });
+
+    return channels.map((channel) => this.toChannelResponse(channel));
+  }
+
+  async updateWorkflowChannel(
+    userId: string,
+    workflowId: string,
+    channel: PublishChannelType,
+    dto: UpdatePublishChannelDto,
+  ): Promise<PublishChannelResponse> {
+    this.assertWorkflowChannel(channel);
+    const workflow = await this.findManageablePublishedWorkflowOrThrow(
+      userId,
+      workflowId,
+    );
+    const existingChannel = await this.findOrCreateDefaultWorkflowApiChannel(
+      this.prisma,
+      workflow,
+    );
+    const nextConfig = {
+      ...this.normalizeApiConfig(existingChannel.config),
+      ...this.pickDefined({
+        rateLimitPerMinute: dto.rateLimitPerMinute,
+        rateLimitPerDay: dto.rateLimitPerDay,
+        allowedOrigins: dto.allowedOrigins,
+        allowedIps: dto.allowedIps,
+        expiresAt: dto.expiresAt,
+      }),
+    };
+    const updatedChannel = await this.prisma.publishChannel.update({
+      where: { id: existingChannel.id },
+      data: { config: this.toInputJsonValue(nextConfig) },
+    });
+
+    await this.publishRecordService.createWorkflowRecord(this.prisma, {
+      workspaceId: workflow.workspaceId,
+      workflowId,
+      versionId: workflow.currentVersionId,
+      versionNumber: workflow.currentVersion?.version,
+      operatorId: userId,
+      action: PublishAction.UPDATE_CHANNEL,
+      reason: `更新 ${channel} 发布渠道配置`,
+    });
+
+    return this.toChannelResponse(updatedChannel);
+  }
+
+  async enableWorkflowChannel(
+    userId: string,
+    workflowId: string,
+    channel: PublishChannelType,
+  ): Promise<PublishChannelResponse> {
+    this.assertWorkflowChannel(channel);
+    const workflow = await this.findManageablePublishedWorkflowOrThrow(
+      userId,
+      workflowId,
+    );
+    const existingChannel = await this.findOrCreateDefaultWorkflowApiChannel(
+      this.prisma,
+      workflow,
+    );
+    const updatedChannel = await this.prisma.publishChannel.update({
+      where: { id: existingChannel.id },
+      data: { enabled: true },
+    });
+
+    await this.publishRecordService.createWorkflowRecord(this.prisma, {
+      workspaceId: workflow.workspaceId,
+      workflowId,
+      versionId: workflow.currentVersionId,
+      versionNumber: workflow.currentVersion?.version,
+      operatorId: userId,
+      action: PublishAction.ENABLE_CHANNEL,
+      reason: `启用 ${channel} 发布渠道`,
+    });
+
+    return this.toChannelResponse(updatedChannel);
+  }
+
+  async disableWorkflowChannel(
+    userId: string,
+    workflowId: string,
+    channel: PublishChannelType,
+  ): Promise<PublishChannelResponse> {
+    this.assertWorkflowChannel(channel);
+    const workflow = await this.findWorkflowOrThrow(workflowId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      workflow.workspaceId,
+    );
+
+    const existingChannel = await this.prisma.publishChannel.findUnique({
+      where: {
+        targetType_targetId_channel: {
+          targetType: PublishTargetType.WORKFLOW,
+          targetId: workflowId,
+          channel,
+        },
+      },
+    });
+
+    if (!existingChannel) {
+      throw new BusinessException(
+        '发布渠道不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const updatedChannel = await this.prisma.publishChannel.update({
+      where: { id: existingChannel.id },
+      data: { enabled: false },
+    });
+
+    await this.publishRecordService.createWorkflowRecord(this.prisma, {
+      workspaceId: workflow.workspaceId,
+      workflowId,
+      versionId: workflow.currentVersionId,
+      versionNumber: workflow.currentVersion?.version,
+      operatorId: userId,
+      action: PublishAction.DISABLE_CHANNEL,
+      reason: `禁用 ${channel} 发布渠道`,
+    });
+
+    return this.toChannelResponse(updatedChannel);
+  }
+
+  async rotateWorkflowApiKey(
+    userId: string,
+    workflowId: string,
+    dto?: RotateApiKeyDto,
+  ): Promise<RotateApiKeyResponse> {
+    const workflow = await this.findManageablePublishedWorkflowOrThrow(
+      userId,
+      workflowId,
+    );
+    const existingChannel = await this.findOrCreateDefaultWorkflowApiChannel(
+      this.prisma,
+      workflow,
+    );
+    const rawKey = `mc_live_${randomBytes(24).toString('base64url')}`;
+    const apiKeyHash = createHash('sha256').update(rawKey).digest('hex');
+    const apiKeyPrefix = rawKey.slice(0, 16);
+    const currentConfig = this.normalizeApiConfig(existingChannel.config);
+    const rotatedAt = new Date();
+
+    await this.prisma.publishChannel.update({
+      where: { id: existingChannel.id },
+      data: {
+        config: this.toInputJsonValue({
+          ...currentConfig,
+          apiKeyHash,
+          apiKeyPrefix,
+        }),
+      },
+    });
+
+    await this.publishRecordService.createWorkflowRecord(this.prisma, {
+      workspaceId: workflow.workspaceId,
+      workflowId,
+      versionId: workflow.currentVersionId,
+      versionNumber: workflow.currentVersion?.version,
+      operatorId: userId,
+      action: PublishAction.ROTATE_API_KEY,
+      reason: dto?.reason ?? '重新生成 API Key',
+      createdAt: rotatedAt,
+    });
+
+    return {
+      apiKey: rawKey,
+      apiKeyPrefix,
+      rotatedAt: formatShanghaiDateTime(rotatedAt),
+    };
+  }
+
   async updateAgentChannel(
     userId: string,
     agentId: string,
@@ -290,6 +512,27 @@ export class PublishChannelService {
     return agent;
   }
 
+  private async findManageablePublishedWorkflowOrThrow(
+    userId: string,
+    workflowId: string,
+  ) {
+    const workflow = await this.findWorkflowOrThrow(workflowId);
+    await this.workspaceAccessService.ensureCanManage(
+      userId,
+      workflow.workspaceId,
+    );
+
+    if (!workflow.currentVersionId) {
+      throw new BusinessException(
+        '工作流尚未发布，无法操作发布渠道',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return workflow;
+  }
+
   private async findAgentOrThrow(agentId: string) {
     const agent = await this.prisma.agent.findUnique({
       where: { id: agentId },
@@ -314,6 +557,32 @@ export class PublishChannelService {
     }
 
     return agent;
+  }
+
+  private async findWorkflowOrThrow(workflowId: string) {
+    const workflow = await this.prisma.workflow.findUnique({
+      where: { id: workflowId },
+      select: {
+        id: true,
+        workspaceId: true,
+        currentVersionId: true,
+        currentVersion: {
+          select: {
+            version: true,
+          },
+        },
+      },
+    });
+
+    if (!workflow) {
+      throw new BusinessException(
+        '工作流不存在',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return workflow;
   }
 
   private async findOrCreateDefaultChannel(
@@ -345,6 +614,46 @@ export class PublishChannelService {
         config: this.toInputJsonValue(this.createDefaultConfig(channel)),
       },
     });
+  }
+
+  private async findOrCreateDefaultWorkflowApiChannel(
+    tx: Prisma.TransactionClient | PrismaService,
+    workflow: { id: string; workspaceId: string },
+  ): Promise<PublishChannel> {
+    const existingChannel = await tx.publishChannel.findUnique({
+      where: {
+        targetType_targetId_channel: {
+          targetType: PublishTargetType.WORKFLOW,
+          targetId: workflow.id,
+          channel: PublishChannelType.API,
+        },
+      },
+    });
+
+    if (existingChannel) {
+      return existingChannel;
+    }
+
+    return tx.publishChannel.create({
+      data: {
+        workspaceId: workflow.workspaceId,
+        targetType: PublishTargetType.WORKFLOW,
+        targetId: workflow.id,
+        channel: PublishChannelType.API,
+        enabled: false,
+        config: this.toInputJsonValue(this.createDefaultApiConfig()),
+      },
+    });
+  }
+
+  private assertWorkflowChannel(channel: PublishChannelType): void {
+    if (channel !== PublishChannelType.API) {
+      throw new BusinessException(
+        '工作流第一版仅支持 API 发布渠道',
+        ErrorCode.BadRequest,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   private mergeChannelConfig(

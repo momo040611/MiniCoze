@@ -5,11 +5,16 @@
 // - {{<nodeId>.output}}    某节点的完整输出
 // - {{loop.item}}          当前循环项
 // - {{loop.index}}         当前循环下标
+// - {{session.xxx}}        会话变量（一次会话内多轮共享，持久化）
+// - {{global.xxx}}         全局变量（跨会话永久保存，按用户维度）
 
 export interface VariableScope {
   input: Record<string, unknown>;
   nodeOutputs: Record<string, Record<string, unknown>>;
   loop?: Record<string, unknown>;
+  // 持久化变量：会话级 / 全局级。运行开始前从数据库加载注入。
+  session?: Record<string, unknown>;
+  global?: Record<string, unknown>;
 }
 
 const INLINE_REF_PATTERN = /\{\{\s*([^}]+?)\s*\}\}/g;
@@ -71,6 +76,10 @@ function lookupPath(path: string, scope: VariableScope): unknown {
     base = scope.input;
   } else if (head === 'loop') {
     base = scope.loop ?? {};
+  } else if (head === 'session') {
+    base = scope.session ?? {};
+  } else if (head === 'global') {
+    base = scope.global ?? {};
   } else if (scope.nodeOutputs[head] !== undefined) {
     base = scope.nodeOutputs[head];
     // 兼容 {{nodeId.output.x}} 写法：跳过中间的 "output" 段。

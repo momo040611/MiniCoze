@@ -45,6 +45,7 @@ export class WorkflowMapper {
       definition: this.toObjectOrEmpty(workflowVersion.definition),
       inputSchema: this.toObjectOrNull(workflowVersion.inputSchema),
       outputSchema: this.toObjectOrNull(workflowVersion.outputSchema),
+      changelog: workflowVersion.changelog,
       isPublished: workflowVersion.isPublished,
       publishedAt: workflowVersion.publishedAt
         ? formatShanghaiDateTime(workflowVersion.publishedAt)

@@ -181,3 +181,492 @@
   background: #f0f7ff;
   border: 1px solid #d6e4f0;
 }
+
+/* API 调用说明 */
+.apiUsage {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fafbfc;
+  border: 1px solid #e8ecf0;
+  border-radius: 8px;
+}
+
+.codeBlock {
+  margin-bottom: 8px;
+}
+
+.preCode {
+  margin: 0;
+  padding: 10px 14px;
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ============================================
+   公开分享页面 /share/agents/:slug
+   ============================================ */
+
+.sharePage {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 顶栏 */
+.shareTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e8ecf0;
+  flex-shrink: 0;
+}
+
+.shareAgentInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.shareAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #e6f4ff;
+}
+
+.shareName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #12294a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shareDesc {
+  font-size: 12px;
+  color: #7b8ba3;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shareCopyBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid #d6e4f0;
+  border-radius: 6px;
+  background: #fff;
+  color: #1677ff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.shareCopyBtn:hover {
+  background: #e6f4ff;
+  border-color: #91caff;
+}
+
+.shareBrand {
+  font-size: 11px;
+  color: #b8c1cc;
+  white-space: nowrap;
+}
+
+/* 聊天区域 */
+.shareChatArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.shareMessages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.shareMessages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.shareMessages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.shareMessages::-webkit-scrollbar-thumb {
+  background: #d0d5dd;
+  border-radius: 2px;
+}
+
+/* 空状态 */
+.shareEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.shareEmptyAvatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  object-fit: cover;
+  margin-bottom: 16px;
+  background: #e6f4ff;
+}
+
+.shareEmptyName {
+  font-size: 22px;
+  font-weight: 700;
+  color: #12294a;
+  margin-bottom: 6px;
+}
+
+.shareEmptyDesc {
+  font-size: 14px;
+  color: #7b8ba3;
+  max-width: 420px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.shareOpeningMsg {
+  font-size: 14px;
+  color: #12294a;
+  background: #f0f7ff;
+  border: 1px solid #bae0ff;
+  border-radius: 0 12px 12px 12px;
+  padding: 12px 16px;
+  max-width: 80%;
+  line-height: 1.6;
+  margin-top: 16px;
+}
+
+.shareOpeningQs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.shareOpeningQ {
+  padding: 6px 16px;
+  border: 1px solid #d6e4f0;
+  border-radius: 20px;
+  background: #fff;
+  color: #1677ff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.shareOpeningQ:hover {
+  background: #e6f4ff;
+  border-color: #91caff;
+}
+
+/* 消息气泡 */
+.shareBubble {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.shareBubbleUser {
+  flex-direction: row-reverse;
+}
+
+.shareBubbleAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #e6f4ff;
+}
+
+.shareBubbleContent {
+  max-width: 75%;
+  min-width: 0;
+}
+
+.shareBubbleText {
+  padding: 10px 16px;
+  border-radius: 0 10px 10px 10px;
+  background: #f3f4f6;
+  font-size: 14px;
+  color: #18202f;
+  line-height: 1.65;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.shareBubbleUser .shareBubbleText {
+  border-radius: 10px 0 10px 10px;
+  background: #e6f4ff;
+}
+
+.shareBubbleMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #a0aec0;
+}
+
+.shareBubbleTime {
+  flex-shrink: 0;
+}
+
+.shareStatusIcon {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.shareStatusSending { color: #6b7280; }
+.shareStatusStreaming { color: #1677ff; }
+.shareStatusSuccess { color: #22c55e; }
+.shareStatusFailed { color: #ef4444; }
+
+.shareErrorBanner {
+  margin: 0 20px;
+  padding: 8px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 13px;
+}
+
+/* 输入栏 */
+.shareInputBar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fff;
+  border-top: 1px solid #e8ecf0;
+}
+
+.shareInputRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shareAttachBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #d6e4f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #1677ff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.shareAttachBtn:hover:not(:disabled) {
+  background: #e6f4ff;
+  border-color: #91caff;
+}
+
+.shareAttachBtn:disabled {
+  color: #b8c1cc;
+  cursor: not-allowed;
+}
+
+.shareInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #d6e4f0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #18202f;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: #fafbfc;
+  resize: none;
+}
+
+.shareInput::placeholder {
+  color: #b8c1cc;
+}
+
+.shareInput:focus {
+  border-color: #1677ff;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.08);
+}
+
+.shareSendBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 10px;
+  background: #1677ff;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.shareSendBtn:hover:not(:disabled) {
+  background: #4096ff;
+}
+
+.shareSendBtn:disabled {
+  background: #d6e4f0;
+  color: #b8c1cc;
+  cursor: not-allowed;
+}
+
+.shareFilePreviewBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 520px;
+  padding: 8px 10px;
+  border: 1px solid #d6e4f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.shareFilePreviewThumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.shareFileDocIcon,
+.shareAttachmentIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #e6f4ff;
+  color: #1677ff;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.shareFilePreviewInfo,
+.shareAttachmentInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.shareFilePreviewName,
+.shareAttachmentName {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #12294a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.shareFilePreviewSize,
+.shareAttachmentSize {
+  color: #7b8ba3;
+  font-size: 11px;
+}
+
+.shareFileRemoveBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #ef4444;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.shareFileRemoveBtn:hover {
+  background: #fee2e2;
+}
+
+.shareAttachments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.shareAttachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid #d6e4f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.shareAttachmentThumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.shareFooter {
+  text-align: center;
+  padding: 6px;
+  font-size: 11px;
+  color: #b8c1cc;
+  background: #fff;
+  border-top: 1px solid #f0f2f5;
+  flex-shrink: 0;
+}

@@ -118,6 +118,7 @@ export type WorkflowStreamEvent =
       type: 'run.failed';
       runId: string;
       errorMessage?: string;
+      error?: string;
     }
   | {
       type: 'stream.done';
@@ -530,6 +531,14 @@ export async function updateWorkflowRemote(
   return fromWorkflowResponse(res.data);
 }
 
+export async function deleteWorkflowRemote(id: string): Promise<Workflow> {
+  const res = await http.delete<ApiEnvelope<WorkflowResponseLike>>(
+    `workflows/${id}`,
+  );
+
+  return fromWorkflowResponse(res.data);
+}
+
 export async function saveWorkflowDraft(
   id: string,
   canvasData: WorkflowCanvasData,
@@ -643,4 +652,19 @@ export async function runWorkflowStreamRemote(
 
 export async function deleteWorkflow(id: string): Promise<void> {
   writeWorkflows(readWorkflows().filter((item) => item.id !== id));
+}
+
+export async function replaceAgentWorkflowBindings(
+  agentId: string,
+  bindings: Array<{
+    workflowId: string;
+    workflowVersionId?: string;
+    enabled?: boolean;
+  }>,
+) {
+  const response = await http.put<ApiEnvelope<unknown[]>>(
+    `agents/${agentId}/workflows`,
+    { bindings },
+  );
+  return response.data;
 }

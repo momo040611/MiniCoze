@@ -14,6 +14,7 @@ export {
   createWorkflow,
   createWorkflowRemote,
   deleteWorkflow,
+  deleteWorkflowRemote,
   fromWorkflowResponse,
   getWorkflowById,
   getWorkflowByIdRemote,

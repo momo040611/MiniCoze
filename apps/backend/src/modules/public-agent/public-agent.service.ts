@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   AgentStatus,
+  FilePurpose,
   Prisma,
   PublishChannel,
   PublishChannelType,
@@ -12,6 +13,9 @@ import { BusinessException } from '../../common/exceptions/business.exception';
 import { PrismaService } from '../../database/prisma.service';
 import type { RuntimeEvent } from '../../shared/types/agent';
 import { AgentRuntimeService } from '../agent-runtime/agent-runtime.service';
+import { FileService } from '../file/file.service';
+import type { FileResponse } from '../file/types/file-response.type';
+import type { UploadedFile } from '../file/types/uploaded-file.type';
 import { parseAgentPublishSnapshot } from '../publish/agent-publish-snapshot.util';
 import type { AgentPublishSnapshot } from '../publish/types/publish.types';
 import { PublicAgentChatDto } from './dto/public-agent-chat.dto';
@@ -32,9 +36,18 @@ interface PublishedAgentRunTarget {
 
 @Injectable()
 export class PublicAgentService {
+  private readonly publicChatTextMimeTypes = new Set([
+    'text/plain',
+    'text/markdown',
+    'text/x-markdown',
+  ]);
+
+  private readonly publicChatTextExtensions = new Set(['.txt', '.md']);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly agentRuntimeService: AgentRuntimeService,
+    private readonly fileService: FileService,
   ) {}
 
   async getPublicAgentBySlug(slug: string): Promise<PublicAgentInfo> {
@@ -57,6 +70,20 @@ export class PublicAgentService {
     return this.runPublishedTarget(target, dto);
   }
 
+  async uploadWebChatAttachment(
+    slug: string,
+    file: UploadedFile | undefined,
+  ): Promise<FileResponse> {
+    const target = await this.findPublicAgentTargetBySlug(slug);
+
+    this.ensureSupportedPublicChatAttachment(file);
+
+    return this.fileService.upload(target.creatorId, file, {
+      purpose: FilePurpose.CHAT_ATTACHMENT,
+      workspaceId: target.snapshot.agent.workspaceId,
+    });
+  }
+
   async createApiRunStream(
     authorization: string | undefined,
     dto: PublicAgentChatDto,
@@ -75,6 +102,7 @@ export class PublicAgentService {
       userId: target.creatorId,
       message: this.resolveMessage(dto),
       conversationId: dto.conversationId,
+      attachments: dto.attachments,
       publicAccess: {
         conversationIdPrefix: this.getPublicConversationIdPrefix(target, dto),
       },
@@ -221,6 +249,35 @@ export class PublicAgentService {
       ErrorCode.BadRequest,
       HttpStatus.BAD_REQUEST,
     );
+  }
+
+  private ensureSupportedPublicChatAttachment(
+    file: UploadedFile | undefined,
+  ): void {
+    if (!file) {
+      return;
+    }
+
+    const isImage = file.mimetype.startsWith('image/');
+    const extension = this.getFileExtension(file.originalname);
+    const isText =
+      this.publicChatTextMimeTypes.has(file.mimetype) ||
+      (extension ? this.publicChatTextExtensions.has(extension) : false);
+
+    if (isImage || isText) {
+      return;
+    }
+
+    throw new BusinessException(
+      'Public chat attachments only support images and txt/md text files',
+      ErrorCode.BadRequest,
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+
+  private getFileExtension(fileName: string): string | null {
+    const index = fileName.lastIndexOf('.');
+    return index >= 0 ? fileName.slice(index).toLowerCase() : null;
   }
 
   private parseBearerKey(authorization: string | undefined): string {

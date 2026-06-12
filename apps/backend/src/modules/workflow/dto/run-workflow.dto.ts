@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsObject, IsOptional, Min } from 'class-validator';
+import { IsInt, IsObject, IsOptional, IsString, Min } from 'class-validator';
 
 export class RunWorkflowDto {
   @ApiPropertyOptional({
@@ -21,4 +21,13 @@ export class RunWorkflowDto {
   @IsInt()
   @Min(1)
   version?: number;
+
+  @ApiPropertyOptional({
+    example: 'conv_123',
+    description:
+      '会话 ID：用于隔离 session 变量（多轮对话记忆）。不传则本次运行无会话上下文，session 变量不可写。',
+  })
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
 }

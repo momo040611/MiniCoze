@@ -31,7 +31,6 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
   const [editVisible, setEditVisible] = useState(false);
   const [status, setStatus] = useState(agent.status);
   const [publishing, setPublishing] = useState(false);
-  const isPublished = status === 'ACTIVE';
 
   const {
     orchestration,
@@ -121,38 +120,48 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
     if (publishing) return;
     setPublishing(true);
     try {
-      if (isPublished) {
-        // 下线：调用专用下线接口
-        await offlineAgent(agent.id);
-        setStatus('DRAFT');
-      } else {
-        // 发布：先保存草稿，再执行发布流程
-        if (dirty) {
-          await handleSave();
-        }
-        // 1. 检查是否满足发布条件
-        const checkResult = await checkAgent(agent.id);
-        if (!checkResult.passed) {
-          const failedMessages = checkResult.items
-            .filter((item) => !item.passed)
-            .map((item) => item.message ?? item.label)
-            .join('\n');
-          alert(`发布检查未通过：\n${failedMessages}`);
-          return;
-        }
-        // 2. 执行发布（创建版本快照）
-        await publishAgent(agent.id);
-        setStatus('ACTIVE');
+      // 发布前先保存草稿
+      if (dirty) {
+        await handleSave();
       }
+      // 1. 检查是否满足发布条件
+      const checkResult = await checkAgent(agent.id);
+      if (!checkResult.passed) {
+        const failedMessages = checkResult.items
+          .filter((item) => !item.passed)
+          .map((item) => item.message ?? item.label)
+          .join('\n');
+        alert(`发布检查未通过：\n${failedMessages}`);
+        return;
+      }
+      // 2. 执行发布（创建版本快照）
+      await publishAgent(agent.id);
+      setStatus('ACTIVE');
       onAgentUpdated();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : '操作失败';
-      alert(isPublished ? `下线失败：${message}` : `发布失败：${message}`);
+      alert(`发布失败：${message}`);
     } finally {
       setPublishing(false);
     }
-  }, [agent.id, isPublished, publishing, dirty, handleSave, onAgentUpdated]);
+  }, [agent.id, publishing, dirty, handleSave, onAgentUpdated]);
+
+  const handleOffline = useCallback(async () => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      await offlineAgent(agent.id);
+      setStatus('DRAFT');
+      onAgentUpdated();
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : '操作失败';
+      alert(`下线失败：${message}`);
+    } finally {
+      setPublishing(false);
+    }
+  }, [agent.id, publishing, onAgentUpdated]);
 
   const handleModelChange = useCallback(
     (newModel: string) => {
@@ -206,6 +215,7 @@ export function AgentDetail({ agent, onBack, onAgentUpdated }: Props) {
         onModeChange={handleModeChange}
         onSave={handleSave}
         onPublish={handlePublish}
+        onOffline={handleOffline}
       />
       <div className={styles.columns} key={contentKey}>
         <AgentDetailContent
