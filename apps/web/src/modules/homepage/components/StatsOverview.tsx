@@ -16,9 +16,10 @@ export function StatsOverview({ stats, loading, onClick, onCreate }: Props) {
   const handleCreate = useCallback(
     (key: string) => {
       // 根据 key 跳转到对应的创建页面
+      // 知识库有独立的创建路由，其他模块在列表页即可创建
       const createPaths: Record<string, string> = {
         agents: '/agents',
-        knowledge: '/knowledge',
+        knowledge: '/knowledge/create',
         workflows: '/workflows',
         plugins: '/plugins',
         publish: '/publish',

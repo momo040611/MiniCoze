@@ -666,6 +666,84 @@
   word-break: break-word;
 }
 
+/* 工作流步骤卡片 */
+.workflowStepCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #f9f0ff 0%, #f0f5ff 100%);
+  border: 1px solid #d3adf7;
+  border-radius: 10px;
+  margin: 4px 0;
+  font-size: 13px;
+  max-width: 85%;
+  align-self: flex-start;
+  box-shadow: 0 2px 8px rgba(114, 46, 209, 0.08);
+}
+
+.workflowStepHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.workflowStepName {
+  font-weight: 600;
+  color: #722ed1;
+}
+
+.workflowStepSep {
+  color: #bfbfbf;
+}
+
+.workflowStepNode {
+  font-weight: 500;
+  color: #595959;
+}
+
+.workflowStepStatus {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+.workflowStepError {
+  font-size: 12px;
+  color: #ff4d4f;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 77, 79, 0.15);
+}
+
+[data-theme='dark'] .workflowStepCard {
+  background: linear-gradient(135deg, #1a1325 0%, #151a30 100%);
+  border-color: rgba(114, 46, 209, 0.3);
+}
+
+[data-theme='dark'] .workflowStepName {
+  color: #b37feb;
+}
+
+[data-theme='dark'] .workflowStepNode {
+  color: #d9d9d9;
+}
+
+[data-theme='dark'] .workflowStepSep {
+  color: #434343;
+}
+
+[data-theme='dark'] .workflowStepStatus {
+  color: #8c8c8c;
+}
+
+[data-theme='dark'] .workflowStepError {
+  color: #ff7875;
+}
+
 /* ── 操作按钮栏 ── */
 .messageActions {
   display: flex;

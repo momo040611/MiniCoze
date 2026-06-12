@@ -104,6 +104,7 @@ export function PreviewChat({
   const chatEndRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const toolCallStartRef = useRef<Map<string, number>>(new Map())
+  const runStartRef = useRef(0)
 
   // 调试状态
   const [currentRunId, setCurrentRunId] = useState('')
@@ -184,6 +185,7 @@ export function PreviewChat({
     setKnowledgeEvent(null)
     setKnowledgeDismissed(false)
     toolCallStartRef.current.clear()
+    runStartRef.current = performance.now()
 
     runAgentStream(
       {
@@ -296,7 +298,10 @@ export function PreviewChat({
 
             case 'run.completed': {
               const rc = event as RunCompletedEvent
-              setCurrentLatency(0) // 会在 stream.done 中计算
+              const latency = runStartRef.current
+                ? Math.round(performance.now() - runStartRef.current)
+                : 0
+              setCurrentLatency(latency)
               if (rc.usage) setCurrentUsage(rc.usage)
               break
             }
@@ -317,12 +322,15 @@ export function PreviewChat({
             case 'stream.done':
               // 添加调试信息面板
               if (currentToolCalls.length > 0 || currentRunId) {
+                const latency = runStartRef.current
+                  ? Math.round(performance.now() - runStartRef.current)
+                  : 0
                 const debugMsg: DebugMessage = {
                   id: `debug-${Date.now()}`,
                   kind: 'debug',
                   runId: currentRunId,
                   model: model || 'unknown',
-                  latency: 0,
+                  latency,
                   usage: currentUsage,
                   toolCalls: currentToolCalls,
                   time: timeStr,
@@ -333,58 +341,6 @@ export function PreviewChat({
               setSending(false)
               abortRef.current = null
               break
-
-            case 'run.failed':
-              sendingRef.current = false
-              setSending(false)
-              abortRef.current = null
-              break
-
-            case 'run.in_progress':
-              break
-
-            case 'tool.call.created': {
-              const params = event.args && typeof event.args === 'object' && !Array.isArray(event.args)
-                ? event.args as Record<string, unknown>
-                : { value: event.args }
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `tool-${event.toolCallId}`,
-                  text: '',
-                  sender: 'agent',
-                  time: timeStr,
-                  toolCall: {
-                    callId: event.toolCallId,
-                    toolName: event.name,
-                    params,
-                    status: 'running',
-                    startedAt: new Date().toISOString(),
-                  },
-                },
-              ])
-              break
-            }
-
-            case 'tool.call.completed':
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === `tool-${event.toolCallId}` && m.toolCall
-                    ? {
-                        ...m,
-                        toolCall: {
-                          ...m.toolCall,
-                          toolName: event.name,
-                          status: 'success',
-                          result: event.result,
-                          finishedAt: new Date().toISOString(),
-                        },
-                      }
-                    : m
-                )
-              )
-              break
-
 
             default:
               break

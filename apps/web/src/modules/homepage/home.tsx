@@ -5,7 +5,8 @@ import {
   PaperClipOutlined, SendOutlined, CloseOutlined, PlusOutlined,
   MessageOutlined, DeleteOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
   ExclamationCircleOutlined, CopyOutlined, ReloadOutlined, EditOutlined,
-  DownOutlined, PauseOutlined,
+  DownOutlined, PauseOutlined, ToolOutlined, LoadingOutlined,
+  CheckCircleFilled, CloseCircleFilled, DeploymentUnitOutlined,
 } from '@ant-design/icons'
 import styles from './home.module.css'
 import { getConversations, getConversation, deleteConversation } from '../../api/homepage'
@@ -14,7 +15,7 @@ import { runAgentStream } from '../../api/agent-runtime'
 import type {
   RuntimeEvent, TokenUsage,
   ToolCallCreatedEvent, ToolCallCompletedEvent,
-  KnowledgeStatusEvent,
+  KnowledgeStatusEvent, WorkflowStepEvent, RetrievalChunk,
 } from '../../api/agent-runtime'
 import { getAgentList } from '../../api/agent-config'
 import { formatFileSize } from './utils/format'
@@ -28,6 +29,21 @@ interface ToolCallMessage {
   kind: 'tool-call';
   id: string;
   toolData: ToolCallData;
+}
+
+interface WorkflowStepMessage {
+  kind: 'workflow-step';
+  id: string;
+  workflowId: string;
+  workflowName: string;
+  stepId: string;
+  stepName: string;
+  stepType: string;
+  status: 'running' | 'success' | 'failed' | 'skipped';
+  input?: unknown;
+  output?: unknown;
+  error?: string;
+  duration?: number;
 }
 
 interface ChatMessage {
@@ -52,7 +68,7 @@ interface ErrorMessage {
   retryText: string;
 }
 
-type ChatItem = ChatMessage | ToolCallMessage | ErrorMessage;
+type ChatItem = ChatMessage | ToolCallMessage | WorkflowStepMessage | ErrorMessage;
 
 // 智能体会话缓存
 interface AgentSessionState {
@@ -99,6 +115,7 @@ export function HomepageIndex() {
   const [currentToolCalls, setCurrentToolCalls] = useState<ToolCallData[]>([])
   const [knowledgeEvent, setKnowledgeEvent] = useState<{ type: string; runId: string; knowledge: { bound: boolean; knowledgeName?: string; retrievedCount?: number } } | null>(null)
   const [knowledgeDismissed, setKnowledgeDismissed] = useState(false)
+  const [retrievalChunks, setRetrievalChunks] = useState<RetrievalChunk[]>([])
   const runStartRef = useRef(0)
   const lastUserMessageRef = useRef('')
 
@@ -261,6 +278,7 @@ export function HomepageIndex() {
     setCurrentToolCalls([])
     setKnowledgeEvent(null)
     setKnowledgeDismissed(false)
+    setRetrievalChunks([])
   }, [])
 
   const handleSelectConversation = useCallback(async (convId: string) => {
@@ -271,6 +289,7 @@ export function HomepageIndex() {
     }
     setSending(false)
     sendingRef.current = false
+    setKnowledgeDismissed(false)
     try {
       await loadConversationMessages(convId)
     } catch (e) {
@@ -457,6 +476,7 @@ export function HomepageIndex() {
     setCurrentToolCalls([])
     setKnowledgeEvent(null)
     setKnowledgeDismissed(false)
+    setRetrievalChunks([])
     runStartRef.current = performance.now()
 
     let knowledgeBaseId: string | undefined
@@ -498,6 +518,42 @@ export function HomepageIndex() {
                 knowledge: ksEvent.knowledge,
               })
               setKnowledgeDismissed(false)
+              // 提取检索到的知识库 chunk 详情
+              if (ksEvent.knowledge.bound && ksEvent.knowledge.chunks) {
+                setRetrievalChunks(ksEvent.knowledge.chunks)
+              }
+              break
+            }
+
+            case 'workflow.step': {
+              const wsEvent = event as WorkflowStepEvent
+              const wsId = `ws-${wsEvent.stepId}-${Date.now()}`
+              const wsMsg: WorkflowStepMessage = {
+                kind: 'workflow-step',
+                id: wsId,
+                workflowId: wsEvent.workflowId,
+                workflowName: wsEvent.workflowName,
+                stepId: wsEvent.stepId,
+                stepName: wsEvent.stepName,
+                stepType: wsEvent.stepType,
+                status: wsEvent.status,
+                input: wsEvent.input,
+                output: wsEvent.output,
+                error: wsEvent.error,
+                duration: wsEvent.duration,
+              }
+              setMessages((prev) => {
+                // 如果已有同 stepId 的消息，更新状态
+                const existingIdx = prev.findIndex(
+                  (m) => m.kind === 'workflow-step' && (m as WorkflowStepMessage).stepId === wsEvent.stepId
+                )
+                if (existingIdx >= 0) {
+                  return prev.map((m, i) =>
+                    i === existingIdx ? { ...m, ...wsMsg, id: m.id } : m
+                  )
+                }
+                return [...prev, wsMsg]
+              })
               break
             }
 
@@ -781,6 +837,12 @@ export function HomepageIndex() {
   const handleSaveEdit = () => {
     const trimmed = editText.trim()
     if (!trimmed) return
+    if (sending) {
+      message.warning('请先停止当前生成再发送')
+      return
+    }
+    // 移除被编辑的原消息，避免重复
+    setMessages((prev) => prev.filter((m) => m.id !== editingMsgId))
     setEditingMsgId(null)
     setEditText('')
     sendMessage(trimmed)
@@ -826,6 +888,36 @@ export function HomepageIndex() {
     // B2: 工具调用卡片
     if (item.kind === 'tool-call') {
       return <ToolCallCard key={item.id} data={item.toolData} />
+    }
+
+    // B2b: 工作流步骤卡片
+    if (item.kind === 'workflow-step') {
+      const ws = item as WorkflowStepMessage
+      const statusIcon = ws.status === 'running'
+        ? <LoadingOutlined style={{ color: '#1677ff' }} />
+        : ws.status === 'success'
+          ? <CheckCircleFilled style={{ color: '#52c41a' }} />
+          : ws.status === 'failed'
+            ? <CloseCircleFilled style={{ color: '#ff4d4f' }} />
+            : <DeploymentUnitOutlined style={{ color: '#8c8c8c' }} />
+      const statusText = ws.status === 'running' ? '执行中...'
+        : ws.status === 'success' ? `完成${ws.duration ? ` · ${ws.duration}ms` : ''}`
+        : ws.status === 'failed' ? '失败' : '跳过'
+
+      return (
+        <div key={ws.id} className={styles.workflowStepCard}>
+          <div className={styles.workflowStepHeader}>
+            <DeploymentUnitOutlined style={{ color: '#722ed1', fontSize: 14 }} />
+            <span className={styles.workflowStepName}>{ws.workflowName}</span>
+            <span className={styles.workflowStepSep}>›</span>
+            <span className={styles.workflowStepNode}>{ws.stepName}</span>
+            <span className={styles.workflowStepStatus}>{statusIcon} {statusText}</span>
+          </div>
+          {ws.error && (
+            <div className={styles.workflowStepError}>{ws.error}</div>
+          )}
+        </div>
+      )
     }
 
     // 聊天消息
@@ -1007,6 +1099,7 @@ export function HomepageIndex() {
             <KnowledgeStatus
               knowledgeEvent={knowledgeEvent}
               onClose={() => setKnowledgeDismissed(true)}
+              retrievalChunks={retrievalChunks}
             />
           )}
           {messages.length === 0 ? (

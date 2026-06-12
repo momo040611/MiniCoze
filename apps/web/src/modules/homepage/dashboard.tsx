@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Drawer, Result, Skeleton } from 'antd';
 import { ThunderboltOutlined, ToolOutlined, BookOutlined, DeploymentUnitOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
@@ -7,6 +7,8 @@ import { WorkspaceCard } from './components/WorkspaceCard';
 import { StatsOverview } from './components/StatsOverview';
 import { ActivityTimeline } from './components/ActivityTimeline';
 import { SidePanel } from './components/SidePanel';
+import { QuickCreate } from './components/QuickCreate';
+import { WorkspaceSwitcher } from '../workspace/WorkspaceSwitcher';
 import type { DashboardRunLog } from '../../api/dashboard';
 import styles from './dashboard.module.css';
 
@@ -128,6 +130,7 @@ export function DashboardPage() {
     activities,
     hasMoreActivities,
     systemStatus,
+    quickActions,
     userName,
     workspaceName,
     workspaceDescription,
@@ -137,12 +140,22 @@ export function DashboardPage() {
     dateStr,
   } = dashboard;
 
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-
   const go = useCallback((path: string) => nav(path), [nav]);
-  const handleSwitchWorkspace = useCallback(() => {
-    setSwitcherOpen(true);
-  }, []);
+
+  // 统计卡片"+"按钮：导航到对应创建页面
+  const handleStatCreate = useCallback(
+    (key: string) => {
+      const createPaths: Record<string, string> = {
+        agents: '/agents',
+        knowledge: '/knowledge/create',
+        workflows: '/workflows',
+        plugins: '/plugins',
+        publish: '/publish',
+      };
+      nav(createPaths[key] ?? '/');
+    },
+    [nav],
+  );
 
   if (statsState === 'loading' && !data) {
     return <LoadingSkeleton />;
@@ -162,14 +175,17 @@ export function DashboardPage() {
         workspaceDescription={workspaceDescription}
         memberCount={memberCount}
         role={workspaceRole}
-        onSwitchWorkspace={handleSwitchWorkspace}
+        extraActions={<WorkspaceSwitcher />}
       />
 
       <StatsOverview
         stats={stats}
         loading={statsState === 'loading'}
         onClick={go}
+        onCreate={handleStatCreate}
       />
+
+      <QuickCreate items={quickActions} onClick={go} />
 
       <div className={styles.mainRow}>
         <div className={`${styles.timelineWrap} ${sidePanelCollapsed ? styles.timelineFull : ''}`}>

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input, Modal, List, Avatar, Empty, Spin, Tag } from 'antd';
 import {
@@ -10,6 +10,8 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { getAgentList } from '../../../api/agent-config';
+import { getWorkflowListRemote } from '../../../api/workflows';
+import { getCurrentWorkspaceId } from '../../../api/workspace';
 
 interface SearchResult {
   id: string;
@@ -33,9 +35,10 @@ export function GlobalSearch() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleSearch = useCallback(async (value: string) => {
-    const kw = value.trim();
+    const kw = value.trim().toLowerCase();
     if (!kw) {
       setResults([]);
       return;
@@ -43,20 +46,44 @@ export function GlobalSearch() {
 
     setLoading(true);
     try {
-      // 搜索智能体
-      const agents = await getAgentList({ keyword: kw });
-      const agentResults: SearchResult[] = agents.map((a) => ({
-        id: a.id,
-        type: 'agent' as const,
-        title: a.name,
-        description: a.description || a.persona?.slice(0, 50),
-        icon: <RobotOutlined style={{ color: '#565fe2' }} />,
-        path: `/agents/${a.id}`,
-      }));
+      // 并行搜索智能体和工作流
+      // 注意：对话和知识库搜索暂未实现，需要后端新接口支持
+      const workspaceId = await getCurrentWorkspaceId();
+      const [agentsResult, wfResult] = await Promise.allSettled([
+        getAgentList(),
+        getWorkflowListRemote(workspaceId),
+      ]);
 
-      // TODO: 搜索对话、知识库、工作流（需要后端支持全局搜索 API）
-      // 目前只展示智能体搜索结果
-      setResults(agentResults);
+      const agentResults: SearchResult[] =
+        agentsResult.status === 'fulfilled'
+          ? agentsResult.value
+              .filter((a) => a.name.toLowerCase().includes(kw) || (a.description?.toLowerCase().includes(kw) ?? false))
+              .map((a) => ({
+                id: `agent-${a.id}`,
+                type: 'agent' as const,
+                title: a.name,
+                description: a.description || a.persona?.slice(0, 50),
+                icon: <RobotOutlined style={{ color: '#565fe2' }} />,
+                path: `/agents/${a.id}`,
+              }))
+          : [];
+
+      const wfResults: SearchResult[] =
+        wfResult.status === 'fulfilled'
+          ? wfResult.value
+              .filter((wf) => wf.name.toLowerCase().includes(kw))
+              .map((wf) => ({
+                id: `wf-${wf.id}`,
+                type: 'workflow' as const,
+                title: wf.name,
+                description: wf.description ?? undefined,
+                icon: <DeploymentUnitOutlined style={{ color: '#a855f7' }} />,
+                path: `/workflows/${wf.id}`,
+              }))
+          : [];
+
+      // 合并结果，智能体优先
+      setResults([...agentResults, ...wfResults]);
     } catch (err) {
       console.error('搜索失败:', err);
       setResults([]);
@@ -78,7 +105,7 @@ export function GlobalSearch() {
     <>
       <Input
         prefix={<SearchOutlined style={{ color: '#8896a6' }} />}
-        placeholder="搜索智能体、对话、知识库..."
+        placeholder="搜索智能体、工作流..."
         style={{ width: 280, borderRadius: 8, cursor: 'pointer' }}
         readOnly
         onClick={() => setOpen(true)}
@@ -114,8 +141,17 @@ export function GlobalSearch() {
           prefix={<SearchOutlined />}
           placeholder="输入关键词搜索..."
           value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          onPressEnter={() => handleSearch(keyword)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setKeyword(val);
+            // 300ms 防抖自动搜索
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = setTimeout(() => handleSearch(val), 300);
+          }}
+          onPressEnter={() => {
+            if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+            handleSearch(keyword);
+          }}
           size="large"
           style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid #f0f0f0' }}
           autoFocus
