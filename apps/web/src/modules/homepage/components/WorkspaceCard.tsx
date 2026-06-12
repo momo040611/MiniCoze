@@ -12,7 +12,8 @@ interface Props {
   workspaceDescription?: string | null;
   memberCount: number;
   role?: string;
-  onSwitchWorkspace: () => void;
+  onSwitchWorkspace?: () => void;
+  extraActions?: React.ReactNode;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ export function WorkspaceCard({
   memberCount,
   role,
   onSwitchWorkspace,
+  extraActions,
 }: Props) {
   const nav = useNavigate();
 
@@ -47,14 +49,16 @@ export function WorkspaceCard({
           <p className={styles.date}>{dateStr}</p>
         </div>
         <div className={styles.actions}>
-          <button
-            className={styles.actionBtn}
-            onClick={onSwitchWorkspace}
-            title="切换工作区"
-          >
-            <SwapOutlined />
-            <span>切换</span>
-          </button>
+          {extraActions ?? (
+            <button
+              className={styles.actionBtn}
+              onClick={onSwitchWorkspace}
+              title="切换工作区"
+            >
+              <SwapOutlined />
+              <span>切换</span>
+            </button>
+          )}
           <button
             className={styles.actionBtn}
             onClick={handleSettings}

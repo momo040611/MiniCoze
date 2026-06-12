@@ -49,6 +49,13 @@ export interface DashboardSummary {
   recentConversations: DashboardConversationSummary[];
   recentWorkflows: DashboardWorkflowRun[];
   recentLogs: DashboardRunLog[];
+  // 以下字段需要后端支持，当前为可选
+  /** 已发布的智能体/工作流数量 */
+  publishActiveCount?: number;
+  /** 知识库中已就绪（已完成嵌入）的数量 */
+  knowledgeReadyCount?: number;
+  /** 知识库中正在处理的数量 */
+  knowledgeProcessingCount?: number;
 }
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {

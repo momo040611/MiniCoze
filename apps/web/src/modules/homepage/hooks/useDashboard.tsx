@@ -5,6 +5,7 @@ import {
   type ActivityItem,
   type StatItem,
   type SystemStatusData,
+  type QuickAction,
 } from '../../../api/dashboard';
 import { getCurrentUser } from '../../../api/auth/auth-store';
 import { useWorkspace } from '../../workspace/use-workspace';
@@ -14,6 +15,8 @@ import {
   DeploymentUnitOutlined,
   ApiOutlined,
   ThunderboltOutlined,
+  PlusOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 
 const PAGE_SIZE = 10;
@@ -24,6 +27,13 @@ const STAT_DEFS: Omit<StatItem, 'value'>[] = [
   { key: 'workflows', label: '工作流', icon: <DeploymentUnitOutlined />, accentColor: '#f59e0b', targetPath: '/workflows' },
   { key: 'plugins', label: '插件', icon: <ApiOutlined />, accentColor: '#ec4899', targetPath: '/plugins' },
   { key: 'publish', label: '待发布', icon: <ThunderboltOutlined />, accentColor: '#3b82f6', targetPath: '/publish' },
+];
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { key: 'new-agent', label: '新建智能体', description: '创建一个 AI 智能体', icon: <PlusOutlined />, targetPath: '/agents' },
+  { key: 'new-chat', label: '开始对话', description: '与智能体聊天', icon: <MessageOutlined />, targetPath: '/workspace/chat' },
+  { key: 'new-workflow', label: '新建工作流', description: '编排自动化流程', icon: <PlusOutlined />, targetPath: '/workflows' },
+  { key: 'new-knowledge', label: '新建知识库', description: '上传文档创建知识库', icon: <PlusOutlined />, targetPath: '/knowledge/create' },
 ];
 
 function fmtRelativeTime(d: string): string {
@@ -129,6 +139,12 @@ function buildActivities(d: DashboardSummary): ActivityItem[] {
 }
 
 function buildSystemStatus(d: DashboardSummary): SystemStatusData {
+  // publishActiveCount: 后端提供的已发布数量（需要后端支持）
+  // 当前近似值：智能体数 + 工作流数 - 待发布数
+  const publishedApprox = Math.max(
+    0,
+    (d.agentCount ?? 0) + (d.workflowCount ?? 0) - (d.publishPendingCount ?? 0),
+  );
   return {
     plugins: {
       enabled: d.pluginEnabledCount ?? 0,
@@ -137,10 +153,12 @@ function buildSystemStatus(d: DashboardSummary): SystemStatusData {
     },
     publish: {
       pending: d.publishPendingCount ?? 0,
-      published: Math.max(0, (d.agentCount ?? 0) - (d.publishPendingCount ?? 0)),
+      published: d.publishActiveCount ?? publishedApprox,
     },
+    // knowledgeReadyCount / knowledgeProcessingCount 需要后端提供
+    // 当前近似值：总数 = 已同步数
     knowledge: {
-      synced: d.knowledgeBaseCount ?? 0,
+      synced: d.knowledgeReadyCount ?? d.knowledgeBaseCount ?? 0,
       total: d.knowledgeBaseCount ?? 0,
     },
   };
@@ -163,6 +181,7 @@ export interface UseDashboardReturn {
   activities: ActivityItem[];
   hasMoreActivities: boolean;
   systemStatus: SystemStatusData | null;
+  quickActions: QuickAction[];
   userName: string;
   workspaceName: string;
   workspaceDescription: string | null;
@@ -268,6 +287,7 @@ export function useDashboard(): UseDashboardReturn {
     activities,
     hasMoreActivities,
     systemStatus,
+    quickActions: QUICK_ACTIONS,
     userName,
     workspaceName,
     workspaceDescription,

@@ -21,6 +21,7 @@ export type RuntimeEventType =
   | 'tool.call.created'
   | 'tool.call.completed'
   | 'knowledge.status'
+  | 'workflow.step'
   | 'run.completed'
   | 'run.failed'
   | 'stream.done';
@@ -36,9 +37,16 @@ export interface RunInProgressEvent {
   runId: string;
 }
 
+export interface RetrievalChunk {
+  id: string;
+  content: string;
+  score: number;
+  documentName: string;
+}
+
 export type KnowledgeBoundStatus =
   | { bound: false }
-  | { bound: true; knowledgeName: string; retrievedCount?: number };
+  | { bound: true; knowledgeName: string; retrievedCount?: number; chunks?: RetrievalChunk[] };
 
 export interface KnowledgeStatusEvent {
   type: 'knowledge.status';
@@ -94,6 +102,21 @@ export interface StreamDoneEvent {
   runId: string;
 }
 
+export interface WorkflowStepEvent {
+  type: 'workflow.step';
+  runId: string;
+  workflowId: string;
+  workflowName: string;
+  stepId: string;
+  stepName: string;
+  stepType: string;
+  status: 'running' | 'success' | 'failed' | 'skipped';
+  input?: unknown;
+  output?: unknown;
+  error?: string;
+  duration?: number;
+}
+
 export type RuntimeEvent =
   | RunCreatedEvent
   | RunInProgressEvent
@@ -102,6 +125,7 @@ export type RuntimeEvent =
   | MessageCompletedEvent
   | ToolCallCreatedEvent
   | ToolCallCompletedEvent
+  | WorkflowStepEvent
   | RunCompletedEvent
   | RunFailedEvent
   | StreamDoneEvent;
@@ -118,6 +142,7 @@ export interface RunAgentParams {
   temperature?: number;
   maxTokens?: number;
   knowledgeBaseId?: string;
+  timeout?: number;
   attachments?: Array<{
     fileId: string;
     name?: string;
@@ -149,6 +174,10 @@ export async function runAgentStream(
   const controller = new AbortController();
 
   const url = `${API_BASE_URL.replace(/\/$/, '')}/agent-runs/stream`;
+
+  // 超时保护：默认 120 秒
+  const timeoutMs = params.timeout ?? 120_000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   fetch(url, {
     method: 'POST',
@@ -204,14 +233,23 @@ export async function runAgentStream(
           if (trimmed === '') {
             if (currentData) {
               try {
-                const event = JSON.parse(currentData) as RuntimeEvent;
-                callbacks.onEvent(event);
+                const parsed = JSON.parse(currentData);
+                // 如果 JSON 中没有 type 字段，使用 SSE event: 行作为 fallback
+                if (!parsed.type && currentEventType) {
+                  parsed.type = currentEventType;
+                }
+                callbacks.onEvent(parsed as RuntimeEvent);
               } catch {
-                // skip unparseable data
+                console.warn('[agent-runtime] 无法解析 SSE 数据:', currentData.slice(0, 200));
               }
             }
             currentEventType = '';
             currentData = '';
+            continue;
+          }
+
+          // 注释行（以 : 开头），跳过
+          if (trimmed.startsWith(':')) {
             continue;
           }
 
@@ -227,6 +265,11 @@ export async function runAgentStream(
             currentData = currentData ? currentData + '\n' + dataContent : dataContent;
             continue;
           }
+
+          // 标准 SSE 字段：id、retry（当前暂存不处理，确保不干扰 data 解析）
+          if (trimmed.startsWith('id:') || trimmed.startsWith('retry:')) {
+            continue;
+          }
         }
       }
     })
@@ -235,6 +278,9 @@ export async function runAgentStream(
         return;
       }
       callbacks.onError(err instanceof Error ? err : new Error('网络请求失败'));
+    })
+    .finally(() => {
+      clearTimeout(timeoutId);
     });
 
   return controller;

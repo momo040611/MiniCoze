@@ -213,16 +213,15 @@ interface Props {
 export function PreviewChat({
   agentId, avatar, persona, model, temperature, openingConfig, knowledgeBaseId,
 }: Props) {
-  const [messages, setMessages] = useState<PreviewItem[]>(() =>
-    loadHistory(agentId),
-  );
-  const [inputValue, setInputValue] = useState('');
-  const [sending, setSending] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const sendingRef = useRef(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const toolCallStartRef = useRef<Map<string, number>>(new Map());
+  const [messages, setMessages] = useState<PreviewItem[]>(() => loadHistory(agentId))
+  const [inputValue, setInputValue] = useState('')
+  const [sending, setSending] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const sendingRef = useRef(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const toolCallStartRef = useRef<Map<string, number>>(new Map())
+  const runStartRef = useRef(0)
 
   // 调试状态
   const [currentRunId, setCurrentRunId] = useState('');
@@ -305,15 +304,16 @@ export function PreviewChat({
         status: 'sending',
       };
 
-      const newItems: PreviewItem[] = [userMsg, agentMsg];
-      setMessages((prev) => [...prev, ...newItems]);
-      setInputValue('');
-      sendingRef.current = true;
-      setSending(true);
-      setCurrentToolCalls([]);
-      setKnowledgeEvent(null);
-      setKnowledgeDismissed(false);
-      toolCallStartRef.current.clear();
+    const newItems: PreviewItem[] = [userMsg, agentMsg]
+    setMessages((prev) => [...prev, ...newItems])
+    setInputValue('')
+    sendingRef.current = true
+    setSending(true)
+    setCurrentToolCalls([])
+    setKnowledgeEvent(null)
+    setKnowledgeDismissed(false)
+    toolCallStartRef.current.clear()
+    runStartRef.current = performance.now()
 
       runAgentStream(
         {
@@ -352,6 +352,134 @@ export function PreviewChat({
                 );
                 break;
 
+            case 'message.delta':
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.kind === 'message' && m.id === agentMsgId
+                    ? { ...m, text: m.text + (event as MessageDeltaEvent).content, status: 'streaming' as const }
+                    : m
+                )
+              )
+              break
+
+            case 'message.completed':
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.kind === 'message' && m.id === agentMsgId
+                    ? { ...m, text: event.content, id: event.messageId, status: 'success' as const }
+                    : m
+                )
+              )
+              break
+
+            case 'tool.call.created': {
+              const tcEvent = event as ToolCallCreatedEvent
+              toolCallStartRef.current.set(tcEvent.toolCallId, performance.now())
+              const toolData: ToolCallData = {
+                toolCallId: tcEvent.toolCallId,
+                name: tcEvent.name,
+                args: tcEvent.args,
+                status: 'executing',
+              }
+              setCurrentToolCalls((prev) => [...prev, toolData])
+              const toolMsg: ToolCallMessage = {
+                id: `tc-${tcEvent.toolCallId}`,
+                kind: 'tool-call',
+                toolData,
+                time: timeStr,
+              }
+              setMessages((prev) => [...prev, toolMsg])
+              break
+            }
+
+            case 'tool.call.completed': {
+              const tcDone = event as ToolCallCompletedEvent
+              const startTime = toolCallStartRef.current.get(tcDone.toolCallId)
+              const duration = startTime ? Math.round(performance.now() - startTime) : undefined
+              const updatedTool: ToolCallData = {
+                toolCallId: tcDone.toolCallId,
+                name: tcDone.name,
+                args: tcDone.result ? undefined : undefined,
+                result: tcDone.result,
+                error: tcDone.error,
+                status: tcDone.error ? 'failed' : 'success',
+                duration,
+              }
+              setCurrentToolCalls((prev) =>
+                prev.map((tc) => tc.toolCallId === tcDone.toolCallId ? updatedTool : tc)
+              )
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.kind === 'tool-call' && m.toolData.toolCallId === tcDone.toolCallId
+                    ? { ...m, toolData: updatedTool }
+                    : m
+                )
+              )
+              break
+            }
+
+            case 'knowledge.status': {
+              const ksEvent = event as KnowledgeStatusEvent
+              setKnowledgeEvent(ksEvent)
+              setKnowledgeDismissed(false)
+              const ksMsg: KnowledgeRetrievalMessage = {
+                id: `ks-${Date.now()}`,
+                kind: 'knowledge',
+                knowledgeEvent: ksEvent,
+                time: timeStr,
+              }
+              setMessages((prev) => [...prev, ksMsg])
+              break
+            }
+
+            case 'run.completed': {
+              const rc = event as RunCompletedEvent
+              const latency = runStartRef.current
+                ? Math.round(performance.now() - runStartRef.current)
+                : 0
+              setCurrentLatency(latency)
+              if (rc.usage) setCurrentUsage(rc.usage)
+              break
+            }
+
+            case 'run.failed':
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.kind === 'message' && m.id === agentMsgId
+                    ? { ...m, status: 'failed' as const, errorText: event.error }
+                    : m
+                )
+              )
+              sendingRef.current = false
+              setSending(false)
+              abortRef.current = null
+              break
+
+            case 'stream.done':
+              if (currentToolCalls.length > 0 || currentRunId) {
+                const latency = runStartRef.current
+                  ? Math.round(performance.now() - runStartRef.current)
+                  : 0
+                const debugMsg: DebugMessage = {
+                  id: `debug-${Date.now()}`,
+                  kind: 'debug',
+                  runId: currentRunId,
+                  model: model || 'unknown',
+                  latency,
+                  usage: currentUsage,
+                  toolCalls: currentToolCalls,
+                  time: timeStr,
+                }
+                setMessages((prev) => [...prev, debugMsg])
+              }
+              sendingRef.current = false
+              setSending(false)
+              abortRef.current = null
+              break
+
+            default:
+              break
+          }
               case 'message.delta':
                 setMessages((prev) =>
                   prev.map((m) =>
