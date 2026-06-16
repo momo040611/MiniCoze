@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
+import { ModelManagementModule } from '../model-management/model-management.module';
 import { PublishModule } from '../publish/publish.module';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { AgentWorkflowBindingController } from './agent-workflow-binding.controller';
@@ -21,8 +22,14 @@ import { WorkflowService } from './workflow.service';
 import { WorkflowToolExecutionService } from './workflow-tool-execution.service';
 import { WorkflowToolRegistryService } from './workflow-tool-registry.service';
 
+// 工作流模块接入模型管理模块，但 LLM 节点仍默认走旧 model 字符串，保证现有工作流稳定。
 @Module({
-  imports: [WorkspaceModule, AiGatewayModule, PublishModule],
+  imports: [
+    WorkspaceModule,
+    AiGatewayModule,
+    PublishModule,
+    ModelManagementModule,
+  ],
   controllers: [WorkflowController, AgentWorkflowBindingController],
   providers: [
     WorkflowService,

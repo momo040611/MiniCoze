@@ -79,6 +79,8 @@ export interface AgentPublishSnapshot {
     avatarUrl: string | null;
     systemPrompt: string;
     model: string;
+    // 新快照会保存 workspaceModelId；旧快照没有该字段也必须继续兼容。
+    workspaceModelId?: string | null;
     temperature: number;
     openingMessage: string | null;
     contextLimit: number;

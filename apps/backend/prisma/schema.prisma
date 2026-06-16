@@ -33,6 +33,8 @@ model User {
   createdWorkflowVersions   WorkflowVersion[]   @relation("WorkflowVersionCreator")
   workflowRuns              WorkflowRun[]       @relation("WorkflowRunStarter")
   publishRecords            PublishRecord[]     @relation("PublishRecordOperator")
+  createdCredentials        WorkspaceCredential[]    @relation("WorkspaceCredentialCreator")
+  createdModelProviders     WorkspaceModelProvider[] @relation("WorkspaceModelProviderCreator")
 }
 
 enum WorkspaceRole {
@@ -63,6 +65,10 @@ model Workspace {
   knowledgeBases     KnowledgeBase[]
   knowledgeDocuments KnowledgeDocument[]
   knowledgeChunks    KnowledgeChunk[]
+  credentials        WorkspaceCredential[]
+  modelProviders     WorkspaceModelProvider[]
+  models             WorkspaceModel[]
+  runtimeSetting     WorkspaceRuntimeSetting?
 
   @@index([ownerId])
 }
@@ -256,6 +262,126 @@ enum KnowledgeDocumentStatus {
   FAILED
 }
 
+enum WorkspaceCredentialStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum WorkspaceCredentialType {
+  BEARER_TOKEN
+  API_KEY_HEADER
+  BASIC_AUTH
+}
+
+enum ModelProviderType {
+  OPENAI
+  DEEPSEEK
+  OPENAI_COMPATIBLE
+}
+
+enum ModelConnectionStatus {
+  UNTESTED
+  AVAILABLE
+  UNAVAILABLE
+}
+
+/// 工作区级通用凭证。只保存密文和掩码，明文只在后端运行时解密使用。
+model WorkspaceCredential {
+  id              String                    @id @default(cuid())
+  workspaceId     String
+  name            String
+  type            WorkspaceCredentialType
+  secretEncrypted String                    @db.Text
+  maskedHint      String
+  config          Json?
+  status          WorkspaceCredentialStatus @default(ACTIVE)
+  lastUsedAt      DateTime?
+  createdBy       String
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  workspace Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator   User                     @relation("WorkspaceCredentialCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  providers WorkspaceModelProvider[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@index([createdBy])
+  @@index([workspaceId, status])
+}
+
+/// 工作区模型服务配置。Provider 负责描述服务类型、Base URL 和使用哪个凭证。
+model WorkspaceModelProvider {
+  id               String                @id @default(cuid())
+  workspaceId      String
+  credentialId     String
+  createdBy        String
+  name             String
+  providerType     ModelProviderType
+  baseUrl          String
+  enabled          Boolean               @default(true)
+  connectionStatus ModelConnectionStatus @default(UNTESTED)
+  lastTestMessage  String?               @db.Text
+  lastTestedAt     DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  workspace  Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  credential WorkspaceCredential @relation(fields: [credentialId], references: [id], onDelete: Restrict)
+  creator    User                @relation("WorkspaceModelProviderCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  models     WorkspaceModel[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@index([credentialId])
+  @@index([createdBy])
+  @@index([workspaceId, enabled])
+}
+
+/// 工作区可选模型。一个 Provider 可以挂多个 modelId，Agent 运行时最终会解析到这里。
+model WorkspaceModel {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  providerId      String
+  modelId         String
+  displayName     String
+  enabled         Boolean  @default(true)
+  capabilities    Json?
+  contextWindow   Int?
+  maxOutputTokens Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace       Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider        WorkspaceModelProvider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  agents          Agent[]
+  defaultSettings WorkspaceRuntimeSetting[] @relation("WorkspaceDefaultModel")
+
+  @@unique([providerId, modelId])
+  @@index([workspaceId])
+  @@index([providerId])
+  @@index([workspaceId, enabled])
+}
+
+/// 工作区运行默认值。默认模型统一放在这里，避免模型表上出现多个默认标记。
+model WorkspaceRuntimeSetting {
+  workspaceId         String   @id
+  defaultModelId      String?
+  defaultTemperature  Float?
+  defaultMaxTokens    Int?
+  defaultContextLimit Int?
+  requestTimeoutMs    Int?
+  maxToolRounds       Int?
+  maxRunDurationMs    Int?
+  retryCount          Int?
+  updatedAt           DateTime @updatedAt
+
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  defaultModel WorkspaceModel? @relation("WorkspaceDefaultModel", fields: [defaultModelId], references: [id], onDelete: SetNull)
+
+  @@index([defaultModelId])
+}
+
 model Agent {
   id                    String                      @id @default(cuid())
   workspaceId           String
@@ -265,6 +391,8 @@ model Agent {
   avatarUrl             String?
   systemPrompt          String                      @db.Text
   model                 String                      @default("deepseek-v4-flash")
+  /// 可选的新模型引用。为空时继续使用旧 model 字符串和环境变量 Provider。
+  workspaceModelId      String?
   temperature           Float                       @default(0.7)
   openingMessage        String?                     @db.Text
   contextLimit          Int                         @default(20)
@@ -274,6 +402,7 @@ model Agent {
   updatedAt             DateTime                    @updatedAt
   workspace             Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   creator               User                        @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  workspaceModel        WorkspaceModel?             @relation(fields: [workspaceModelId], references: [id], onDelete: SetNull)
   versions              AgentVersion[]              @relation("AgentVersions")
   currentVersion        AgentVersion?               @relation("AgentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
   conversations         Conversation[]
@@ -285,6 +414,7 @@ model Agent {
 
   @@index([workspaceId])
   @@index([creatorId])
+  @@index([workspaceModelId])
   @@index([workspaceId, status])
 }
 

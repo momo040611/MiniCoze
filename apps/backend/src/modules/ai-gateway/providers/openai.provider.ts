@@ -93,7 +93,11 @@ export class OpenAiProvider implements AiProviderInterface {
   }
 
   private async callApi(request: AiGenerateRequest, stream: boolean) {
-    const url = `${this.config.baseUrl}/chat/completions`;
+    // 使用 URL API 拼接路径，兼容 baseUrl 带或不带尾斜杠的情况。
+    const url = new URL(
+      'chat/completions',
+      `${this.config.baseUrl}/`,
+    ).toString();
 
     const body = {
       model: request.model || this.config.defaultModel,
@@ -109,7 +113,7 @@ export class OpenAiProvider implements AiProviderInterface {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.config.apiKey}`,
+          ...this.getAuthHeaders(),
         },
         body: JSON.stringify(body),
       });
@@ -120,6 +124,14 @@ export class OpenAiProvider implements AiProviderInterface {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    if (this.config.headers) {
+      return this.config.headers;
+    }
+
+    return { Authorization: `Bearer ${this.config.apiKey}` };
   }
 
   private parseResponse(data: OpenAiApiCompletionResponse): AiGenerateResponse {

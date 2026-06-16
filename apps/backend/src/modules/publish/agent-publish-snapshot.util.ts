@@ -7,6 +7,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseAgentPublishSnapshot(
   value: unknown,
 ): AgentPublishSnapshot | null {
+  // 快照解析必须兼容旧版本：workspaceModelId 可以不存在，但存在时必须是 string/null。
   if (!isRecord(value) || !isRecord(value.agent)) {
     return null;
   }
@@ -18,6 +19,9 @@ export function parseAgentPublishSnapshot(
     typeof agent.name !== 'string' ||
     typeof agent.systemPrompt !== 'string' ||
     typeof agent.model !== 'string' ||
+    (agent.workspaceModelId !== undefined &&
+      agent.workspaceModelId !== null &&
+      typeof agent.workspaceModelId !== 'string') ||
     typeof agent.temperature !== 'number' ||
     typeof agent.contextLimit !== 'number'
   ) {

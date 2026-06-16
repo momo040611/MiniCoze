@@ -2,7 +2,29 @@
 
 MiniCoze Backend 是 MiniCoze 可视化 AI Agent 搭建平台的后端服务，基于 NestJS、TypeScript、Prisma 和 PostgreSQL 构建。
 
-当前后端已包含用户认证、当前用户资料、工作空间、Agent 配置、普通会话、Agent Runtime 流式运行、公开 Agent 运行、Agent 发布与渠道管理、AI Gateway、工作流运行、文件上传等能力；`knowledge` 目前仍是模块占位或待完善能力。
+当前后端包含用户认证、工作区、Agent 配置、Agent Runtime、公开 Agent、发布渠道、AI Gateway、模型服务管理、凭证管理、工作流、文件上传和知识库等能力。
+
+## 当前完成度概览
+
+截至 2026-06-16，后端主体能力已经覆盖 Agent 搭建、运行、发布、工作流、插件、文件、知识库和模型服务管理。整体处于“核心链路可用，运营治理能力待补齐”的阶段。
+
+| 模块 | 状态 | 说明 |
+| --- | --- | --- |
+| 基础框架 | 已完成 | 已接入全局 `/api` 前缀、Swagger、CORS、参数校验、响应包装、异常过滤和 Prisma 数据库访问。 |
+| 用户与认证 | 基本完成 | 支持注册、登录、JWT 鉴权、用户资料、头像、密码更新。 |
+| 工作区与成员 | 基本完成 | 支持工作区 CRUD、成员管理、角色校验、工作区仪表盘聚合。 |
+| Agent 配置 | 基本完成 | 支持 Agent CRUD、状态管理、模型字段兼容、工作区模型绑定、知识库/插件/工作流绑定。 |
+| Agent Runtime | 基本完成 | 支持流式运行、会话与消息持久化、附件元数据、token usage 写入最新助手消息；运行记录本身仍是内存上下文。 |
+| 公开 Agent | 基本完成 | 支持通过发布快照读取公开 Agent、公开聊天流、公开运行入口和公开文件上传。 |
+| 发布系统 | 基本完成 | 支持 Agent / Workflow 发布检查、版本、记录、回滚、下线，以及 Web / API 渠道配置和 API Key 轮换。 |
+| AI Gateway | 基本完成 | 支持环境变量 Provider 的旧调用方式，以及基于工作区模型解析的动态 OpenAI Compatible 调用。 |
+| 凭证管理 | 基本完成 | 支持工作区凭证 CRUD、AES-256-GCM 加密、掩码返回、引用检查和运行时解密。 |
+| 模型服务管理 | 基本完成 | 支持 Provider / Model CRUD、连接测试、OpenAI Compatible `/models` 同步、默认模型设置、引用检查。 |
+| 工作流 | 基本完成 | 支持工作流 CRUD、草稿、发布版本、同步/流式运行、运行节点记录、取消、运行列表、Agent 绑定和持久化变量。 |
+| 插件 | 部分完成 | 支持插件、工具、Agent 绑定、调用记录、内置插件执行；HTTP 插件执行器仍返回 `NOT_IMPLEMENTED`。 |
+| 文件服务 | 基本完成 | 支持上传、列表、详情、内容读取、删除，本地存储和 COS 存储配置。 |
+| 知识库 | 部分完成 | 支持知识库、文档、切片、Agent 绑定、向量索引、语义检索和重建索引；依赖 pgvector 与 `EMBEDDING_*` 配置。 |
+| 运营治理 | 未完成 | 暂无 AgentRun 持久化表、usage 聚合统计、审计日志、额度、计费、预算和超限拦截。 |
 
 ## 技术栈
 
@@ -75,25 +97,49 @@ SSE、文件流等不适合统一包装的响应，需要使用 `@SkipResponseWr
 | `DATABASE_URL` | PostgreSQL 连接地址 | `postgresql://user:password@localhost:5432/minicoze?schema=public` |
 | `JWT_SECRET` | JWT 签名密钥 | 必填 |
 | `JWT_EXPIRES_IN` | JWT 过期时间 | `2h` |
-| `REDIS_HOST` | Redis 地址，预留配置 | `localhost` |
-| `REDIS_PORT` | Redis 端口，预留配置 | `6379` |
 | `CORS_ORIGIN` | 允许跨域的前端地址，多个地址用英文逗号分隔 | `http://localhost:5173` |
+| `REDIS_HOST` | Redis 地址，当前预留配置 | `localhost` |
+| `REDIS_PORT` | Redis 端口，当前预留配置 | `6379` |
+| `FILE_STORAGE_DRIVER` | 文件存储驱动 | `local` 或 `cos` |
 | `FILE_UPLOAD_DIR` | 本地文件存储目录 | `storage/uploads` |
 | `FILE_PUBLIC_BASE_URL` | 文件公开访问基础路径 | `/api/files` |
-| `FILE_MAX_IMAGE_SIZE` | 图片最大上传大小，字节 | `5242880` |
-| `FILE_MAX_DOCUMENT_SIZE` | 文档最大上传大小，字节 | `52428800` |
-| `AI_PROVIDER` | AI 供应商 | `openai` 或 `deepseek` |
+| `FILE_MAX_IMAGE_SIZE` | 图片上传大小限制，单位 byte | `5242880` |
+| `FILE_MAX_DOCUMENT_SIZE` | 文档上传大小限制，单位 byte | `52428800` |
+| `COS_SECRET_ID` | COS SecretId，`FILE_STORAGE_DRIVER=cos` 时必填 | - |
+| `COS_SECRET_KEY` | COS SecretKey，`FILE_STORAGE_DRIVER=cos` 时必填 | - |
+| `COS_BUCKET` | COS Bucket，`FILE_STORAGE_DRIVER=cos` 时必填 | - |
+| `COS_REGION` | COS Region，`FILE_STORAGE_DRIVER=cos` 时必填 | - |
+| `COS_PUBLIC_BASE_URL` | COS 公开访问基础地址 | - |
+| `AI_PROVIDER` | 旧环境变量 AI Provider | `openai` 或 `deepseek` |
 | `OPENAI_API_KEY` | OpenAI API Key | `sk-xxxx` |
 | `OPENAI_BASE_URL` | OpenAI 兼容接口地址 | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | OpenAI 默认模型 | `gpt-4o-mini` |
 | `DEEPSEEK_API_KEY` | DeepSeek API Key | `sk-xxxx` |
 | `DEEPSEEK_BASE_URL` | DeepSeek 兼容接口地址 | `https://api.deepseek.com` |
 | `DEEPSEEK_MODEL` | DeepSeek 默认模型 | `deepseek-v4-flash` |
+| `SECRET_ENCRYPTION_KEY` | 工作区凭证加密密钥 | 生产环境必填 |
+| `EMBEDDING_BASE_URL` | 知识库向量化服务地址 | OpenAI Compatible embedding 地址 |
+| `EMBEDDING_API_KEY` | 知识库向量化服务密钥 | 必填，用于知识库检索 |
+| `EMBEDDING_MODEL` | 知识库向量化模型 | 示例：`text-embedding-3-small` |
+| `EMBEDDING_DIM` | 向量维度，需与 pgvector 表结构匹配 | 当前 schema 为 `1024` |
+| `EMBEDDING_BATCH_SIZE` | 批量向量化条数 | `32` |
+| `BING_SEARCH_API_KEY` | 内置 Bing 搜索插件密钥 | 未配置时相关工具不可用 |
+| `BING_SEARCH_ENDPOINT` | Bing 搜索接口地址 | `https://api.bing.microsoft.com/v7.0/search` |
+| `BING_SEARCH_TIMEOUT_MS` | Bing 搜索超时时间 | `10000` |
+| `IMAGE_UNDERSTANDING_API_KEY` | 图片理解插件 API Key | 默认回退 `OPENAI_API_KEY` |
+| `IMAGE_UNDERSTANDING_BASE_URL` | 图片理解 OpenAI Compatible 地址 | `https://api.openai.com/v1` |
+| `IMAGE_UNDERSTANDING_MODEL` | 图片理解模型 | `gpt-4o-mini` |
+| `IMAGE_UNDERSTANDING_TIMEOUT_MS` | 图片理解超时时间 | `20000` |
+| `LINK_READER_TIMEOUT_MS` | 链接读取超时时间 | `15000` |
+| `LINK_READER_MAX_CHARS` | 链接读取最大字符数 | `20000` |
 
 注意：
 
 - `DATABASE_URL` 和 `JWT_SECRET` 是必填项。
-- 生产环境中 `JWT_SECRET` 不能使用 `replace-me`，长度不能小于 32。
+- 生产环境中 `JWT_SECRET` 不能使用弱密钥。
+- 生产环境中 `SECRET_ENCRYPTION_KEY` 必须配置；开发环境未配置时，后端会使用稳定 fallback 并输出 warning。
+- `FILE_STORAGE_DRIVER=cos` 时必须配置 COS 相关变量。
+- 知识库向量检索运行时依赖 `EMBEDDING_*` 变量；当前 `env.validation.ts` 尚未覆盖这些变量，缺失时会在 Embedder 初始化或调用时失败。
 - `.env` 不要提交到 Git。
 
 ## 数据库
@@ -104,146 +150,273 @@ Prisma schema 位于：
 apps/backend/prisma/schema.prisma
 ```
 
-当前核心模型：
-
-- `User`：用户账号、密码哈希、头像、状态和资源归属。
-- `Workspace`：工作空间，是 Agent、Workflow、File 等资源的归属边界。
-- `WorkspaceMember`：用户与工作空间的成员关系，角色包含 `OWNER`、`ADMIN`、`MEMBER`。
-- `Agent`：单 Agent 配置，包含提示词、模型、温度、开场白、上下文条数和状态。
-- `AgentVersion`：Agent 发布版本，保存发布时的快照配置，公开运行会基于当前发布版本执行。
-- `PublishChannel`：Agent 发布渠道配置，包含 Web、API 等渠道的启用状态、slug、API Key hash 和过期时间等信息。
-- `PublishRecord`：Agent 发布、下线、回滚和渠道变更记录。
-- `Conversation` / `Message`：会话和消息，保存用户输入、助手回复、模型信息、token 使用和错误信息。
-- `FileAsset`：上传文件元数据，包含用途、可见性、状态、软删除时间、存储 key、URL、MIME 类型和大小。
-- `Workflow` / `WorkflowVersion`：工作流草稿、当前版本和发布版本。
-- `WorkflowRun` / `WorkflowRunNode`：工作流运行记录和节点执行记录。
-
-修改数据库结构时的流程：
+修改数据库结构后执行：
 
 ```bash
 pnpm --filter backend prisma:migrate
 pnpm --filter backend prisma:generate
 ```
 
-## 模块与接口
+当前与模型服务管理相关的核心表：
 
-### Health
+- `WorkspaceCredential`：工作区通用凭证，只保存密文 `secretEncrypted` 和掩码 `maskedHint`。
+- `WorkspaceModelProvider`：工作区模型服务，保存 `providerType`、`baseUrl`、`credentialId` 和连接测试状态。
+- `WorkspaceModel`：工作区可用模型，保存真实 `modelId`、展示名、能力描述、上下文窗口和启用状态。
+- `WorkspaceRuntimeSetting`：工作区运行默认设置，当前主要使用 `defaultModelId`。
+- `Agent.workspaceModelId`：Agent 可选绑定的工作区模型；旧字段 `Agent.model` 保留用于兼容。
 
-```text
-GET /api/health
-```
-
-返回服务状态和当前时间。
-
-### Auth
+关系如下：
 
 ```text
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/profile
+WorkspaceCredential
+→ WorkspaceModelProvider
+→ WorkspaceModel
+→ Agent.workspaceModelId / WorkspaceRuntimeSetting.defaultModelId
 ```
 
-注册时使用 bcrypt 保存密码哈希。登录成功后返回 Bearer Token。受保护接口使用：
+## 凭证管理
+
+凭证模块位于：
 
 ```text
-Authorization: Bearer <token>
+apps/backend/src/modules/credentials
 ```
 
-### User
+接口：
 
 ```text
-GET   /api/users/me
-PATCH /api/users/me
+GET    /api/workspaces/:workspaceId/credentials
+POST   /api/workspaces/:workspaceId/credentials
+PATCH  /api/workspaces/:workspaceId/credentials/:credentialId
+DELETE /api/workspaces/:workspaceId/credentials/:credentialId
+GET    /api/workspaces/:workspaceId/credentials/:credentialId/references
 ```
 
-用于查询和更新当前登录用户信息。
-
-### Workspace
-
-```text
-POST   /api/workspaces
-GET    /api/workspaces
-GET    /api/workspaces/:workspaceId
-PATCH  /api/workspaces/:workspaceId
-DELETE /api/workspaces/:workspaceId
-```
-
-权限规则：
-
-- 创建工作空间后，当前用户自动成为 `OWNER`。
-- 工作空间成员可以查看工作空间。
-- `OWNER` 和 `ADMIN` 可以更新工作空间。
-- 只有 `OWNER` 可以删除工作空间。
-
-权限判断集中在 `WorkspaceAccessService`：
-
-- `ensureMember`
-- `ensureCanManage`
-- `ensureOwner`
-
-### Agent 配置
-
-```text
-POST   /api/agents
-GET    /api/agents?workspaceId=...
-GET    /api/agents/:agentId
-PATCH  /api/agents/:agentId
-DELETE /api/agents/:agentId
-```
-
-常用创建字段：
+创建凭证示例：
 
 ```json
 {
-  "workspaceId": "workspace-id",
-  "name": "客服助手",
-  "description": "用于回答产品和售后问题",
-  "avatarUrl": "https://example.com/avatar.png",
-  "systemPrompt": "你是一个专业、耐心的客服助手。",
-  "model": "deepseek-v4-flash",
-  "temperature": 0.7,
-  "openingMessage": "你好，我可以帮你解答产品和售后问题。",
-  "contextLimit": 20,
-  "status": "DRAFT"
+  "name": "DeepSeek Key",
+  "type": "BEARER_TOKEN",
+  "secret": "sk-xxxx",
+  "config": {}
 }
 ```
 
-说明：
+凭证规则：
 
-- 创建、更新、删除 Agent 需要工作空间管理权限。
-- 查询 Agent 列表和详情需要当前用户是工作空间成员。
-- `openingMessage` 仅用于前端展示，不作为系统提示词发送给模型。
-- `contextLimit` 表示模型调用时最多携带的历史消息条数，不包含当前用户输入。
+- `OWNER` / `ADMIN` 可以创建、更新和删除凭证。
+- 工作区成员可以查看凭证元信息。
+- 接口只返回 `maskedHint`，不返回明文 `secret`，也不返回密文 `secretEncrypted`。
+- 更新凭证时不传 `secret` 表示保留旧密钥。
+- 凭证被模型 Provider 引用时拒绝删除。
+- 运行时调用模型前才会通过 `CredentialService.getRuntimeCredential()` 解密凭证。
 
-### Conversation 普通对话
+支持的凭证类型：
+
+- `BEARER_TOKEN`
+- `API_KEY_HEADER`
+- `BASIC_AUTH`
+
+## 模型服务管理
+
+模型服务管理模块位于：
 
 ```text
-POST   /api/workspaces/:workspaceId/conversations
-GET    /api/workspaces/:workspaceId/conversations/:conversationId
-POST   /api/workspaces/:workspaceId/conversations/:conversationId/messages
-GET    /api/workspaces/:workspaceId/conversations/agents/:agentId
-DELETE /api/workspaces/:workspaceId/conversations/:conversationId
+apps/backend/src/modules/model-management
 ```
 
-普通对话链路：
+### Provider 接口
 
 ```text
-校验工作空间权限
-创建或读取 Conversation
-保存用户 Message
-读取 Agent systemPrompt/model/temperature/contextLimit
-调用 AI Gateway
-保存 assistant Message
-返回完整回复
+GET    /api/workspaces/:workspaceId/model-providers
+POST   /api/workspaces/:workspaceId/model-providers
+GET    /api/workspaces/:workspaceId/model-providers/:providerId
+PATCH  /api/workspaces/:workspaceId/model-providers/:providerId
+DELETE /api/workspaces/:workspaceId/model-providers/:providerId
+POST   /api/workspaces/:workspaceId/model-providers/:providerId/test
+POST   /api/workspaces/:workspaceId/model-providers/:providerId/sync-models
 ```
 
-### Agent Runtime 流式运行
+创建 Provider 示例：
+
+```json
+{
+  "name": "DeepSeek 官方服务",
+  "providerType": "DEEPSEEK",
+  "baseUrl": "https://api.deepseek.com",
+  "credentialId": "credential-id",
+  "enabled": true
+}
+```
+
+Provider 保存的是模型服务配置，不保存密钥明文：
+
+```text
+providerType + baseUrl + credentialId
+```
+
+Base URL 规则：
+
+- 允许 `http://` 和 `https://`。
+- 允许域名、IPv4、IPv6 和端口。
+- 禁止 username、password、query 和 hash。
+- 保存前会移除末尾 `/`。
+- 后续调用接口时使用 `new URL()` 拼接路径，不做字符串拼接。
+
+### 模型接口
+
+```text
+GET    /api/workspaces/:workspaceId/models
+POST   /api/workspaces/:workspaceId/models
+GET    /api/workspaces/:workspaceId/models/:modelId
+PATCH  /api/workspaces/:workspaceId/models/:modelId
+DELETE /api/workspaces/:workspaceId/models/:modelId
+POST   /api/workspaces/:workspaceId/models/:modelId/set-default
+GET    /api/workspaces/:workspaceId/models/:modelId/references
+```
+
+手动创建模型示例：
+
+```json
+{
+  "providerId": "provider-id",
+  "modelId": "deepseek-chat",
+  "displayName": "DeepSeek Chat",
+  "enabled": true,
+  "capabilities": {
+    "chat": true,
+    "image": false
+  },
+  "contextWindow": 128000,
+  "maxOutputTokens": 4096
+}
+```
+
+模型规则：
+
+- 模型必须属于当前工作区的 Provider。
+- 同一个 Provider 下 `modelId` 唯一。
+- 设置默认模型时只更新 `WorkspaceRuntimeSetting.defaultModelId`。
+- 删除模型前会检查 Agent 引用和工作区默认模型引用。
+
+### 同步服务商模型
+
+同步模型接口：
+
+```text
+POST /api/workspaces/:workspaceId/model-providers/:providerId/sync-models
+```
+
+当前同步逻辑基于 OpenAI Compatible 协议：
+
+```text
+GET {baseUrl}/models
+```
+
+期望响应：
+
+```json
+{
+  "data": [
+    { "id": "deepseek-chat" },
+    { "id": "deepseek-reasoner" }
+  ]
+}
+```
+
+后端会读取 `data[].id`，并 upsert 到 `WorkspaceModel`。
+
+如果服务商不支持 `GET /models`，可以使用手动创建模型接口。
+
+## AI Gateway 与模型运行时
+
+AI Gateway 位于：
+
+```text
+apps/backend/src/modules/ai-gateway
+```
+
+旧方法仍然保留，并继续使用环境变量 Provider：
+
+- `generate()`
+- `generateStream()`
+- `chatStream()`
+
+新增动态模型方法：
+
+- `generateWithResolvedModel()`
+- `generateStreamWithResolvedModel()`
+- `chatStreamWithResolvedModel()`
+
+动态模型调用流程：
+
+```text
+ResolvedModel
+→ DynamicAiProviderFactory
+→ OpenAiProvider / DeepSeekProvider
+→ POST {baseUrl}/chat/completions
+```
+
+当前第一阶段中，`OPENAI`、`DEEPSEEK`、`OPENAI_COMPATIBLE` 都复用 OpenAI Compatible 协议。
+
+## Agent 模型选择流程
+
+Agent 仍保留旧字段：
+
+```text
+model: string
+```
+
+新增字段：
+
+```text
+workspaceModelId?: string
+```
+
+创建 Agent 时：
+
+```text
+如果请求传 workspaceModelId：
+  校验模型属于当前工作区且启用，然后保存 Agent.workspaceModelId
+
+如果请求未传 workspaceModelId：
+  尝试读取 WorkspaceRuntimeSetting.defaultModelId
+  有默认模型则保存到 Agent.workspaceModelId
+  没有默认模型则继续使用旧 model 字符串
+```
+
+运行 Agent 时模型解析优先级：
+
+```text
+RunAgentDto.workspaceModelId
+→ Agent.workspaceModelId
+→ WorkspaceRuntimeSetting.defaultModelId
+→ RunAgentDto.model / Agent.model
+→ 环境变量默认模型
+```
+
+解析到数据库模型时：
+
+```text
+WorkspaceModel
+→ WorkspaceModelProvider
+→ WorkspaceCredential
+→ 解密 secret
+→ 动态 AI Gateway 调用
+```
+
+数据库模型不可用但旧 `model` 字符串存在时，会回退旧环境变量 Provider。
+
+## Agent Runtime
+
+流式运行接口：
 
 ```text
 POST /api/agent-runs/stream
 ```
 
-该接口需要 Bearer Token，并以 SSE 返回事件。最小请求体：
+最小请求体：
 
 ```json
 {
@@ -252,7 +425,17 @@ POST /api/agent-runs/stream
 }
 ```
 
-常见事件顺序：
+可选指定模型：
+
+```json
+{
+  "agentId": "agent-id",
+  "message": "你好",
+  "workspaceModelId": "workspace-model-id"
+}
+```
+
+常见 SSE 事件顺序：
 
 ```text
 run.created
@@ -263,28 +446,54 @@ run.completed
 stream.done
 ```
 
-失败时会返回：
+当前 Runtime 会持久化：
+
+- `Conversation`
+- `Message`
+- `Message.tokenUsage`
+
+当前 Runtime 不持久化：
+
+- `AgentRun`
+- usage 聚合统计
+- audit 审计日志
+
+`RuntimePrismaRepository.runs` 是内存中的运行上下文 Map，只在一次流式运行期间保存 `RuntimeContext`，运行完成、失败或取消后删除。
+
+## 发布快照兼容
+
+Agent 发布快照保存在：
 
 ```text
-run.failed
-stream.done
+AgentVersion.snapshot
 ```
 
-Runtime 当前支持两类配置来源：
-
-- 普通运行：根据 `agentId` 和当前登录用户读取可运行的 Agent 配置，并从插件注册表加载可调用工具。
-- 公开运行：由 Public Agent 模块传入 `AgentVersion.snapshot`，直接使用发布快照中的 Agent 配置和工具定义，避免受草稿配置变更影响。
-
-SSE 响应会跳过全局响应包装，输出格式为：
+新快照会同时保存：
 
 ```text
-event: <runtime-event-type>
-data: <runtime-event-json>
+model
+workspaceModelId
 ```
 
-### Public Agent 公开运行
+旧快照没有 `workspaceModelId` 也能继续解析和运行。公开 Agent 运行会优先使用快照中的 `workspaceModelId`，缺失时回退旧 `model` 字符串。
 
-公开 Agent 运行用于已发布 Agent 的 Web 公开聊天和 API 调用。相关接口均不使用登录态 JWT，而是通过发布渠道配置进行访问控制。
+## Workflow LLM 节点
+
+工作流 LLM 节点当前保持兼容策略：
+
+```text
+如果节点配置中有 workspaceModelId：
+  使用 ModelResolverService 解析数据库模型
+
+如果节点配置中没有 workspaceModelId：
+  继续使用旧 model 字符串 + 环境变量 Provider
+```
+
+这样现有工作流不会因为模型服务管理改造被强制迁移。
+
+## Public Agent
+
+公开 Agent 运行使用发布快照：
 
 ```text
 GET  /api/public/agents/:slug
@@ -292,171 +501,54 @@ POST /api/public/agents/:slug/chat/stream
 POST /api/public/agent-runs/stream
 ```
 
-`GET /api/public/agents/:slug` 返回公开 Agent 的基础展示信息：
+公开运行会读取 `AgentVersion.snapshot`，因此：
 
-```json
-{
-  "name": "客服助手",
-  "description": "用于回答产品和售后问题",
-  "avatarUrl": "https://example.com/avatar.png",
-  "openingMessage": "你好，我可以帮你解答产品和售后问题。"
-}
-```
+- 新发布快照可以使用 `workspaceModelId`。
+- 旧发布快照继续使用 `model` 字符串。
+- 凭证不会写入快照，运行时仍读取最新有效凭证。
 
-`POST /api/public/agents/:slug/chat/stream` 是 Web 公开聊天入口。后端会根据 `PublishChannelType.WEB` 和 `config.slug` 查询已启用渠道，并校验目标 Agent 已发布且存在当前版本。
+## 开发与验证
 
-最小请求体：
-
-```json
-{
-  "message": "你好"
-}
-```
-
-继续同一公开会话时需要传入 `conversationId` 和稳定的 `visitorId`：
-
-```json
-{
-  "message": "继续刚才的问题",
-  "conversationId": "public:agent-id:visitor-hash:conversation-id",
-  "visitorId": "browser-visitor-id"
-}
-```
-
-`POST /api/public/agent-runs/stream` 是 API 公开运行入口。请求需要携带发布渠道生成的 API Key：
-
-```text
-Authorization: Bearer <api-key>
-```
-
-后端会对 API Key 执行 sha256 后匹配 `PublishChannel.config.apiKeyHash`，并校验渠道是否启用、是否过期。请求体与 Web 入口一致，也支持使用 `inputs` 作为结构化输入：
-
-```json
-{
-  "inputs": {
-    "question": "请总结这段文本"
-  }
-}
-```
-
-公开运行链路：
-
-```text
-校验 Web slug 或 API Key
-读取启用的 Agent 发布渠道
-校验 Agent 为 ACTIVE 且 currentVersion 存在
-解析 AgentVersion.snapshot
-使用发布快照构造 Runtime 配置
-创建或续接公开 Conversation
-调用 Agent Runtime 流式执行
-通过 SSE 返回 RuntimeEvent
-```
-
-公开会话隔离规则：
-
-- 新公开会话的 `conversationId` 会带有 `public:<agentId>:<visitorHash>:` 前缀。
-- Web 入口的 `visitorHash` 来源于渠道 ID 和 `visitorId`。
-- API 入口的 `visitorHash` 来源于渠道 ID 和 API Key hash。
-- 续接公开会话时，后端会校验 `conversationId` 是否匹配当前公开访问前缀，避免不同渠道、访客或 Agent 之间串用会话。
-
-常见错误：
-
-- `404 Not Found`：公开 Agent 不存在、渠道未启用、Agent 未发布或当前发布版本不存在。
-- `401 Unauthorized`：API Key 缺失、无效、渠道禁用或已过期。
-- `400 Bad Request`：发布快照无效，或请求体缺少 `message` 和 `inputs`。
-
-### Workflow
-
-```text
-POST /api/workflows
-GET  /api/workflows?workspaceId=...
-GET  /api/workflows/:workflowId
-PATCH /api/workflows/:workflowId
-PUT  /api/workflows/:workflowId/draft
-POST /api/workflows/:workflowId/validate
-POST /api/workflows/:workflowId/publish
-GET  /api/workflows/:workflowId/versions
-POST /api/workflows/:workflowId/run
-GET  /api/workflows/:workflowId/runs
-GET  /api/workflows/runs/:runId
-```
-
-工作流当前支持：
-
-- 保存草稿定义到 `draftDefinition`。
-- 校验节点和边的基础合法性。
-- 发布工作流版本，生成 `WorkflowVersion`。
-- 运行已发布版本，记录 `WorkflowRun` 和 `WorkflowRunNode`。
-- 支持 start、llm、end 等节点执行基础链路。
-
-状态说明：
-
-- `WorkflowStatus`：`DRAFT`、`ACTIVE`、`ARCHIVED`
-- `WorkflowRunStatus`：`PENDING`、`RUNNING`、`SUCCEEDED`、`FAILED`、`CANCELED`
-- `WorkflowRunNodeStatus`：`PENDING`、`RUNNING`、`SUCCEEDED`、`FAILED`、`SKIPPED`
-
-### File
-
-```text
-POST   /api/files/upload
-GET    /api/files
-GET    /api/files/:fileId
-GET    /api/files/:fileId/content
-DELETE /api/files/:fileId
-```
-
-文件上传使用 `multipart/form-data`，字段：
-
-- `file`：上传文件。
-- `purpose`：文件用途，取值来自 `FilePurpose`，包括 `USER_AVATAR`、`WORKSPACE_AVATAR`、`AGENT_AVATAR`、`PLUGIN_ICON`、`KNOWLEDGE_DOCUMENT`、`CHAT_ATTACHMENT`、`WORKFLOW_ATTACHMENT`、`TEMP_UPLOAD`。
-- `workspaceId`：可选，绑定工作空间文件时使用。
-
-文件读取和删除会校验当前用户权限。公开文件可直接访问；私有文件需要所有者或工作空间成员权限。
-
-### AI Gateway
-
-```text
-GET /api/ai-gateway/providers
-```
-
-AI Gateway 负责屏蔽不同模型供应商的调用差异。当前支持 OpenAI 兼容接口和 DeepSeek，核心 service 位于：
-
-```text
-src/modules/ai-gateway/ai-gateway.service.ts
-```
-
-主要能力：
-
-- `generate()`：非流式生成。
-- `generateStream()`：provider 原始流式输出。
-- `chatStream()`：供 Agent Runtime / Runner 使用的流式适配接口。
-
-### 占位模块
-
-以下模块当前主要是占位或待继续完善：
-
-- `knowledge`
-
-## 启动
-
-在仓库根目录执行：
+启动开发服务：
 
 ```bash
 pnpm --filter backend start:dev
 ```
 
-Windows PowerShell 如果 `pnpm` 被执行策略拦截，可以使用：
+Windows PowerShell 可以使用：
 
 ```powershell
 pnpm.cmd --filter backend start:dev
 ```
 
-默认地址：
+常用验证命令：
 
-```text
-http://localhost:3000/api/health
-http://localhost:3000/api-docs
+```bash
+pnpm --filter backend prisma:generate
+pnpm --filter backend build
+pnpm --filter backend test
+pnpm --filter backend test:e2e
 ```
+
+Windows PowerShell：
+
+```powershell
+pnpm.cmd --filter backend prisma:generate
+pnpm.cmd --filter backend build
+pnpm.cmd --filter backend test
+pnpm.cmd --filter backend test:e2e
+```
+
+## 当前未实现
+
+以下能力当前未在后端实现：
+
+- 前端设置页面。
+- AgentRun 持久化运行记录。
+- usage 聚合统计。
+- audit 审计日志。
+- 插件运行策略和 HTTP 插件执行器。
+- 当前只支持 OpenAI Compatible `/models`。
 
 ## 开发约定
 
@@ -469,4 +561,4 @@ http://localhost:3000/api-docs
 - 普通成功响应不要在 Controller 中手动包装 `{ code, message, data }`。
 - 业务异常优先使用 `BusinessException`。
 - 文件下载、SSE、AI 流式响应等特殊响应使用 `@SkipResponseWrap()`。
-- 修改 Prisma schema 后必须生成 migration 并执行 `prisma:generate`。
+- 修改 Prisma schema 后必须生成 migration，并执行 `prisma:generate`。

@@ -6,6 +6,7 @@ import { createPaginatedData } from '../../common/types/pagination-response.type
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
 import { PrismaService } from '../../database/prisma.service';
 import { parseAgentPublishSnapshot } from '../publish/agent-publish-snapshot.util';
+import { WorkspaceModelService } from '../model-management/workspace-model.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { AgentQueryDto } from './dto/agent-query.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
@@ -17,6 +18,7 @@ export class AgentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workspaceAccessService: WorkspaceAccessService,
+    private readonly workspaceModelService: WorkspaceModelService,
   ) {}
 
   async create(
@@ -26,6 +28,12 @@ export class AgentService {
     await this.workspaceAccessService.ensureCanManage(
       userId,
       createAgentDto.workspaceId,
+    );
+    // 创建时没有传 workspaceModelId，则尝试绑定工作区默认模型；
+    // 如果工作区还没配置模型，继续保留旧 model 字符串链路。
+    const workspaceModelId = await this.resolveCreateWorkspaceModelId(
+      createAgentDto.workspaceId,
+      createAgentDto.workspaceModelId,
     );
 
     const agent = await this.prisma.agent.create({
@@ -37,6 +45,7 @@ export class AgentService {
         avatarUrl: createAgentDto.avatarUrl,
         systemPrompt: createAgentDto.systemPrompt,
         model: createAgentDto.model,
+        workspaceModelId,
         temperature: createAgentDto.temperature,
         openingMessage: createAgentDto.openingMessage,
         contextLimit: createAgentDto.contextLimit,
@@ -140,6 +149,7 @@ export class AgentService {
       avatarUrl: snapshot.agent.avatarUrl,
       systemPrompt: snapshot.agent.systemPrompt,
       model: snapshot.agent.model,
+      workspaceModelId: snapshot.agent.workspaceModelId ?? null,
       temperature: snapshot.agent.temperature,
       openingMessage: snapshot.agent.openingMessage,
       contextLimit: snapshot.agent.contextLimit,
@@ -165,6 +175,13 @@ export class AgentService {
       userId,
       agent.workspaceId,
     );
+    if (updateAgentDto.workspaceModelId) {
+      // 更新只在显式传入 workspaceModelId 时校验并覆盖，未传则保持现有引用。
+      await this.workspaceModelService.ensureSelectableModel(
+        agent.workspaceId,
+        updateAgentDto.workspaceModelId,
+      );
+    }
 
     const updatedAgent = await this.prisma.agent.update({
       where: {
@@ -176,6 +193,7 @@ export class AgentService {
         avatarUrl: updateAgentDto.avatarUrl,
         systemPrompt: updateAgentDto.systemPrompt,
         model: updateAgentDto.model,
+        workspaceModelId: updateAgentDto.workspaceModelId,
         temperature: updateAgentDto.temperature,
         openingMessage: updateAgentDto.openingMessage,
         contextLimit: updateAgentDto.contextLimit,
@@ -229,6 +247,7 @@ export class AgentService {
       avatarUrl: agent.avatarUrl,
       systemPrompt: agent.systemPrompt,
       model: agent.model,
+      workspaceModelId: agent.workspaceModelId,
       temperature: agent.temperature,
       openingMessage: agent.openingMessage,
       contextLimit: agent.contextLimit,
@@ -236,5 +255,25 @@ export class AgentService {
       createdAt: formatShanghaiDateTime(agent.createdAt),
       updatedAt: formatShanghaiDateTime(agent.updatedAt),
     };
+  }
+
+  private async resolveCreateWorkspaceModelId(
+    workspaceId: string,
+    workspaceModelId?: string,
+  ): Promise<string | undefined> {
+    // 显式传入优先于默认模型，适用于后续前端设置页或 API 直接创建 Agent。
+    if (workspaceModelId) {
+      await this.workspaceModelService.ensureSelectableModel(
+        workspaceId,
+        workspaceModelId,
+      );
+      return workspaceModelId;
+    }
+
+    // 创建阶段未传 workspaceModelId 时，优先挂工作区默认模型；
+    // 如果工作区还没有设置模块配置，则保持旧 model 字符串链路，不阻塞旧前端。
+    const defaultModelId =
+      await this.workspaceModelService.getDefaultModelId(workspaceId);
+    return defaultModelId ?? undefined;
   }
 }
