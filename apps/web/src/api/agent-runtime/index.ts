@@ -20,6 +20,7 @@ export type RuntimeEventType =
   | 'message.completed'
   | 'tool.call.created'
   | 'tool.call.completed'
+  | 'tool.call.failed'
   | 'knowledge.status'
   | 'run.completed'
   | 'run.failed'
@@ -77,6 +78,14 @@ export interface ToolCallCompletedEvent {
   error?: string;
 }
 
+export interface ToolCallFailedEvent {
+  type: 'tool.call.failed';
+  runId: string;
+  toolCallId: string;
+  name: string;
+  error: string;
+}
+
 export interface RunCompletedEvent {
   type: 'run.completed';
   runId: string;
@@ -102,6 +111,7 @@ export type RuntimeEvent =
   | MessageCompletedEvent
   | ToolCallCreatedEvent
   | ToolCallCompletedEvent
+  | ToolCallFailedEvent
   | RunCompletedEvent
   | RunFailedEvent
   | StreamDoneEvent;

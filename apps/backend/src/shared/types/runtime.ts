@@ -1,6 +1,7 @@
 import {
   AgentConfig,
   ChatMessage,
+  RuntimeAttachment,
   RuntimeEvent,
   RuntimeRunStatus,
   TokenUsage,
@@ -20,6 +21,7 @@ export interface RuntimeContext {
   status: RuntimeRunStatus;
   isPreview?: boolean;
   input: ChatMessage;
+  attachments?: RuntimeAttachment[];
   history: ChatMessage[];
   agentConfig: AgentConfig;
   usage?: TokenUsage;

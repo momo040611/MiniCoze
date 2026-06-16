@@ -1,4 +1,4 @@
-import { http, type ApiEnvelope } from '../http';
+import { API_BASE_URL, getAuthToken, http, type ApiEnvelope } from '../http';
 
 export interface UploadedFileAsset {
   id: string;
@@ -32,4 +32,20 @@ export async function uploadChatAttachment(file: File, workspaceId: string) {
   );
 
   return res.data;
+}
+
+export async function getFileObjectUrl(fileId: string): Promise<string> {
+  const token = getAuthToken();
+  const response = await fetch(
+    `${API_BASE_URL.replace(/\/$/, '')}/files/${encodeURIComponent(fileId)}/content`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`加载文件失败 (${response.status})`);
+  }
+
+  return URL.createObjectURL(await response.blob());
 }
