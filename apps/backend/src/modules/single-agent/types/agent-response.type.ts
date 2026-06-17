@@ -20,6 +20,8 @@ export interface AgentResponse {
   avatarUrl: string | null;
   systemPrompt: string;
   model: string;
+  // 可选的新模型引用。前端未接入设置页前，可以为空并继续使用 model 字符串。
+  workspaceModelId: string | null;
   temperature: number;
   openingMessage: string | null;
   contextLimit: number;

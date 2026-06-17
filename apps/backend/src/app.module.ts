@@ -19,6 +19,8 @@ import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module';
 import { AgentRuntimeModule } from './modules/agent-runtime/agent-runtime.module';
 import { PluginModule } from './modules/plugins/plugin.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { CredentialsModule } from './modules/credentials/credentials.module';
+import { ModelManagementModule } from './modules/model-management/model-management.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     PublicAgentModule,
     PublicWorkflowModule,
     AiGatewayModule,
+    CredentialsModule,
+    ModelManagementModule,
     AgentRuntimeModule,
     PluginModule,
     DashboardModule,

@@ -45,6 +45,10 @@ export class RunAgentDto {
 
   @IsOptional()
   @IsString()
+  workspaceModelId?: string;
+
+  @IsOptional()
+  @IsString()
   systemPrompt?: string;
 
   @IsOptional()

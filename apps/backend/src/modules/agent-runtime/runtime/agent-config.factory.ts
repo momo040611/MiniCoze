@@ -25,11 +25,15 @@ export class AgentConfigFactory {
     if (command.publishedSnapshot) {
       const snapshotAgent = command.publishedSnapshot.agent;
 
+      // 发布运行优先使用快照里的 workspaceModelId，保证发布版本可复现。
       return {
         id: snapshotAgent.id,
+        workspaceId: snapshotAgent.workspaceId,
         name: snapshotAgent.name,
         systemPrompt: snapshotAgent.systemPrompt,
         model: snapshotAgent.model,
+        workspaceModelId:
+          command.workspaceModelId ?? snapshotAgent.workspaceModelId ?? null,
         temperature: snapshotAgent.temperature,
         maxTokens: command.maxTokens ?? DEFAULT_MAX_TOKENS,
         contextLimit: snapshotAgent.contextLimit,
@@ -61,9 +65,12 @@ export class AgentConfigFactory {
 
     return {
       id: agent.id,
+      workspaceId: agent.workspaceId,
       name: agent.name,
       systemPrompt: command.systemPrompt ?? agent.systemPrompt,
       model: command.model ?? agent.model,
+      // 预览运行允许请求体临时覆盖模型；未覆盖时使用 Agent 保存的模型引用。
+      workspaceModelId: command.workspaceModelId ?? agent.workspaceModelId,
       temperature: command.temperature ?? agent.temperature,
       maxTokens: command.maxTokens ?? DEFAULT_MAX_TOKENS,
       contextLimit: agent.contextLimit,

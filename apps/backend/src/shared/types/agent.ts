@@ -70,9 +70,13 @@ export interface RuntimeAttachment {
 // ── Agent 配置 ──
 export interface AgentConfig {
   id: string;
+  // workspaceId 用于运行时查找工作区默认模型和校验模型归属。
+  workspaceId: string;
   name: string;
   systemPrompt: string;
   model: string;
+  // workspaceModelId 是新模型管理链路；为空时继续使用 model 字符串。
+  workspaceModelId?: string | null;
   temperature: number;
   maxTokens: number;
   contextLimit: number;
@@ -170,6 +174,8 @@ export interface RunAgentCommand {
   };
   preview?: boolean;
   model?: string;
+  // 预览运行可临时指定数据库模型，不一定要先保存到 Agent。
+  workspaceModelId?: string;
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
@@ -183,6 +189,7 @@ export interface RunAgentCommand {
       name: string;
       systemPrompt: string;
       model: string;
+      workspaceModelId?: string | null;
       temperature: number;
       contextLimit: number;
     };

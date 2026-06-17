@@ -451,9 +451,13 @@ export class PublishService {
       {
         key: 'model',
         label: '模型配置',
-        passed: agent.model.trim().length > 0,
+        // 支持新旧两种模型配置：新模型引用或旧 model 字符串任意存在即可发布。
+        passed:
+          Boolean(agent.workspaceModelId) || agent.model.trim().length > 0,
         message:
-          agent.model.trim().length > 0 ? '模型已配置' : '模型配置不能为空',
+          Boolean(agent.workspaceModelId) || agent.model.trim().length > 0
+            ? '模型已配置'
+            : '模型配置不能为空',
       },
       {
         key: 'temperature',
@@ -501,6 +505,7 @@ export class PublishService {
   }
 
   private buildAgentSnapshot(agent: PublishAgent): AgentPublishSnapshot {
+    // 发布快照同时保存 workspaceModelId 和 model，确保新链路优先且旧链路可兜底。
     return {
       agent: {
         id: agent.id,
@@ -510,6 +515,7 @@ export class PublishService {
         avatarUrl: agent.avatarUrl,
         systemPrompt: agent.systemPrompt,
         model: agent.model,
+        workspaceModelId: agent.workspaceModelId,
         temperature: agent.temperature,
         openingMessage: agent.openingMessage,
         contextLimit: agent.contextLimit,

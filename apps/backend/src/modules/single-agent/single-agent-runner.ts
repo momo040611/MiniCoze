@@ -6,6 +6,7 @@ import type {
   AgentExecutionStrategy,
 } from '../../shared/types/runtime';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
+import { ModelResolverService } from '../model-management/model-resolver.service';
 import {
   isWorkflowToolName,
   parseWorkflowToolName,
@@ -15,7 +16,10 @@ import {
 export class SingleAgentRunner implements AgentExecutionStrategy {
   readonly mode = 'single_agent' as const;
 
-  constructor(private readonly aiGateway: AiGatewayService) {}
+  constructor(
+    private readonly aiGateway: AiGatewayService,
+    private readonly modelResolverService: ModelResolverService,
+  ) {}
 
   async *stream({
     context,
@@ -23,16 +27,29 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
     toolExecutor,
   }: AgentExecutionInput): AsyncGenerator<RuntimeEvent, string, void> {
     const tools = context.agentConfig.tools ?? [];
+    // 每次运行开始先解析模型。解析结果如果来自 workspace，就走动态 Provider；
+    // 如果来自 legacy-env，就保持旧的 AiGatewayService.chatStream() 调用。
+    const resolvedModel = await this.modelResolverService.resolve({
+      workspaceId: context.agentConfig.workspaceId,
+      requestedWorkspaceModelId: context.agentConfig.workspaceModelId,
+      agentWorkspaceModelId: context.agentConfig.workspaceModelId,
+      legacyModelName: context.agentConfig.model,
+    });
 
     for (;;) {
       const assistantMessageId = randomUUID();
-      const stream = this.aiGateway.chatStream({
+      const input = {
         messages,
-        model: context.agentConfig.model,
+        model: resolvedModel.modelId,
         temperature: context.agentConfig.temperature,
         maxTokens: context.agentConfig.maxTokens,
         tools,
-      });
+      };
+      const stream =
+        // workspace 来源表示已经拿到了数据库 baseUrl + credential，可以动态调用。
+        resolvedModel.source === 'workspace'
+          ? this.aiGateway.chatStreamWithResolvedModel(resolvedModel, input)
+          : this.aiGateway.chatStream(input);
 
       let toolCalls: ToolCall[] = [];
       const collected: string[] = [];

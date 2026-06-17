@@ -42,6 +42,11 @@ export class CreateAgentDto {
   @MaxLength(100)
   model?: string;
 
+  @ApiPropertyOptional({ example: 'workspace-model-id' })
+  @IsOptional()
+  @IsString()
+  workspaceModelId?: string;
+
   @ApiPropertyOptional({ example: 0.7, minimum: 0, maximum: 2 })
   @IsOptional()
   @IsNumber()

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AiGatewayService } from '../../../ai-gateway/ai-gateway.service';
+import { ModelResolverService } from '../../../model-management/model-resolver.service';
 import { ChatMessage } from '../../../../shared/types/agent';
 import {
   WorkflowNodeExecutionContext,
@@ -16,7 +17,10 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
   private readonly logger = new Logger(LlmNodeExecutor.name);
 
   // 注入 AI 网关服务，由它统一对接底层模型（OpenAI / DeepSeek 等）。
-  constructor(private readonly aiGatewayService: AiGatewayService) {}
+  constructor(
+    private readonly aiGatewayService: AiGatewayService,
+    private readonly modelResolverService: ModelResolverService,
+  ) {}
 
   async execute(
     context: WorkflowNodeExecutionContext,
@@ -37,6 +41,9 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
     const model = this.readString(
       this.pick(nodeData, inputConfig, 'model'),
       'deepseek-chat',
+    );
+    const workspaceModelId = this.readOptionalString(
+      this.pick(nodeData, inputConfig, 'workspaceModelId'),
     );
     const temperature = this.readNumber(
       this.pick(nodeData, inputConfig, 'temperature'),
@@ -62,12 +69,23 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
     this.logger.debug(`[llm] userMessage="${userMessage}"`);
 
     // 调用大模型，拿到回复内容与 token 使用量。
-    const response = await this.aiGatewayService.generate({
-      model,
-      temperature,
-      maxTokens,
-      messages,
-    });
+    // 工作流第一阶段不强制前端传 workspaceModelId：
+    // 有 workspaceModelId 才走新模型解析，没有则继续走旧 model 字符串。
+    const response = workspaceModelId
+      ? await this.generateWithWorkspaceModel({
+          workspaceId: context.state.variableContext.workspaceId,
+          workspaceModelId,
+          model,
+          temperature,
+          maxTokens,
+          messages,
+        })
+      : await this.aiGatewayService.generate({
+          model,
+          temperature,
+          maxTokens,
+          messages,
+        });
 
     this.logger.debug(
       `[llm] 模型返回 content="${response.content}" usage=${JSON.stringify(response.usage ?? null)}`,
@@ -135,6 +153,46 @@ export class LlmNodeExecutor implements WorkflowNodeExecutor {
       return value;
     }
     return fallback;
+  }
+
+  private readOptionalString(value: unknown): string | undefined {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+
+    return undefined;
+  }
+
+  private async generateWithWorkspaceModel(input: {
+    workspaceId: string;
+    workspaceModelId: string;
+    model: string;
+    temperature: number;
+    maxTokens: number;
+    messages: ChatMessage[];
+  }) {
+    // 节点显式配置数据库模型时，仍保留 legacy model 作为解析失败后的兜底。
+    const resolvedModel = await this.modelResolverService.resolve({
+      workspaceId: input.workspaceId,
+      requestedWorkspaceModelId: input.workspaceModelId,
+      legacyModelName: input.model,
+    });
+
+    if (resolvedModel.source !== 'workspace') {
+      return this.aiGatewayService.generate({
+        model: resolvedModel.modelId,
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+        messages: input.messages,
+      });
+    }
+
+    return this.aiGatewayService.generateWithResolvedModel(resolvedModel, {
+      model: resolvedModel.modelId,
+      temperature: input.temperature,
+      maxTokens: input.maxTokens,
+      messages: input.messages,
+    });
   }
 
   // 安全读取数字：值为有效数字才用，否则返回默认值。

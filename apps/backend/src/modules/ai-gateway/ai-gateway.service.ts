@@ -7,6 +7,8 @@ import type {
   ToolCall,
   ToolDefinition,
 } from '../../shared/types/agent';
+import type { ResolvedModel } from '../model-management/types/resolved-model.type';
+import { DynamicAiProviderFactory } from './dynamic-ai-provider.factory';
 import { AiProviderInterface } from './providers/ai-provider.interface';
 import { DeepSeekProvider } from './providers/deepseek.provider';
 import { OpenAiProvider } from './providers/openai.provider';
@@ -36,7 +38,10 @@ export interface ChatStreamChunk {
 export class AiGatewayService {
   private readonly provider: AiProviderInterface;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly dynamicAiProviderFactory: DynamicAiProviderFactory,
+  ) {
     this.provider = this.createProvider();
   }
 
@@ -50,11 +55,64 @@ export class AiGatewayService {
     return this.provider.generateStream(request);
   }
 
+  generateWithResolvedModel(
+    resolvedModel: ResolvedModel,
+    request: AiGenerateRequest,
+  ): Promise<AiGenerateResponse> {
+    // 新入口只服务数据库模型配置；旧 generate() 不受影响。
+    const provider = this.dynamicAiProviderFactory.create(resolvedModel);
+    return provider.generate({
+      ...request,
+      model: resolvedModel.modelId,
+    });
+  }
+
+  generateStreamWithResolvedModel(
+    resolvedModel: ResolvedModel,
+    request: AiGenerateRequest,
+  ): AsyncGenerator<AiStreamChunk, void, unknown> {
+    const provider = this.dynamicAiProviderFactory.create(resolvedModel);
+    return provider.generateStream({
+      ...request,
+      model: resolvedModel.modelId,
+    });
+  }
+
   async *chatStream(
     input: ChatStreamInput,
   ): AsyncGenerator<ChatStreamChunk, void, unknown> {
     const stream: AsyncGenerator<AiStreamChunk, void, unknown> =
       this.generateStream(input);
+
+    for await (const chunk of stream) {
+      const content: string | undefined = chunk.content;
+      const toolCalls = this.normalizeToolCalls(chunk.toolCalls);
+      const isFinished: boolean = chunk.isFinished;
+      const chatChunk: ChatStreamChunk = {};
+
+      if (content !== undefined) {
+        chatChunk.content = content;
+      }
+
+      if (toolCalls !== undefined) {
+        chatChunk.toolCalls = toolCalls;
+      }
+
+      if (isFinished) {
+        chatChunk.finishReason = 'stop';
+      }
+
+      yield chatChunk;
+    }
+  }
+
+  async *chatStreamWithResolvedModel(
+    resolvedModel: ResolvedModel,
+    input: ChatStreamInput,
+  ): AsyncGenerator<ChatStreamChunk, void, unknown> {
+    // 动态流式入口复用旧 chatStream 的 chunk 归一化逻辑，保持上层事件格式一致。
+    const stream: AsyncGenerator<AiStreamChunk, void, unknown> =
+      this.generateStreamWithResolvedModel(resolvedModel, input);
 
     for await (const chunk of stream) {
       const content: string | undefined = chunk.content;
@@ -111,6 +169,7 @@ export class AiGatewayService {
   }
 
   private createProvider(): AiProviderInterface {
+    // 旧环境变量 Provider 仍在服务启动时创建，作为所有旧链路和兜底链路的基础。
     const provider = this.configService.get<AiProvider>('ai.provider');
 
     if (!provider) {
