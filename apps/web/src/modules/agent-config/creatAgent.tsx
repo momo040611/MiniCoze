@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import styles from "./index.module.css";
+import { uploadFile } from "../../api/files";
+import { getCurrentWorkspaceId } from "../../api/workspace";
 
 interface CreateAgentProps {
   visible: boolean;
@@ -14,26 +16,51 @@ export function CreateAgent({ visible, onCancel, onCreate }: CreateAgentProps) {
   const [description, setDescription] = useState("");
   const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
   const [avatarHover, setAvatarHover] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const uploadSeqRef = useRef(0);
 
   if (!visible) return null;
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setAvatar((ev.target?.result as string) || DEFAULT_AVATAR);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
-  const handleCreate = () => {
-    if (!name.trim()) return;
+  const handleAvatarChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 先用本地预览
+    const localPreview = URL.createObjectURL(file);
+    setAvatar(localPreview);
+
+    setAvatarUploading(true);
+    const seq = ++uploadSeqRef.current;
+    try {
+      const workspaceId = await getCurrentWorkspaceId();
+      const uploaded = await uploadFile(file, 'AGENT_AVATAR', workspaceId);
+      // 防止竞态：只有当前序列号匹配才更新
+      if (uploadSeqRef.current !== seq) return;
+      if (uploaded.url) {
+        // 释放旧的 blob URL
+        URL.revokeObjectURL(localPreview);
+        setAvatar(uploaded.url);
+      }
+    } catch {
+      if (uploadSeqRef.current !== seq) return;
+      // 上传失败回退到默认头像
+      URL.revokeObjectURL(localPreview);
+      setAvatar(DEFAULT_AVATAR);
+      alert('头像上传失败，请检查图片大小是否超过 5MB');
+    } finally {
+      if (uploadSeqRef.current === seq) {
+        setAvatarUploading(false);
+      }
+    }
+  }, [getCurrentWorkspaceId, uploadFile]);
+
+  const handleCreate = useCallback(() => {
+    if (!name.trim() || avatarUploading) return;
     onCreate({ name: name.trim(), avatar, description: description.trim() });
     setName("");
     setDescription("");
     setAvatar(DEFAULT_AVATAR);
-  };
+  }, [name, avatar, description, avatarUploading, onCreate]);
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onCancel();
@@ -61,14 +88,21 @@ export function CreateAgent({ visible, onCancel, onCreate }: CreateAgentProps) {
             >
               <img src={avatar} alt="avatar" className={styles.avatarImg} />
               <div className={`${styles.avatarOverlay} ${avatarHover ? styles.avatarOverlayShow : ""}`}>
-                <span className={styles.cameraIcon}>📷</span>
-                <span className={styles.avatarHint}>更换头像</span>
+                {avatarUploading ? (
+                  <span className={styles.avatarHint}>上传中...</span>
+                ) : (
+                  <>
+                    <span className={styles.cameraIcon}>📷</span>
+                    <span className={styles.avatarHint}>更换头像</span>
+                  </>
+                )}
               </div>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 className={styles.avatarInput}
                 onChange={handleAvatarChange}
+                disabled={avatarUploading}
               />
             </div>
           </div>
@@ -112,7 +146,7 @@ export function CreateAgent({ visible, onCancel, onCreate }: CreateAgentProps) {
           <button
             className={styles.modalCreateBtn}
             onClick={handleCreate}
-            disabled={!name.trim()}
+            disabled={!name.trim() || avatarUploading}
           >
             创建
           </button>

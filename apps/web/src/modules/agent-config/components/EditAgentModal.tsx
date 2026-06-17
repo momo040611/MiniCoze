@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './EditAgentModal.module.css';
 import { updateAgent } from '../../../api/agent-config/index';
+import { uploadFile } from '../../../api/files';
+import { getCurrentWorkspaceId } from '../../../api/workspace';
 
 interface Props {
   visible: boolean;
@@ -25,6 +27,8 @@ export function EditAgentModal({
   const [editDescription, setEditDescription] = useState(initialDescription);
   const [editAvatar, setEditAvatar] = useState(initialAvatar);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const uploadSeqRef = useRef(0);
 
   useEffect(() => {
     if (visible) {
@@ -34,19 +38,38 @@ export function EditAgentModal({
     }
   }, [visible, initialName, initialDescription, initialAvatar]);
 
-  const handleAvatarChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setEditAvatar((ev.target?.result as string) || initialAvatar);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // 先用本地预览
+    const localPreview = URL.createObjectURL(file);
+    setEditAvatar(localPreview);
+
+    setAvatarUploading(true);
+    const seq = ++uploadSeqRef.current;
+    try {
+      const workspaceId = await getCurrentWorkspaceId();
+      const uploaded = await uploadFile(file, 'AGENT_AVATAR', workspaceId);
+      if (uploadSeqRef.current !== seq) return;
+      if (uploaded.url) {
+        URL.revokeObjectURL(localPreview);
+        setEditAvatar(uploaded.url);
+      }
+    } catch {
+      if (uploadSeqRef.current !== seq) return;
+      URL.revokeObjectURL(localPreview);
+      setEditAvatar(initialAvatar);
+      alert('头像上传失败，请检查图片大小是否超过 5MB');
+    } finally {
+      if (uploadSeqRef.current === seq) {
+        setAvatarUploading(false);
+      }
     }
-  }, [initialAvatar]);
+  }, [initialAvatar, getCurrentWorkspaceId, uploadFile]);
 
   const handleSave = useCallback(async () => {
-    if (!editName.trim()) return;
+    if (!editName.trim() || avatarUploading) return;
     setSaving(true);
     try {
       await updateAgent(agentId, {
@@ -60,7 +83,7 @@ export function EditAgentModal({
     } finally {
       setSaving(false);
     }
-  }, [agentId, editName, editDescription, editAvatar, onSaved]);
+  }, [agentId, editName, editDescription, editAvatar, avatarUploading, onSaved]);
 
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onCancel();
@@ -86,12 +109,15 @@ export function EditAgentModal({
           <div className={styles.avatarSection}>
             <label className={styles.avatarLabel}>
               <img src={editAvatar} alt="avatar" className={styles.avatarImg} />
-              <div className={styles.avatarHint}>点击更换头像</div>
+              <div className={styles.avatarHint}>
+                {avatarUploading ? '上传中...' : '点击更换头像'}
+              </div>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 className={styles.avatarInput}
                 onChange={handleAvatarChange}
+                disabled={avatarUploading}
               />
             </label>
           </div>
@@ -135,7 +161,7 @@ export function EditAgentModal({
           <button
             className={styles.saveBtn}
             onClick={handleSave}
-            disabled={saving || !editName.trim()}
+            disabled={saving || avatarUploading || !editName.trim()}
           >
             {saving ? '保存中...' : '保存'}
           </button>

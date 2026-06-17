@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getWorkflowListRemote, type Workflow } from '../../../api/workflows';
 import { getCurrentWorkspaceId } from '../../../api/workspace';
 import styles from './WorkflowSelectModal.module.css';
+import { STATUS_LABELS } from './constants';
 
 interface Props {
   visible: boolean;
@@ -11,12 +12,6 @@ interface Props {
   onRemove?: (id: string) => void;
   selectedIds?: string[];
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: '未发布',
-  ACTIVE: '已发布',
-  ARCHIVED: '已归档',
-};
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -32,7 +27,7 @@ export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, sele
   const [items, setItems] = useState<Workflow[]>([]);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState('DRAFT');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,7 +47,7 @@ export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, sele
       load();
       setSearch('');
       setSelectedId(null);
-      setStatusFilter('DRAFT');
+      setStatusFilter('all');
     }
   }, [visible, load]);
 
@@ -191,6 +186,12 @@ export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, sele
                   const isAlreadyAdded = (selectedIds ?? []).includes(wf.id);
                   const status = wf.status ?? 'DRAFT';
                   const statusLabel = STATUS_LABELS[status] ?? status;
+                  const statusCls =
+                    status === 'ACTIVE'
+                      ? styles.wfStatusActive
+                      : status === 'ARCHIVED'
+                        ? styles.wfStatusArchived
+                        : styles.wfStatusDraft;
 
                   return (
                     <div
@@ -219,8 +220,9 @@ export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, sele
                         <div className={styles.wfInfo}>
                           <span className={styles.wfName}>{wf.name}</span>
                           <div className={styles.wfMeta}>
-                            <span>{statusLabel}</span>
-                            <span className={styles.wfMetaDot} />
+                            <span className={`${styles.wfStatusTag} ${statusCls}`}>
+                              {statusLabel}
+                            </span>
                             <span>{formatDate(wf.updatedAt)}</span>
                             {wf.description && (
                               <>

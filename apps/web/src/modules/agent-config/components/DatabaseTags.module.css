@@ -81,3 +81,28 @@
   color: #7c3aed;
   background: #f5f3ff;
 }
+
+/* 工作流状态标签 */
+.wfStatusTag {
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+  margin-left: 2px;
+}
+
+.wfStatusDraft {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.wfStatusActive {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.wfStatusArchived {
+  background: #f3f4f6;
+  color: #6b7280;
+}

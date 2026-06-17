@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { getWorkflowListRemote, type Workflow } from '../../../api/workflows'
 import { getCurrentWorkspaceId } from '../../../api/workspace'
 import styles from './DatabaseTags.module.css'
+import { STATUS_LABELS } from './constants'
 
 interface Props {
   ids: string[]
@@ -26,25 +27,41 @@ export function WorkflowTags({ ids, onRemove, onAdd }: Props) {
 
   return (
     <div className={styles.wrap}>
-      {selected.map((item) => (
-        <span key={item.id} className={styles.tag}>
-          <span className={styles.tagIcon}>
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path d="M2 4H14M2 8H14M2 12H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+      {selected.map((item) => {
+        const status = item.status ?? 'DRAFT';
+        const statusLabel = STATUS_LABELS[status] ?? status;
+        const statusCls =
+          status === 'ACTIVE'
+            ? styles.wfStatusActive
+            : status === 'ARCHIVED'
+              ? styles.wfStatusArchived
+              : styles.wfStatusDraft;
+
+        return (
+          <span key={item.id} className={styles.tag}>
+            <span className={styles.tagIcon}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                <path d="M2 4H14M2 8H14M2 12H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </span>
+            <span className={styles.tagName}>{item.name}</span>
+            {status !== 'ACTIVE' && (
+              <span className={`${styles.wfStatusTag} ${statusCls}`}>
+                {statusLabel}
+              </span>
+            )}
+            <button
+              className={styles.tagRemove}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(item.id);
+              }}
+            >
+              ×
+            </button>
           </span>
-          <span className={styles.tagName}>{item.name}</span>
-          <button
-            className={styles.tagRemove}
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove(item.id)
-            }}
-          >
-            ×
-          </button>
-        </span>
-      ))}
+        );
+      })}
       <button className={styles.tagAdd} onClick={onAdd}>+</button>
     </div>
   )

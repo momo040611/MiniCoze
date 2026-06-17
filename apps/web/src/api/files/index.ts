@@ -17,11 +17,27 @@ export interface UploadedFileAsset {
   updatedAt: string;
 }
 
-export async function uploadChatAttachment(file: File, workspaceId: string) {
+export type FilePurpose =
+  | 'USER_AVATAR'
+  | 'WORKSPACE_AVATAR'
+  | 'AGENT_AVATAR'
+  | 'PLUGIN_ICON'
+  | 'KNOWLEDGE_DOCUMENT'
+  | 'CHAT_ATTACHMENT'
+  | 'WORKFLOW_ATTACHMENT'
+  | 'TEMP_UPLOAD';
+
+export async function uploadFile(
+  file: File,
+  purpose: FilePurpose,
+  workspaceId?: string,
+) {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('purpose', 'CHAT_ATTACHMENT');
-  formData.append('workspaceId', workspaceId);
+  formData.append('purpose', purpose);
+  if (workspaceId) {
+    formData.append('workspaceId', workspaceId);
+  }
 
   const res = await http.request<ApiEnvelope<UploadedFileAsset>>(
     'files/upload',
@@ -32,6 +48,10 @@ export async function uploadChatAttachment(file: File, workspaceId: string) {
   );
 
   return res.data;
+}
+
+export async function uploadChatAttachment(file: File, workspaceId: string) {
+  return uploadFile(file, 'CHAT_ATTACHMENT', workspaceId);
 }
 
 export async function getFileObjectUrl(fileId: string): Promise<string> {

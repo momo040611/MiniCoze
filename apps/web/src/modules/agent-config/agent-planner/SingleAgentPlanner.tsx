@@ -77,30 +77,6 @@ export function SingleAgentPlanner({
       <div className={styles.col} style={{ flex: '0 0 340px', minWidth: 280 }}>
         <div className={styles.colHeader}>
           <h3 className={styles.colTitle}>人设与回复逻辑</h3>
-          <div className={styles.colToolbar}>
-            <button className={styles.toolbarBtn} title="编辑">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 10.5V12H3.5L10.35 5.15L8.85 3.65L2 10.5Z" fill="currentColor" />
-                <path d="M11.5 2.5L11.3 2.3C11.1 2.1 10.9 2 10.7 2C10.5 2 10.3 2.1 10.1 2.3L9.15 3.25L10.75 4.85L11.7 3.9C12.1 3.5 12.1 2.9 11.7 2.5H11.5Z" fill="currentColor" />
-              </svg>
-            </button>
-            <button className={styles.toolbarBtn} title="清空">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 4H12M5 4V2.5C5 2.22386 5.22386 2 5.5 2H8.5C8.77614 2 9 2.22386 9 2.5V4M11 4V12C11 12.5523 10.5523 13 10 13H4C3.44772 13 3 12.5523 3 12V4H11Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <button className={styles.toolbarBtn} title="格式刷">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 12L5 9L9 13L6.5 13.5L2 12Z" fill="currentColor" opacity="0.3" />
-                <rect x="3" y="1" width="8" height="8" rx="1" transform="rotate(-45 7 5)" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              </svg>
-            </button>
-            <button className={styles.toolbarBtn} title="收藏">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1L9 5.5L14 6L10.5 9.5L11.5 14.5L7 12L2.5 14.5L3.5 9.5L0 6L5 5.5L7 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
         </div>
         <div className={styles.colBody}>
           <textarea

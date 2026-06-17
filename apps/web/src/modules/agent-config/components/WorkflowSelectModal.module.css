@@ -580,3 +580,28 @@
   background: #a0c4ff;
   cursor: not-allowed;
 }
+
+/* 状态标签 */
+.wfStatusTag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wfStatusDraft {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.wfStatusActive {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.wfStatusArchived {
+  background: #f3f4f6;
+  color: #6b7280;
+}
