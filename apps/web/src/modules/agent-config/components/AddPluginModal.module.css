@@ -359,6 +359,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.pluginName:hover {
+  color: #1677ff;
 }
 
 /* 标签 */

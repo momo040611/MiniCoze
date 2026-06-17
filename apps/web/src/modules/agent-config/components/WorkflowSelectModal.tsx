@@ -218,7 +218,18 @@ export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, sele
                           </svg>
                         </div>
                         <div className={styles.wfInfo}>
-                          <span className={styles.wfName}>{wf.name}</span>
+                          <span
+                            className={styles.wfName}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onClose();
+                              navigate(`/workflows/${wf.id}`);
+                            }}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            {wf.name}
+                          </span>
                           <div className={styles.wfMeta}>
                             <span className={`${styles.wfStatusTag} ${statusCls}`}>
                               {statusLabel}
@@ -250,6 +261,31 @@ export function WorkflowSelectModal({ visible, onClose, onSelect, onRemove, sele
                           }}
                         >
                           {isAlreadyAdded ? '移除' : '添加'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.arrowBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                            navigate(`/workflows/${wf.id}`);
+                          }}
+                          title="查看工作流"
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                          >
+                            <path
+                              d="M6 3L11 8L6 13"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         </button>
                       </div>
 

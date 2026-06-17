@@ -227,6 +227,10 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
                           onRemove?.(kb.id);
                           return;
                         }
+                        if (isSelected) {
+                          setSelectedId(null);
+                          return;
+                        }
                         setSelectedId(kb.id);
                       }}
                     >
@@ -264,7 +268,18 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
                         </div>
                         <div className={styles.kbInfo}>
                           <div className={styles.kbNameRow}>
-                            <span className={styles.kbName}>{kb.name}</span>
+                            <span
+                              className={styles.kbName}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onClose();
+                                navigate(`/knowledge/${kb.id}`);
+                              }}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              {kb.name}
+                            </span>
                             <span className={styles.tags}>
                               <span className={`${styles.tag} ${statusClass}`}>
                                 {statusLabel}
@@ -317,7 +332,16 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
                           </span>
                           <span className={styles.statLabel}>索引状态</span>
                         </div>
-                        <span className={styles.arrowBtn}>
+                        <button
+                          type="button"
+                          className={styles.arrowBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                            navigate(`/knowledge/${kb.id}`);
+                          }}
+                          title="查看详情"
+                        >
                           <svg
                             width="16"
                             height="16"
@@ -332,7 +356,7 @@ export function KnowledgeSelectModal({ visible, onClose, onSelect, selectedIds, 
                               strokeLinejoin="round"
                             />
                           </svg>
-                        </span>
+                        </button>
                       </div>
 
                       {/* 选中标记 / 已添加标记 */}

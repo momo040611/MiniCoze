@@ -395,6 +395,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.wfName:hover {
+  color: #1677ff;
 }
 
 .wfMeta {
@@ -423,7 +429,30 @@
 
 /* 右侧添加按钮 */
 .wfCardRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.arrowBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.arrowBtn:hover {
+  color: #1677ff;
+  background: #f3f4f6;
 }
 
 .wfAddBtn {

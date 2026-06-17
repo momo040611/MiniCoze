@@ -350,7 +350,16 @@ export function AddPluginModal({ visible, onClose, onSelect, selectedIds: preSel
 
                         <div className={styles.pluginInfo}>
                           <div className={styles.pluginNameRow}>
-                            <span className={styles.pluginName}>
+                            <span
+                              className={styles.pluginName}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onClose();
+                                navigate(`/plugins/${plugin.id}`);
+                              }}
+                              role="button"
+                              tabIndex={0}
+                            >
                               {plugin.name}
                             </span>
                             <span className={styles.tags}>
@@ -405,7 +414,16 @@ export function AddPluginModal({ visible, onClose, onSelect, selectedIds: preSel
                           <span className={styles.statValue}>—</span>
                           <span className={styles.statLabel}>可用率</span>
                         </div>
-                        <span className={styles.arrowBtn}>
+                        <button
+                          type="button"
+                          className={styles.arrowBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                            navigate(`/plugins/${plugin.id}`);
+                          }}
+                          title="查看详情"
+                        >
                           <svg
                             width="16"
                             height="16"
@@ -420,7 +438,7 @@ export function AddPluginModal({ visible, onClose, onSelect, selectedIds: preSel
                               strokeLinejoin="round"
                             />
                           </svg>
-                        </span>
+                        </button>
                       </div>
 
                       {isSelected && (
