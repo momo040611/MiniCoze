@@ -7,11 +7,18 @@ import {
   type WorkflowNodeEntity,
 } from '@flowgram.ai/free-layout-editor';
 import type { WorkflowCanvasData } from '../../../api/workflows';
-import type { EndConfig, LLMConfig, NodeMeta, VariableInfo } from '../nodeRenders/types';
+import type {
+  ConditionBranch,
+  ConditionConfig,
+  EndConfig,
+  LLMConfig,
+  NodeMeta,
+  VariableInfo,
+} from '../nodeRenders/types';
 import type { NodeValidationError } from '../utils/validateWorkflow';
 import styles from './NodeConfigPanel.module.css';
 
-type NodeConfig = LLMConfig & EndConfig & Record<string, unknown>;
+type NodeConfig = LLMConfig & EndConfig & ConditionConfig & Record<string, unknown>;
 
 type NodeData = {
   nodeMeta?: NodeMeta;
@@ -47,10 +54,81 @@ const CONDITION_OPERATOR_OPTIONS = [
   { label: '等于', value: 'equals' },
   { label: '不等于', value: 'notEquals' },
   { label: '包含', value: 'contains' },
-  { label: '大于', value: 'greaterThan' },
-  { label: '小于', value: 'lessThan' },
-  { label: '自定义表达式', value: 'expression' },
+  { label: '不包含', value: 'notContains' },
+  { label: '大于', value: 'gt' },
+  { label: '大于等于', value: 'gte' },
+  { label: '小于', value: 'lt' },
+  { label: '小于等于', value: 'lte' },
+  { label: '为空', value: 'empty' },
+  { label: '不为空', value: 'notEmpty' },
 ];
+
+const CONDITION_LOGIC_OPTIONS = [
+  { label: '满足全部条件', value: 'and' },
+  { label: '满足任一条件', value: 'or' },
+];
+
+function getDefaultConditionBranch(): ConditionBranch {
+  return {
+    port: 'true',
+    name: '是',
+    logic: 'and',
+    conditions: [{ left: '{{input.value}}', op: 'equals', right: '' }],
+  };
+}
+
+function getDefaultConditionConfig(): ConditionConfig {
+  return {
+    branches: [getDefaultConditionBranch()],
+    defaultPort: 'false',
+  };
+}
+
+function normalizeConditionConfig(config: NodeConfig): ConditionConfig {
+  if (Array.isArray(config.branches) && config.branches.length > 0) {
+    return {
+      branches: config.branches.map((branch, index) => ({
+        port: branch.port || (index === 0 ? 'true' : `branch_${index + 1}`),
+        name: branch.name || (index === 0 ? '是' : `分支 ${index + 1}`),
+        logic: branch.logic === 'or' ? 'or' : 'and',
+        conditions: Array.isArray(branch.conditions) && branch.conditions.length > 0
+          ? branch.conditions.map((condition) => ({
+              left: condition.left ?? '',
+              op: condition.op ?? 'equals',
+              right: condition.right ?? '',
+            }))
+          : [{ left: '{{input.value}}', op: 'equals', right: '' }],
+      })),
+      defaultPort: config.defaultPort || 'false',
+    };
+  }
+
+  if (config.operator) {
+    const legacyOperator = config.operator === 'greaterThan'
+      ? 'gt'
+      : config.operator === 'lessThan'
+        ? 'lt'
+        : config.operator;
+
+    return {
+      branches: [
+        {
+          ...getDefaultConditionBranch(),
+          conditions: [
+            {
+              left: '{{input.value}}',
+              op: legacyOperator as ConditionBranch['conditions'][number]['op'],
+              right: config.compareValue ?? '',
+            },
+          ],
+        },
+      ],
+      defaultPort: 'false',
+    };
+  }
+
+  return getDefaultConditionConfig();
+}
 
 function normalizeType(type?: string) {
   if (type === 'input') return 'start';
@@ -175,14 +253,10 @@ function getTypeDefaults(type?: string): Pick<NodeData, 'inputs' | 'outputs' | '
     return {
       inputs: [{ label: '输入', type: 'string', name: 'value' }],
       outputs: [
-        { label: '是', type: 'boolean', name: 'trueBranch' },
-        { label: '否', type: 'boolean', name: 'falseBranch' },
+        { label: '是', type: 'boolean', name: 'true' },
+        { label: '否', type: 'boolean', name: 'false' },
       ],
-      config: {
-        operator: 'equals',
-        compareValue: '',
-        expression: '',
-      },
+      config: getDefaultConditionConfig(),
     };
   }
 
@@ -221,6 +295,10 @@ function getDefaultData(node: WorkflowNodeEntity | null): NodeData {
   const data = getNodeData(node);
   const type = String(node?.flowNodeType ?? 'unknown');
   const defaults = getTypeDefaults(type);
+  const config = {
+    ...defaults.config,
+    ...(data.config ?? {}),
+  };
 
   return {
     nodeMeta: {
@@ -232,10 +310,7 @@ function getDefaultData(node: WorkflowNodeEntity | null): NodeData {
     },
     inputs: data.inputs ?? defaults.inputs,
     outputs: data.outputs ?? defaults.outputs,
-    config: {
-      ...defaults.config,
-      ...(data.config ?? {}),
-    },
+    config: normalizeType(type) === 'condition' ? normalizeConditionConfig(config) : config,
   };
 }
 
@@ -294,6 +369,149 @@ function VariableList({ name, title }: { name: 'inputs' | 'outputs'; title: stri
   );
 }
 
+function ConditionFields() {
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionTitle}>条件配置</div>
+      <Form.List name={['config', 'branches']}>
+        {(branchFields, { add: addBranch, remove: removeBranch }) => (
+          <div className={styles.variableList}>
+            {branchFields.map((branchField, branchIndex) => (
+              <div className={styles.variableCard} key={branchField.key}>
+                <Form.Item
+                  label="分支名称"
+                  name={[branchField.name, 'name']}
+                  rules={[{ required: true, message: '请输入分支名称' }]}
+                >
+                  <Input placeholder={`分支 ${branchIndex + 1}`} />
+                </Form.Item>
+
+                <Form.Item
+                  label="出口端口"
+                  name={[branchField.name, 'port']}
+                  rules={[{ required: true, message: '请输入出口端口' }]}
+                >
+                  <Input placeholder="true" />
+                </Form.Item>
+
+                <Form.Item
+                  label="条件关系"
+                  name={[branchField.name, 'logic']}
+                  rules={[{ required: true, message: '请选择条件关系' }]}
+                >
+                  <Select options={CONDITION_LOGIC_OPTIONS} />
+                </Form.Item>
+
+                <Form.List name={[branchField.name, 'conditions']}>
+                  {(conditionFields, { add: addCondition, remove: removeCondition }) => (
+                    <div className={styles.variableList}>
+                      {conditionFields.map((conditionField) => (
+                        <div className={styles.conditionCard} key={conditionField.key}>
+                          <Form.Item
+                            label="左值"
+                            name={[conditionField.name, 'left']}
+                            rules={[{ required: true, message: '请输入左值' }]}
+                          >
+                            <Input placeholder="{{input.value}}" />
+                          </Form.Item>
+
+                          <Form.Item
+                            label="判断方式"
+                            name={[conditionField.name, 'op']}
+                            rules={[{ required: true, message: '请选择判断方式' }]}
+                          >
+                            <Select options={CONDITION_OPERATOR_OPTIONS} />
+                          </Form.Item>
+
+                          <Form.Item
+                            noStyle
+                            shouldUpdate={(prev, next) => (
+                              prev?.config?.branches?.[branchField.name]?.conditions?.[conditionField.name]?.op !==
+                              next?.config?.branches?.[branchField.name]?.conditions?.[conditionField.name]?.op
+                            )}
+                          >
+                            {({ getFieldValue }) => {
+                              const op = getFieldValue([
+                                'config',
+                                'branches',
+                                branchField.name,
+                                'conditions',
+                                conditionField.name,
+                                'op',
+                              ]);
+                              const needRight = op !== 'empty' && op !== 'notEmpty';
+
+                              return (
+                                <Form.Item
+                                  label="右值"
+                                  name={[conditionField.name, 'right']}
+                                  rules={[
+                                    {
+                                      required: needRight,
+                                      message: '请输入右值',
+                                    },
+                                  ]}
+                                >
+                                  <Input disabled={!needRight} placeholder="比较值" />
+                                </Form.Item>
+                              );
+                            }}
+                          </Form.Item>
+
+                          {conditionFields.length > 1 && (
+                            <Button danger type="link" onClick={() => removeCondition(conditionField.name)}>
+                              删除条件
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+
+                      <Button
+                        type="dashed"
+                        block
+                        onClick={() => addCondition({ left: '{{input.value}}', op: 'equals', right: '' })}
+                      >
+                        添加条件
+                      </Button>
+                    </div>
+                  )}
+                </Form.List>
+
+                {branchFields.length > 1 && (
+                  <Button danger type="link" onClick={() => removeBranch(branchField.name)}>
+                    删除分支
+                  </Button>
+                )}
+              </div>
+            ))}
+
+            <Button
+              type="dashed"
+              block
+              onClick={() => addBranch({
+                port: `branch_${branchFields.length + 1}`,
+                name: `分支 ${branchFields.length + 1}`,
+                logic: 'and',
+                conditions: [{ left: '{{input.value}}', op: 'equals', right: '' }],
+              })}
+            >
+              添加分支
+            </Button>
+          </div>
+        )}
+      </Form.List>
+
+      <Form.Item
+        label="默认出口端口"
+        name={['config', 'defaultPort']}
+        rules={[{ required: true, message: '请输入默认出口端口' }]}
+      >
+        <Input placeholder="false" />
+      </Form.Item>
+    </div>
+  );
+}
+
 function TypeSpecificFields({ nodeType }: { nodeType: string }) {
   const normalizedType = normalizeType(nodeType);
 
@@ -330,54 +548,7 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
   }
 
   if (normalizedType === 'condition') {
-    return (
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>条件配置</div>
-        <Form.Item
-          label="判断方式"
-          name={['config', 'operator']}
-          rules={[{ required: true, message: '请选择判断方式' }]}
-        >
-          <Select options={CONDITION_OPERATOR_OPTIONS} />
-        </Form.Item>
-        <Form.Item
-          label="比较值"
-          name={['config', 'compareValue']}
-          dependencies={[['config', 'operator']]}
-          rules={[
-            ({ getFieldValue }) => ({
-              validator(_, value) {
-                if (getFieldValue(['config', 'operator']) === 'expression' || String(value ?? '').trim()) {
-                  return Promise.resolve();
-                }
-
-                return Promise.reject(new Error('请输入比较值'));
-              },
-            }),
-          ]}
-        >
-          <Input placeholder="请输入比较值" />
-        </Form.Item>
-        <Form.Item
-          label="自定义表达式"
-          name={['config', 'expression']}
-          dependencies={[['config', 'operator']]}
-          rules={[
-            ({ getFieldValue }) => ({
-              validator(_, value) {
-                if (getFieldValue(['config', 'operator']) !== 'expression' || String(value ?? '').trim()) {
-                  return Promise.resolve();
-                }
-
-                return Promise.reject(new Error('请输入自定义表达式'));
-              },
-            }),
-          ]}
-        >
-          <Input.TextArea rows={3} placeholder="例如：input.status === 'success'" />
-        </Form.Item>
-      </div>
-    );
+    return <ConditionFields />;
   }
 
   if (normalizedType === 'plugin') {
@@ -485,7 +656,9 @@ function NodeConfigPanel({
       },
       inputs: values.inputs ?? [],
       outputs: values.outputs ?? [],
-      config: values.config ?? {},
+      config: normalizeType(nodeType) === 'condition'
+        ? normalizeConditionConfig(values.config ?? {})
+        : values.config ?? {},
     };
 
     setPanelTitle(`${nextData.nodeMeta?.title ?? '节点'} 配置`);

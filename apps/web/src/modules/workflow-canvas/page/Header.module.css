@@ -134,7 +134,6 @@
     color: #b91c1c;
 }
 
-.check,
 .history {
     width: 32px;
     height: 32px;
@@ -155,6 +154,35 @@
     border-radius: 5px;
     overflow: hidden;
 
+}
+
+.historyLoading {
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.historyItem {
+    align-items: flex-start;
+}
+
+.historyItemTitle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.historyItemDescription {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.historyChangelog {
+    margin: 0 !important;
+    color: #475569;
 }
 
 .publish button {

@@ -87,6 +87,21 @@
   margin-bottom: 0;
 }
 
+.conditionCard {
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #e5e6eb;
+  border-radius: 6px;
+}
+
+.conditionCard :global(.ant-form-item) {
+  margin-bottom: 10px;
+}
+
+.conditionCard :global(.ant-form-item:last-of-type) {
+  margin-bottom: 0;
+}
+
 .fullWidth {
   width: 100%;
 }

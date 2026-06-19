@@ -21,6 +21,7 @@ export {
   getWorkflowDetail,
   getWorkflowList,
   getWorkflowListRemote,
+  getWorkflowVersionsRemote,
   runWorkflowRemote,
   runWorkflowStreamRemote,
   saveWorkflowDraft,
@@ -44,6 +45,7 @@ export {
   type WorkflowRunResult,
   type WorkflowRunStatus,
   type WorkflowStreamEvent,
+  type WorkflowVersion,
 } from './workflows';
 
 // 统一导出"创建知识库界面"模块 API，后续文件上传、解析、知识库管理等接口放在该模块下。

@@ -1,9 +1,42 @@
 import { useEffect, useRef, useState } from 'react';
 import { Field } from '@flowgram.ai/free-layout-editor';
 import styles from './nodeRenderers.module.css';
-import type { EndConfig, LLMConfig, NodeMeta, VariableInfo } from './types.ts';
+import type { ConditionConfig, EndConfig, LLMConfig, NodeMeta, VariableInfo } from './types.ts';
 
-type NodeConfig = LLMConfig & EndConfig & Record<string, unknown>;
+type NodeConfig = LLMConfig & EndConfig & ConditionConfig & Record<string, unknown>;
+
+const CONDITION_OPERATOR_LABELS: Record<string, string> = {
+  equals: '等于',
+  notEquals: '不等于',
+  contains: '包含',
+  notContains: '不包含',
+  gt: '大于',
+  gte: '大于等于',
+  lt: '小于',
+  lte: '小于等于',
+  empty: '为空',
+  notEmpty: '不为空',
+};
+
+function getConditionSummary(config?: NodeConfig) {
+  const firstBranch = Array.isArray(config?.branches) ? config.branches[0] : undefined;
+  const firstCondition = firstBranch?.conditions?.[0];
+
+  if (firstCondition) {
+    const op = firstCondition.op ? CONDITION_OPERATOR_LABELS[firstCondition.op] ?? firstCondition.op : '';
+    const right = firstCondition.op === 'empty' || firstCondition.op === 'notEmpty'
+      ? ''
+      : ` ${firstCondition.right ?? ''}`;
+
+    return `${firstCondition.left || '未配置'} ${op}${right}`.trim();
+  }
+
+  if (config?.operator) {
+    return `${config.operator}${config.compareValue ? ` ${config.compareValue}` : ''}`;
+  }
+
+  return '未配置条件';
+}
 
 const renderTitle = () => (
   <Field<NodeMeta> name="nodeMeta">
@@ -40,7 +73,9 @@ const renderVariables = (fieldName: 'inputs' | 'outputs') => (
 const renderConfigRow = (label: string, value?: unknown) => (
   <div className={styles.configRow}>
     <span className={styles.variableLabel}>{label}</span>
-    <span className={styles.configText}>{String(value || '未配置')}</span>
+    <span className={styles.configText} title={String(value || '未配置')}>
+      {String(value || '未配置')}
+    </span>
   </div>
 );
 
@@ -141,7 +176,7 @@ export const renderConditionNode = () => (
     {renderVariables('outputs')}
 
     <Field<NodeConfig> name="config">
-      {({ field }) => renderConfigRow('条件', field.value?.expression || field.value?.operator)}
+      {({ field }) => renderConfigRow('条件', getConditionSummary(field.value))}
     </Field>
   </div>
 );

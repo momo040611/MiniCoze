@@ -23,3 +23,36 @@ export type EndConfig = {
     outputKey?: string
     outputMode?: string
 }
+
+export type ConditionOperator =
+    | 'equals'
+    | 'notEquals'
+    | 'contains'
+    | 'notContains'
+    | 'gt'
+    | 'gte'
+    | 'lt'
+    | 'lte'
+    | 'empty'
+    | 'notEmpty'
+
+export type ConditionItem = {
+    left?: string
+    op?: ConditionOperator
+    right?: string
+}
+
+export type ConditionBranch = {
+    port: string
+    name?: string
+    logic?: 'and' | 'or'
+    conditions: ConditionItem[]
+}
+
+export type ConditionConfig = {
+    branches?: ConditionBranch[]
+    defaultPort?: string
+    operator?: string
+    compareValue?: string
+    expression?: string
+}

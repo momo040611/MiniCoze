@@ -87,13 +87,19 @@ function getDefaultNodeData(type: string) {
       nodeMeta: { title: '条件节点' },
       inputs: [{ label: '输入', type: 'string', name: 'value' }],
       outputs: [
-        { label: '是', type: 'boolean', name: 'trueBranch' },
-        { label: '否', type: 'boolean', name: 'falseBranch' },
+        { label: '是', type: 'boolean', name: 'true' },
+        { label: '否', type: 'boolean', name: 'false' },
       ],
       config: {
-        operator: 'equals',
-        compareValue: '',
-        expression: '',
+        branches: [
+          {
+            port: 'true',
+            name: '是',
+            logic: 'and',
+            conditions: [{ left: '{{input.value}}', op: 'equals', right: '' }],
+          },
+        ],
+        defaultPort: 'false',
       },
     };
   }

@@ -1,7 +1,14 @@
 import type { WorkflowCanvasData } from '../../../api/workflows';
-import type { EndConfig, LLMConfig, NodeMeta, VariableInfo } from '../nodeRenders/types';
+import type {
+  ConditionBranch,
+  ConditionConfig,
+  EndConfig,
+  LLMConfig,
+  NodeMeta,
+  VariableInfo,
+} from '../nodeRenders/types';
 
-type NodeConfig = LLMConfig & EndConfig & Record<string, unknown>;
+type NodeConfig = LLMConfig & EndConfig & ConditionConfig & Record<string, unknown>;
 
 type WorkflowJsonNode = {
   id?: string;
@@ -23,6 +30,18 @@ export type NodeValidationError = {
 };
 
 const VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const CONDITION_OPERATORS = new Set([
+  'equals',
+  'notEquals',
+  'contains',
+  'notContains',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'empty',
+  'notEmpty',
+]);
 
 function asNode(node: unknown): WorkflowJsonNode {
   return (node ?? {}) as WorkflowJsonNode;
@@ -97,6 +116,78 @@ function validateVariables(
   });
 }
 
+function validateConditionConfig(
+  errors: NodeValidationError[],
+  node: WorkflowJsonNode,
+  config: NodeConfig,
+) {
+  const branches = Array.isArray(config.branches) ? config.branches : [];
+
+  if (branches.length === 0) {
+    addError(errors, node, 'config.branches', '条件节点至少需要一个条件分支');
+    return;
+  }
+
+  const usedPorts = new Set<string>();
+
+  branches.forEach((branch: ConditionBranch, branchIndex) => {
+    const branchPrefix = `分支 ${branchIndex + 1}`;
+    const port = branch.port?.trim() ?? '';
+
+    if (!port) {
+      addError(errors, node, `config.branches.${branchIndex}.port`, `${branchPrefix}出口端口不能为空`);
+    } else if (usedPorts.has(port)) {
+      addError(errors, node, `config.branches.${branchIndex}.port`, `${branchPrefix}出口端口不能重复`);
+    }
+
+    if (port) {
+      usedPorts.add(port);
+    }
+
+    const conditions = Array.isArray(branch.conditions) ? branch.conditions : [];
+    if (conditions.length === 0) {
+      addError(errors, node, `config.branches.${branchIndex}.conditions`, `${branchPrefix}至少需要一条条件`);
+      return;
+    }
+
+    conditions.forEach((condition, conditionIndex) => {
+      const conditionPrefix = `${branchPrefix} 条件 ${conditionIndex + 1}`;
+      const op = condition.op ?? '';
+
+      if (isBlank(condition.left)) {
+        addError(
+          errors,
+          node,
+          `config.branches.${branchIndex}.conditions.${conditionIndex}.left`,
+          `${conditionPrefix}左值不能为空`,
+        );
+      }
+
+      if (!CONDITION_OPERATORS.has(op)) {
+        addError(
+          errors,
+          node,
+          `config.branches.${branchIndex}.conditions.${conditionIndex}.op`,
+          `${conditionPrefix}判断方式不支持`,
+        );
+      }
+
+      if (op !== 'empty' && op !== 'notEmpty' && isBlank(condition.right)) {
+        addError(
+          errors,
+          node,
+          `config.branches.${branchIndex}.conditions.${conditionIndex}.right`,
+          `${conditionPrefix}右值不能为空`,
+        );
+      }
+    });
+  });
+
+  if (isBlank(config.defaultPort)) {
+    addError(errors, node, 'config.defaultPort', '默认出口端口不能为空');
+  }
+}
+
 export function validateNode(nodeInput: unknown): NodeValidationError[] {
   const node = asNode(nodeInput);
   const errors: NodeValidationError[] = [];
@@ -137,17 +228,7 @@ export function validateNode(nodeInput: unknown): NodeValidationError[] {
   }
 
   if (type === 'condition') {
-    if (isBlank(config.operator)) {
-      addError(errors, node, 'config.operator', '判断方式不能为空');
-    }
-
-    if (config.operator === 'expression') {
-      if (isBlank(config.expression)) {
-        addError(errors, node, 'config.expression', '自定义表达式不能为空');
-      }
-    } else if (isBlank(config.compareValue)) {
-      addError(errors, node, 'config.compareValue', '比较值不能为空');
-    }
+    validateConditionConfig(errors, node, config);
   }
 
   if (type === 'plugin') {
