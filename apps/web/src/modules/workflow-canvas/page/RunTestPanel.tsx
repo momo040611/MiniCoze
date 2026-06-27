@@ -338,7 +338,7 @@ function RunTestPanel({ open, workflowId, canvasData, onClose }: RunTestPanelPro
 
     try {
       const runnableDefinition = toRunnableWorkflowDefinition(canvasData);
-      await saveWorkflowDraftRemote(workflowId, runnableDefinition);
+      await saveWorkflowDraftRemote(workflowId, runnableDefinition, { rawDefinition: true });
       await runWorkflowStreamRemote(workflowId, { input }, handleStreamEvent);
 
       if (runFailedRef.current) {

@@ -95,6 +95,14 @@ function WorkflowCanvasPage() {
     return true
   }, [])
 
+  const handleWorkflowPublished = useCallback(async () => {
+    if (!workflowId) return
+
+    const updatedWorkflow = await getWorkflowByIdRemote(workflowId)
+    setWorkflow(updatedWorkflow)
+    setValidationErrors(validateWorkflow(updatedWorkflow.canvasData))
+  }, [workflowId])
+
   useEffect(() => {
     if (!workflowId) {
       setLoading(false)
@@ -141,7 +149,7 @@ function WorkflowCanvasPage() {
     <WorkflowCanvasErrorBoundary key={workflow.id}>
       <FreeLayoutEditorProvider key={workflow.id} {...editorProps}>
       <div className={styles.workflowPage}>
-        <Header workflow={workflow} />
+        <Header workflow={workflow} onPublished={handleWorkflowPublished} />
 
         <main className={styles.canvasArea} onClick={() => setSelectedNode(null)}>
           <EditorRenderer />

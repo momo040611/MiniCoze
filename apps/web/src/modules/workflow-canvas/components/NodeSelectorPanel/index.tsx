@@ -6,12 +6,13 @@ import {
   ImportOutlined,
   RobotOutlined,
   SearchOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import { Input } from 'antd';
 import type { ReactNode } from 'react';
 import styles from './index.module.css';
 
-type NodeType = 'llm' | 'condition' | 'plugin' | 'database' | 'input' | 'output';
+type NodeType = 'llm' | 'condition' | 'loop' | 'plugin' | 'database' | 'input' | 'output';
 
 interface NodeSelectorPanelProps {
   onAddNode: (type: NodeType) => void;
@@ -30,6 +31,7 @@ const nodeGroups: Array<{
     items: [
       { label: '大模型', type: 'llm', icon: <RobotOutlined /> },
       { label: '条件判断', type: 'condition', icon: <BranchesOutlined /> },
+      { label: '循环', type: 'loop', icon: <SyncOutlined /> },
       { label: '插件调用', type: 'plugin', icon: <ApiOutlined /> },
       { label: '数据库', type: 'database', icon: <DatabaseOutlined /> },
     ],

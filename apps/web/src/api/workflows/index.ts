@@ -79,6 +79,21 @@ export interface WorkflowRunResult {
   nodes?: WorkflowRunNode[];
 }
 
+export interface WorkflowVersion {
+  id: string;
+  workflowId: string;
+  createdBy: string;
+  version: number;
+  definition: Record<string, unknown>;
+  inputSchema: Record<string, unknown> | null;
+  outputSchema: Record<string, unknown> | null;
+  changelog: string | null;
+  isPublished: boolean;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type WorkflowStreamEvent =
   | {
       type: 'run.created';
@@ -133,6 +148,26 @@ export interface PaginatedWorkflowResponse {
 }
 
 const STORAGE_KEY = 'miniCoze_workflows';
+
+const DEFAULT_LOOP_BLOCKS = [
+  {
+    id: 'loop_llm_1',
+    type: 'llm',
+    data: {
+      inputs: {
+        model: 'deepseek-chat',
+        prompt: '请处理当前循环项：{{loop.item}}',
+        systemPrompt: '你是一个可靠的批处理助手。',
+        temperature: 0.7,
+      },
+    },
+  },
+];
+
+const DEFAULT_LOOP_EDGES: unknown[] = [];
+
+const DEFAULT_LOOP_BLOCKS_JSON = JSON.stringify(DEFAULT_LOOP_BLOCKS, null, 2);
+const DEFAULT_LOOP_EDGES_JSON = JSON.stringify(DEFAULT_LOOP_EDGES, null, 2);
 
 export const DEFAULT_WORKFLOW_CANVAS_DATA: WorkflowCanvasData = {
   nodes: [
@@ -217,10 +252,35 @@ function toRecordOrEmpty(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
 }
 
+function getNodePosition(node: Record<string, unknown>) {
+  const meta = toRecordOrEmpty(node.meta);
+  const position = toRecordOrEmpty(meta.position);
+  const x = typeof position.x === 'number' ? position.x : 0;
+  const y = typeof position.y === 'number' ? position.y : 0;
+
+  return { x, y };
+}
+
+function getNodeId(node: unknown) {
+  const record = toRecordOrEmpty(node);
+  return typeof record.id === 'string' ? record.id : '';
+}
+
+function getNodeType(node: unknown) {
+  const record = toRecordOrEmpty(node);
+  return typeof record.type === 'string' ? record.type : '';
+}
+
+function getNodeData(node: unknown) {
+  return toRecordOrEmpty(toRecordOrEmpty(node).data);
+}
+
 function normalizeWorkflowEdge(edge: unknown) {
   const record = toRecordOrEmpty(edge);
   const sourceNodeID = record.sourceNodeID ?? record.source;
   const targetNodeID = record.targetNodeID ?? record.target;
+  const sourcePortID = record.sourcePortID ?? record.sourcePort;
+  const targetPortID = record.targetPortID ?? record.targetPort;
 
   return {
     ...record,
@@ -228,6 +288,89 @@ function normalizeWorkflowEdge(edge: unknown) {
     targetNodeID,
     source: record.source ?? sourceNodeID,
     target: record.target ?? targetNodeID,
+    ...(sourcePortID ? { sourcePortID, sourcePort: record.sourcePort ?? sourcePortID } : {}),
+    ...(targetPortID ? { targetPortID, targetPort: record.targetPort ?? targetPortID } : {}),
+  };
+}
+
+function getSelectorPorts(node: unknown) {
+  const data = getNodeData(node);
+  const config = toRecordOrEmpty(data.config);
+  const inputs = toRecordOrEmpty(data.inputs);
+  const source = Array.isArray(data.inputs)
+    ? config
+    : { ...inputs, ...config };
+  const branches = normalizeConditionBranches(source);
+  const defaultPort = typeof source.defaultPort === 'string' && source.defaultPort.trim()
+    ? source.defaultPort.trim()
+    : 'false';
+  const ports = branches.map((branch) => branch.port).filter(Boolean);
+
+  if (!ports.includes(defaultPort)) {
+    ports.push(defaultPort);
+  }
+
+  return ports;
+}
+
+function withSelectorEdgePorts(definition: WorkflowDefinition): WorkflowDefinition {
+  const nodeById = new Map<string, Record<string, unknown>>();
+
+  definition.nodes.forEach((node) => {
+    if (isRecord(node)) {
+      nodeById.set(getNodeId(node), node);
+    }
+  });
+
+  const nextEdges = definition.edges.map(normalizeWorkflowEdge);
+  const selectorNodes = definition.nodes.filter((node) => {
+    const type = getNodeType(node);
+    return type === 'condition' || type === 'selector';
+  });
+
+  selectorNodes.forEach((node) => {
+    const selectorId = getNodeId(node);
+    const ports = getSelectorPorts(node);
+
+    if (!selectorId || ports.length === 0) {
+      return;
+    }
+
+    const outgoing = nextEdges
+      .map((edge, index) => ({ edge, index }))
+      .filter(({ edge }) => edge.source === selectorId);
+    const missingPortEdges = outgoing.filter(({ edge }) => !edge.sourcePort && !edge.sourcePortID);
+
+    if (missingPortEdges.length === 0) {
+      return;
+    }
+
+    const sortedMissingPortEdges = [...missingPortEdges].sort((a, b) => {
+      const aTarget = nodeById.get(String(a.edge.target ?? ''));
+      const bTarget = nodeById.get(String(b.edge.target ?? ''));
+      const aPosition = aTarget ? getNodePosition(aTarget) : { x: 0, y: 0 };
+      const bPosition = bTarget ? getNodePosition(bTarget) : { x: 0, y: 0 };
+
+      return aPosition.y - bPosition.y || aPosition.x - bPosition.x || a.index - b.index;
+    });
+
+    sortedMissingPortEdges.forEach(({ edge, index }, portIndex) => {
+      const port = ports[Math.min(portIndex, ports.length - 1)];
+      const sourcePortID = typeof edge.sourcePortID === 'string' && edge.sourcePortID.trim()
+        ? edge.sourcePortID.trim()
+        : port;
+
+      nextEdges[index] = {
+        ...edge,
+        sourcePort: port,
+        sourcePortID,
+      };
+    });
+  });
+
+  return {
+    ...definition,
+    edges: nextEdges,
   };
 }
 
@@ -261,6 +404,46 @@ function getDefaultNodeData(type: string, index: number) {
     };
   }
 
+  if (type === 'condition' || type === 'selector') {
+    return {
+      nodeMeta: { title: '条件节点' },
+      inputs: [{ label: '输入', type: 'string', name: 'value' }],
+      outputs: [
+        { label: '是', type: 'boolean', name: 'true' },
+        { label: '否', type: 'boolean', name: 'false' },
+      ],
+      config: {
+        branches: [
+          {
+            port: 'true',
+            name: '是',
+            logic: 'and',
+            conditions: [{ left: '{{input.value}}', op: 'equals', right: '' }],
+          },
+        ],
+        defaultPort: 'false',
+      },
+    };
+  }
+
+  if (type === 'loop') {
+    return {
+      nodeMeta: { title: '循环节点' },
+      inputs: [{ label: '循环数组', type: 'array', name: 'items' }],
+      outputs: [
+        { label: '次数', type: 'number', name: 'count' },
+        { label: '结果', type: 'array', name: 'results' },
+      ],
+      config: {
+        items: '{{input.items}}',
+        concurrency: 5,
+        onError: 'abort',
+        blocksJson: DEFAULT_LOOP_BLOCKS_JSON,
+        edgesJson: DEFAULT_LOOP_EDGES_JSON,
+      },
+    };
+  }
+
   return {
     nodeMeta: { title: `${type || '节点'}_${index + 1}` },
   };
@@ -276,6 +459,17 @@ function normalizeWorkflowNode(node: unknown, index: number) {
   const dataInputs = Array.isArray(data.inputs) ? data.inputs : undefined;
   const dataOutputs = Array.isArray(data.outputs) ? data.outputs : undefined;
   const runnableInputs = Array.isArray(data.inputs) ? {} : toRecordOrEmpty(data.inputs);
+  const dataConfig = toRecordOrEmpty(data.config);
+  const containerConfig = type === 'loop'
+    ? {
+        ...(dataConfig.blocksJson === undefined && Array.isArray(record.blocks)
+          ? { blocksJson: JSON.stringify(record.blocks, null, 2) }
+          : {}),
+        ...(dataConfig.edgesJson === undefined && Array.isArray(record.edges)
+          ? { edgesJson: JSON.stringify(record.edges, null, 2) }
+          : {}),
+      }
+    : {};
 
   return {
     ...record,
@@ -298,8 +492,9 @@ function normalizeWorkflowNode(node: unknown, index: number) {
       },
       config: {
         ...toRecordOrEmpty(defaultData.config),
+        ...containerConfig,
         ...runnableInputs,
-        ...toRecordOrEmpty(data.config),
+        ...dataConfig,
       },
     },
   };
@@ -336,12 +531,145 @@ function normalizeLlmPrompt(prompt: unknown) {
   return prompt;
 }
 
+function normalizeConditionOperator(op: unknown) {
+  if (op === 'greaterThan') return 'gt';
+  if (op === 'lessThan') return 'lt';
+
+  const supported = new Set([
+    'equals',
+    'notEquals',
+    'contains',
+    'notContains',
+    'gt',
+    'gte',
+    'lt',
+    'lte',
+    'empty',
+    'notEmpty',
+  ]);
+
+  return typeof op === 'string' && supported.has(op) ? op : 'equals';
+}
+
+function normalizeConditionBranches(source: Record<string, unknown>) {
+  const branches = Array.isArray(source.branches) ? source.branches : [];
+
+  if (branches.length > 0) {
+    return branches
+      .filter(isRecord)
+      .map((branch, index) => {
+        const conditions = Array.isArray(branch.conditions)
+          ? branch.conditions.filter(isRecord)
+          : [];
+
+        return {
+          port: typeof branch.port === 'string' && branch.port.trim()
+            ? branch.port.trim()
+            : index === 0 ? 'true' : `true_${index}`,
+          logic: branch.logic === 'or' ? 'or' : 'and',
+          conditions: conditions.map((condition) => ({
+            left: condition.left,
+            op: normalizeConditionOperator(condition.op),
+            right: condition.right,
+          })),
+        };
+      });
+  }
+
+  if (source.operator) {
+    return [
+      {
+        port: 'true',
+        logic: 'and',
+        conditions: [
+          {
+            left: '{{input.value}}',
+            op: normalizeConditionOperator(source.operator),
+            right: source.compareValue,
+          },
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      port: 'true',
+      logic: 'and',
+      conditions: [
+        { left: '{{input.value}}', op: 'equals', right: '' },
+      ],
+    },
+  ];
+}
+
+function buildSelectorInputs(data: Record<string, unknown>) {
+  const config = toRecordOrEmpty(data.config);
+  const rawInputs = toRecordOrEmpty(data.inputs);
+  const source = Array.isArray(data.inputs)
+    ? config
+    : { ...rawInputs, ...config };
+
+  return {
+    branches: normalizeConditionBranches(source),
+    defaultPort: typeof source.defaultPort === 'string' && source.defaultPort.trim()
+      ? source.defaultPort.trim()
+      : 'false',
+  };
+}
+
+function parseJsonArray(value: unknown, fallback: unknown[]) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function buildLoopRunnableNode(node: Record<string, unknown>, data: Record<string, unknown>) {
+  const config = toRecordOrEmpty(data.config);
+  const rawInputs = toRecordOrEmpty(data.inputs);
+  const blocks = parseJsonArray(
+    config.blocks ?? config.blocksJson ?? node.blocks,
+    DEFAULT_LOOP_BLOCKS,
+  );
+  const edges = parseJsonArray(
+    config.edges ?? config.edgesJson ?? node.edges,
+    DEFAULT_LOOP_EDGES,
+  );
+
+  return {
+    ...node,
+    type: 'loop',
+    blocks,
+    edges,
+    data: {
+      ...data,
+      inputs: {
+        ...rawInputs,
+        items: config.items ?? rawInputs.items ?? '{{input.items}}',
+        concurrency: config.concurrency ?? rawInputs.concurrency ?? 5,
+        onError: config.onError ?? rawInputs.onError ?? 'abort',
+      },
+    },
+  };
+}
+
 export function toRunnableWorkflowDefinition(
   canvasData?: WorkflowCanvasData,
 ): WorkflowDefinition {
   const definition = toWorkflowDefinition(canvasData);
 
-  return {
+  const runnableDefinition = {
     ...definition,
     nodes: definition.nodes.map((node) => {
       if (!isRecord(node)) {
@@ -351,26 +679,43 @@ export function toRunnableWorkflowDefinition(
       const data = toRecordOrEmpty(node.data);
       const config = toRecordOrEmpty(data.config);
 
-      if (node.type !== 'llm') {
-        return node;
+      if (node.type === 'llm') {
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              ...toRecordOrEmpty(data.inputs),
+              systemPrompt: config.systemPrompt,
+              model: config.model,
+              prompt: normalizeLlmPrompt(config.prompt),
+              temperature: config.temperature,
+              maxTokens: config.maxTokens,
+            },
+          },
+        };
       }
 
-      return {
-        ...node,
-        data: {
-          ...data,
-          inputs: {
-            ...toRecordOrEmpty(data.inputs),
-            systemPrompt: config.systemPrompt,
-            model: config.model,
-            prompt: normalizeLlmPrompt(config.prompt),
-            temperature: config.temperature,
-            maxTokens: config.maxTokens,
+      if (node.type === 'condition' || node.type === 'selector') {
+        return {
+          ...node,
+          type: 'selector',
+          data: {
+            ...data,
+            inputs: buildSelectorInputs(data),
           },
-        },
-      };
+        };
+      }
+
+      if (node.type === 'loop') {
+        return buildLoopRunnableNode(node, data);
+      }
+
+      return node;
     }),
   };
+
+  return withSelectorEdgePorts(runnableDefinition);
 }
 
 export function fromWorkflowResponse(response: WorkflowResponseLike): Workflow {
@@ -551,12 +896,13 @@ export async function saveWorkflowDraft(
 export async function saveWorkflowDraftRemote(
   id: string,
   canvasData: WorkflowCanvasData,
+  options?: { rawDefinition?: boolean },
 ): Promise<Workflow> {
   const res = await http.put<
     ApiEnvelope<WorkflowResponseLike>,
     { definition: WorkflowDefinition }
   >(`workflows/${id}/draft`, {
-    definition: toWorkflowDefinition(canvasData),
+    definition: options?.rawDefinition ? canvasData : toWorkflowDefinition(canvasData),
   });
 
   return fromWorkflowResponse(res.data);
@@ -570,6 +916,16 @@ export async function runWorkflowRemote(
     ApiEnvelope<WorkflowRunResult>,
     RunWorkflowRequest
   >(`workflows/${workflowId}/run`, params);
+
+  return res.data;
+}
+
+export async function getWorkflowVersionsRemote(
+  workflowId: string,
+): Promise<WorkflowVersion[]> {
+  const res = await http.get<ApiEnvelope<WorkflowVersion[]>>(
+    `workflows/${workflowId}/versions`,
+  );
 
   return res.data;
 }
