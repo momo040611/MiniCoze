@@ -39,6 +39,23 @@ const scaleItems: MenuProps['items'] = [
 
 const RASTER_EXPORT_TIMEOUT = 10000;
 
+const DEFAULT_LOOP_BLOCKS_JSON = JSON.stringify([
+  {
+    id: 'loop_llm_1',
+    type: 'llm',
+    data: {
+      inputs: {
+        model: 'deepseek-chat',
+        prompt: '请处理当前循环项：{{loop.item}}',
+        systemPrompt: '你是一个可靠的批处理助手。',
+        temperature: 0.7,
+      },
+    },
+  },
+], null, 2);
+
+const DEFAULT_LOOP_EDGES_JSON = JSON.stringify([], null, 2);
+
 interface ToolbarProps {
   onAddNode?: (type: string) => void;
   onRunTest?: (canvasData: WorkflowCanvasData) => boolean;
@@ -100,6 +117,24 @@ function getDefaultNodeData(type: string) {
           },
         ],
         defaultPort: 'false',
+      },
+    };
+  }
+
+  if (type === 'loop') {
+    return {
+      nodeMeta: { title: '循环节点' },
+      inputs: [{ label: '循环数组', type: 'array', name: 'items' }],
+      outputs: [
+        { label: '次数', type: 'number', name: 'count' },
+        { label: '结果', type: 'array', name: 'results' },
+      ],
+      config: {
+        items: '{{input.items}}',
+        concurrency: 5,
+        onError: 'abort',
+        blocksJson: DEFAULT_LOOP_BLOCKS_JSON,
+        edgesJson: DEFAULT_LOOP_EDGES_JSON,
       },
     };
   }

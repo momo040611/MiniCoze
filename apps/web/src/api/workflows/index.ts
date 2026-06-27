@@ -149,6 +149,26 @@ export interface PaginatedWorkflowResponse {
 
 const STORAGE_KEY = 'miniCoze_workflows';
 
+const DEFAULT_LOOP_BLOCKS = [
+  {
+    id: 'loop_llm_1',
+    type: 'llm',
+    data: {
+      inputs: {
+        model: 'deepseek-chat',
+        prompt: '请处理当前循环项：{{loop.item}}',
+        systemPrompt: '你是一个可靠的批处理助手。',
+        temperature: 0.7,
+      },
+    },
+  },
+];
+
+const DEFAULT_LOOP_EDGES: unknown[] = [];
+
+const DEFAULT_LOOP_BLOCKS_JSON = JSON.stringify(DEFAULT_LOOP_BLOCKS, null, 2);
+const DEFAULT_LOOP_EDGES_JSON = JSON.stringify(DEFAULT_LOOP_EDGES, null, 2);
+
 export const DEFAULT_WORKFLOW_CANVAS_DATA: WorkflowCanvasData = {
   nodes: [
     {
@@ -406,6 +426,24 @@ function getDefaultNodeData(type: string, index: number) {
     };
   }
 
+  if (type === 'loop') {
+    return {
+      nodeMeta: { title: '循环节点' },
+      inputs: [{ label: '循环数组', type: 'array', name: 'items' }],
+      outputs: [
+        { label: '次数', type: 'number', name: 'count' },
+        { label: '结果', type: 'array', name: 'results' },
+      ],
+      config: {
+        items: '{{input.items}}',
+        concurrency: 5,
+        onError: 'abort',
+        blocksJson: DEFAULT_LOOP_BLOCKS_JSON,
+        edgesJson: DEFAULT_LOOP_EDGES_JSON,
+      },
+    };
+  }
+
   return {
     nodeMeta: { title: `${type || '节点'}_${index + 1}` },
   };
@@ -421,6 +459,17 @@ function normalizeWorkflowNode(node: unknown, index: number) {
   const dataInputs = Array.isArray(data.inputs) ? data.inputs : undefined;
   const dataOutputs = Array.isArray(data.outputs) ? data.outputs : undefined;
   const runnableInputs = Array.isArray(data.inputs) ? {} : toRecordOrEmpty(data.inputs);
+  const dataConfig = toRecordOrEmpty(data.config);
+  const containerConfig = type === 'loop'
+    ? {
+        ...(dataConfig.blocksJson === undefined && Array.isArray(record.blocks)
+          ? { blocksJson: JSON.stringify(record.blocks, null, 2) }
+          : {}),
+        ...(dataConfig.edgesJson === undefined && Array.isArray(record.edges)
+          ? { edgesJson: JSON.stringify(record.edges, null, 2) }
+          : {}),
+      }
+    : {};
 
   return {
     ...record,
@@ -443,8 +492,9 @@ function normalizeWorkflowNode(node: unknown, index: number) {
       },
       config: {
         ...toRecordOrEmpty(defaultData.config),
+        ...containerConfig,
         ...runnableInputs,
-        ...toRecordOrEmpty(data.config),
+        ...dataConfig,
       },
     },
   };
@@ -568,6 +618,52 @@ function buildSelectorInputs(data: Record<string, unknown>) {
   };
 }
 
+function parseJsonArray(value: unknown, fallback: unknown[]) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function buildLoopRunnableNode(node: Record<string, unknown>, data: Record<string, unknown>) {
+  const config = toRecordOrEmpty(data.config);
+  const rawInputs = toRecordOrEmpty(data.inputs);
+  const blocks = parseJsonArray(
+    config.blocks ?? config.blocksJson ?? node.blocks,
+    DEFAULT_LOOP_BLOCKS,
+  );
+  const edges = parseJsonArray(
+    config.edges ?? config.edgesJson ?? node.edges,
+    DEFAULT_LOOP_EDGES,
+  );
+
+  return {
+    ...node,
+    type: 'loop',
+    blocks,
+    edges,
+    data: {
+      ...data,
+      inputs: {
+        ...rawInputs,
+        items: config.items ?? rawInputs.items ?? '{{input.items}}',
+        concurrency: config.concurrency ?? rawInputs.concurrency ?? 5,
+        onError: config.onError ?? rawInputs.onError ?? 'abort',
+      },
+    },
+  };
+}
+
 export function toRunnableWorkflowDefinition(
   canvasData?: WorkflowCanvasData,
 ): WorkflowDefinition {
@@ -609,6 +705,10 @@ export function toRunnableWorkflowDefinition(
             inputs: buildSelectorInputs(data),
           },
         };
+      }
+
+      if (node.type === 'loop') {
+        return buildLoopRunnableNode(node, data);
       }
 
       return node;

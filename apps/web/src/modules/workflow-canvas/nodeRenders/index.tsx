@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Field } from '@flowgram.ai/free-layout-editor';
 import styles from './nodeRenderers.module.css';
-import type { ConditionConfig, EndConfig, LLMConfig, NodeMeta, VariableInfo } from './types.ts';
+import type { ConditionConfig, EndConfig, LLMConfig, LoopConfig, NodeMeta, VariableInfo } from './types.ts';
 
-type NodeConfig = LLMConfig & EndConfig & ConditionConfig & Record<string, unknown>;
+type NodeConfig = LLMConfig & EndConfig & ConditionConfig & LoopConfig & Record<string, unknown>;
 
 const CONDITION_OPERATOR_LABELS: Record<string, string> = {
   equals: '等于',
@@ -177,6 +177,24 @@ export const renderConditionNode = () => (
 
     <Field<NodeConfig> name="config">
       {({ field }) => renderConfigRow('条件', getConditionSummary(field.value))}
+    </Field>
+  </div>
+);
+
+export const renderLoopNode = () => (
+  <div className={styles.loopNode}>
+    {renderTitle()}
+    {renderVariables('inputs')}
+    {renderVariables('outputs')}
+
+    <Field<NodeConfig> name="config">
+      {({ field }) => (
+        <>
+          {renderConfigRow('Items', field.value?.items)}
+          {renderConfigRow('Concurrency', field.value?.concurrency)}
+          {renderConfigRow('On error', field.value?.onError)}
+        </>
+      )}
     </Field>
   </div>
 );

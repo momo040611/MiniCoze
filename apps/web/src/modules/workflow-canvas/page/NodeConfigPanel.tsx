@@ -12,13 +12,14 @@ import type {
   ConditionConfig,
   EndConfig,
   LLMConfig,
+  LoopConfig,
   NodeMeta,
   VariableInfo,
 } from '../nodeRenders/types';
 import type { NodeValidationError } from '../utils/validateWorkflow';
 import styles from './NodeConfigPanel.module.css';
 
-type NodeConfig = LLMConfig & EndConfig & ConditionConfig & Record<string, unknown>;
+type NodeConfig = LLMConfig & EndConfig & ConditionConfig & LoopConfig & Record<string, unknown>;
 
 type NodeData = {
   nodeMeta?: NodeMeta;
@@ -67,6 +68,28 @@ const CONDITION_LOGIC_OPTIONS = [
   { label: '满足全部条件', value: 'and' },
   { label: '满足任一条件', value: 'or' },
 ];
+
+const LOOP_ON_ERROR_OPTIONS = [
+  { label: '遇到错误停止', value: 'abort' },
+  { label: '跳过错误继续', value: 'continue' },
+];
+
+const DEFAULT_LOOP_BLOCKS_JSON = JSON.stringify([
+  {
+    id: 'loop_llm_1',
+    type: 'llm',
+    data: {
+      inputs: {
+        model: 'deepseek-chat',
+        prompt: '请处理当前循环项：{{loop.item}}',
+        systemPrompt: '你是一个可靠的批处理助手。',
+        temperature: 0.7,
+      },
+    },
+  },
+], null, 2);
+
+const DEFAULT_LOOP_EDGES_JSON = JSON.stringify([], null, 2);
 
 function getDefaultConditionBranch(): ConditionBranch {
   return {
@@ -257,6 +280,23 @@ function getTypeDefaults(type?: string): Pick<NodeData, 'inputs' | 'outputs' | '
         { label: '否', type: 'boolean', name: 'false' },
       ],
       config: getDefaultConditionConfig(),
+    };
+  }
+
+  if (normalizedType === 'loop') {
+    return {
+      inputs: [{ label: '循环数组', type: 'array', name: 'items' }],
+      outputs: [
+        { label: '次数', type: 'number', name: 'count' },
+        { label: '结果', type: 'array', name: 'results' },
+      ],
+      config: {
+        items: '{{input.items}}',
+        concurrency: 5,
+        onError: 'abort',
+        blocksJson: DEFAULT_LOOP_BLOCKS_JSON,
+        edgesJson: DEFAULT_LOOP_EDGES_JSON,
+      },
     };
   }
 
@@ -549,6 +589,45 @@ function TypeSpecificFields({ nodeType }: { nodeType: string }) {
 
   if (normalizedType === 'condition') {
     return <ConditionFields />;
+  }
+
+  if (normalizedType === 'loop') {
+    return (
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>循环配置</div>
+        <Form.Item
+          label="循环数组"
+          name={['config', 'items']}
+          rules={[{ required: true, message: '请输入循环数组变量，例如 {{input.items}}' }]}
+        >
+          <Input placeholder="{{input.items}}" />
+        </Form.Item>
+        <Form.Item
+          label="并发数"
+          name={['config', 'concurrency']}
+          rules={[{ type: 'number', min: 1, max: 20, message: '并发数必须在 1 到 20 之间' }]}
+        >
+          <InputNumber min={1} max={20} className={styles.fullWidth} />
+        </Form.Item>
+        <Form.Item
+          label="失败策略"
+          name={['config', 'onError']}
+          rules={[{ required: true, message: '请选择失败策略' }]}
+        >
+          <Select options={LOOP_ON_ERROR_OPTIONS} />
+        </Form.Item>
+        <Form.Item
+          label="内部节点 JSON"
+          name={['config', 'blocksJson']}
+          rules={[{ required: true, message: '请输入内部节点 JSON 数组' }]}
+        >
+          <Input.TextArea rows={8} placeholder={DEFAULT_LOOP_BLOCKS_JSON} />
+        </Form.Item>
+        <Form.Item label="内部连线 JSON" name={['config', 'edgesJson']}>
+          <Input.TextArea rows={4} placeholder={DEFAULT_LOOP_EDGES_JSON} />
+        </Form.Item>
+      </div>
+    );
   }
 
   if (normalizedType === 'plugin') {

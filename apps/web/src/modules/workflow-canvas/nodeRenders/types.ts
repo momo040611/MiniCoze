@@ -56,3 +56,11 @@ export type ConditionConfig = {
     compareValue?: string
     expression?: string
 }
+
+export type LoopConfig = {
+    items?: string
+    concurrency?: number
+    onError?: 'abort' | 'continue'
+    blocksJson?: string
+    edgesJson?: string
+}

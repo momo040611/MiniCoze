@@ -188,6 +188,52 @@ function validateConditionConfig(
   }
 }
 
+function isJsonArrayText(value: unknown) {
+  if (Array.isArray(value)) {
+    return true;
+  }
+
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return false;
+  }
+
+  try {
+    return Array.isArray(JSON.parse(value));
+  } catch {
+    return false;
+  }
+}
+
+function validateLoopConfig(
+  errors: NodeValidationError[],
+  node: WorkflowJsonNode,
+  config: NodeConfig,
+) {
+  if (isBlank(config.items)) {
+    addError(errors, node, 'config.items', '循环节点的循环数组不能为空');
+  }
+
+  if (
+    config.concurrency !== undefined &&
+    (typeof config.concurrency !== 'number' || config.concurrency < 1 || config.concurrency > 20)
+  ) {
+    addError(errors, node, 'config.concurrency', '循环节点并发数必须在 1 到 20 之间');
+  }
+
+  if (config.onError !== undefined && config.onError !== 'abort' && config.onError !== 'continue') {
+    addError(errors, node, 'config.onError', '循环节点失败策略只能是 abort 或 continue');
+  }
+
+  if (!isJsonArrayText(config.blocks ?? config.blocksJson)) {
+    addError(errors, node, 'config.blocksJson', '循环节点内部节点必须是 JSON 数组');
+  }
+
+  const edgesValue = config.edges ?? config.edgesJson;
+  if (edgesValue !== undefined && edgesValue !== '' && !isJsonArrayText(edgesValue)) {
+    addError(errors, node, 'config.edgesJson', '循环节点内部连线必须是 JSON 数组');
+  }
+}
+
 export function validateNode(nodeInput: unknown): NodeValidationError[] {
   const node = asNode(nodeInput);
   const errors: NodeValidationError[] = [];
@@ -229,6 +275,10 @@ export function validateNode(nodeInput: unknown): NodeValidationError[] {
 
   if (type === 'condition') {
     validateConditionConfig(errors, node, config);
+  }
+
+  if (type === 'loop') {
+    validateLoopConfig(errors, node, config);
   }
 
   if (type === 'plugin') {

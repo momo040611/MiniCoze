@@ -20,6 +20,7 @@ import {
     renderInputNode,
     renderOutputNode,
     renderConditionNode,
+    renderLoopNode,
     renderPluginNode,
     renderDatabaseNode,
     renderAnnotationNode,
@@ -125,6 +126,12 @@ const nodeRegistries: WorkflowNodeRegistry[] = [
     },
     {
         type: 'condition',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'loop',
         meta: {
             defaultPorts: [{ type: 'input' }, { type: 'output' }],
         },
@@ -240,6 +247,10 @@ export const useSimpleEditorProps = ({
 
                             if (type === 'condition' || type === 'selector') {
                                 return renderConditionNode()
+                            }
+
+                            if (type === 'loop') {
+                                return renderLoopNode()
                             }
 
                             if (type === 'plugin') {
