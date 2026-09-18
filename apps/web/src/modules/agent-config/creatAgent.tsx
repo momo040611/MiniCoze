@@ -19,8 +19,6 @@ export function CreateAgent({ visible, onCancel, onCreate }: CreateAgentProps) {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const uploadSeqRef = useRef(0);
 
-  if (!visible) return null;
-
   const handleAvatarChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -65,6 +63,9 @@ export function CreateAgent({ visible, onCancel, onCreate }: CreateAgentProps) {
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onCancel();
   };
+
+  // 提前返回必须放在所有 Hook 之后，否则 visible 变化时 Hook 数量会改变
+  if (!visible) return null;
 
   return (
     <div className={styles.modalOverlay} onClick={handleOverlayClick}>

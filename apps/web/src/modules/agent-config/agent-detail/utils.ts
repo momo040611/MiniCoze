@@ -40,7 +40,7 @@ export function defaultFlowConfig(): FlowConfig {
 
 export function defaultMultiConfig(): MultiConfig {
   return {
-    subAgents: [],
+    graph: { nodes: [], edges: [] },
     plugins: [],
     workflows: [],
     triggers: [],

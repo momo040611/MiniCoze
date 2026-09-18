@@ -14,12 +14,9 @@
     flex: 1;
 }
 
-body {
-    margin: 0;
-    padding: 0;
-}
-
-button {
+/* 页面内的按钮重置。必须挂在 .page 下：
+   CSS Module 只哈希类名，裸的 body/button 会被原样输出成全局样式，污染整个应用。 */
+.page button {
     margin: 0;
     padding: 0;
     border: none;

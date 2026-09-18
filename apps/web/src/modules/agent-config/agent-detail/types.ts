@@ -35,8 +35,40 @@ export interface FlowConfig {
   databases: string[];
 }
 
+export type MultiNodeType = 'start' | 'agent' | 'subAgent';
+
+/** 画布节点：坐标与节点自身的配置随图一起持久化，尺寸由渲染层决定 */
+export interface MultiGraphNode {
+  id: string;
+  type: MultiNodeType;
+  x: number;
+  y: number;
+  label: string;
+  subtitle?: string;
+  avatar?: string;
+  modelName?: string;
+  skills?: string[];
+  useCase?: string;
+  prompt?: string;
+  suggestions?: string[];
+  hasUserCustomPrompt?: boolean;
+}
+
+/** 有向连线：主 Agent 向子 Agent 分发任务 */
+export interface MultiGraphEdge {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+}
+
+export interface MultiGraph {
+  nodes: MultiGraphNode[];
+  edges: MultiGraphEdge[];
+}
+
 export interface MultiConfig {
-  subAgents: Array<{ id: string; name: string }>;
+  /** 多 Agent 编排图，画布的唯一数据源 */
+  graph: MultiGraph;
   plugins: string[];
   workflows: string[];
   triggers: string[];

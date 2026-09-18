@@ -69,6 +69,10 @@ const withSuspense = (Component: React.LazyExoticComponent<() => React.ReactElem
   </Suspense>
 );
 
+/** 默认所有页面都在 StrictMode 下；只有内嵌 Flowgram 画布的智能体配置页例外 */
+const withStrictSuspense = (Component: React.LazyExoticComponent<() => React.ReactElement | null>) =>
+  strict(withSuspense(Component));
+
 export function AppRoutes() {
   return (
     <BrowserRouter>
@@ -101,24 +105,27 @@ export function AppRoutes() {
           }
         />
 
-        <Route element={strict(<ProtectedAppLayout />)}>
-          <Route path="/workspace" element={withSuspense(DashboardPage)} />
-          <Route path="/workspace/chat" element={withSuspense(HomepageIndex)} />
-          <Route path="/workspace/settings" element={withSuspense(WorkspaceSettings)} />
-          <Route path="/profile" element={withSuspense(ProfilePage)} />
+        {/* 单一布局实例：拆成两个布局路由会让应用外壳在页面间切换时被整体重建。
+            StrictMode 只对智能体配置页关闭——它内嵌的 Flowgram 画布 DI 容器
+            不兼容 StrictMode 的双挂载（Ambiguous match for FlowRendererRegistry）。 */}
+        <Route element={<ProtectedAppLayout />}>
           <Route path="/agents" element={withSuspense(CreatAgent)} />
           <Route path="/agents/:agentId" element={withSuspense(AgentDetailPage)} />
-          <Route path="/workflows" element={withSuspense(WorkflowsPage)} />
-          <Route path="/plugins" element={withSuspense(PluginsPage)} />
-          <Route path="/plugins/:pluginId" element={withSuspense(PluginDetail)} />
-          <Route path="/publish" element={withSuspense(PublishPage)} />
-          <Route path="/settings" element={withSuspense(SettingsPage)} />
-          <Route path="/architecture" element={withSuspense(ArchitecturePage)} />
-          <Route path="/knowledge/pipeline" element={withSuspense(Productionline)} />
-          <Route path="/knowledge" element={withSuspense(KnowledgeBasePage)}>
-            <Route index element={withSuspense(KnowledgeList)} />
-            <Route path="create" element={withSuspense(KnowledgeCreate)} />
-            <Route path=":id" element={withSuspense(KnowledgeDetail)} />
+          <Route path="/workspace" element={withStrictSuspense(DashboardPage)} />
+          <Route path="/workspace/chat" element={withStrictSuspense(HomepageIndex)} />
+          <Route path="/workspace/settings" element={withStrictSuspense(WorkspaceSettings)} />
+          <Route path="/profile" element={withStrictSuspense(ProfilePage)} />
+          <Route path="/workflows" element={withStrictSuspense(WorkflowsPage)} />
+          <Route path="/plugins" element={withStrictSuspense(PluginsPage)} />
+          <Route path="/plugins/:pluginId" element={withStrictSuspense(PluginDetail)} />
+          <Route path="/publish" element={withStrictSuspense(PublishPage)} />
+          <Route path="/settings" element={withStrictSuspense(SettingsPage)} />
+          <Route path="/architecture" element={withStrictSuspense(ArchitecturePage)} />
+          <Route path="/knowledge/pipeline" element={withStrictSuspense(Productionline)} />
+          <Route path="/knowledge" element={withStrictSuspense(KnowledgeBasePage)}>
+            <Route index element={withStrictSuspense(KnowledgeList)} />
+            <Route path="create" element={withStrictSuspense(KnowledgeCreate)} />
+            <Route path=":id" element={withStrictSuspense(KnowledgeDetail)} />
           </Route>
           <Route path="/knowledge-bases" element={<Navigate to="/knowledge/pipeline" replace />} />
           <Route path="/knowledge-bases/productionline" element={<Navigate to="/knowledge/pipeline" replace />} />

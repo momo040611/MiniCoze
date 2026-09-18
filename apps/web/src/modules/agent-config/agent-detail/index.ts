@@ -5,6 +5,10 @@ export type {
   PlannerConfig,
   FlowConfig,
   MultiConfig,
+  MultiGraph,
+  MultiGraphNode,
+  MultiGraphEdge,
+  MultiNodeType,
   OpeningConfig,
   OrchestrationConfig,
 } from './types';

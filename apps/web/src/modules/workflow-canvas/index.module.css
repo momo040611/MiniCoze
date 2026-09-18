@@ -22,12 +22,10 @@
      background-color: transparent;
  }
 
- body {
-     margin: 0;
-     padding: 0;
- }
-
- button {
+ /* 画布内的按钮重置。
+    注意必须挂在 .workflowPage 下：CSS Module 只哈希类名，裸的 body/button
+    选择器会原样输出成全局样式，加载这个 chunk 后污染整个应用（含多智能体画布）。 */
+ .workflowPage button {
      margin: 0;
      padding: 0;
      border: none;

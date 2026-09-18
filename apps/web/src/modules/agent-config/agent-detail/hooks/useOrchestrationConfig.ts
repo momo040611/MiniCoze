@@ -33,10 +33,17 @@ export function useOrchestrationConfig({
     () => ({ ...defaultFlowConfig(), ...parsedConfig.flow }),
     [parsedConfig.flow],
   );
-  const multiConfig = useMemo(
-    () => ({ ...defaultMultiConfig(), ...parsedConfig.multi }),
-    [parsedConfig.multi],
-  );
+  const multiConfig = useMemo(() => {
+    const merged = { ...defaultMultiConfig(), ...parsedConfig.multi };
+    const graph = merged.graph;
+    return {
+      ...merged,
+      graph: {
+        nodes: graph?.nodes ?? [],
+        edges: graph?.edges ?? [],
+      },
+    };
+  }, [parsedConfig.multi]);
   const openingConfig = useMemo(
     () => ({
       ...defaultOpeningConfig(),

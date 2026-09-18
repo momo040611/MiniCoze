@@ -1,0 +1,350 @@
+/* ============================================
+   多 Agent 画布节点（渲染在 Flowgram 节点内部）
+   ============================================ */
+
+/* ---- 开始节点（绿色圆角胶囊） ---- */
+.startNode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: #fff;
+  border: 1.5px solid #22c55e;
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.startNode:hover {
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.18);
+}
+
+.startIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #22c55e;
+}
+
+/* ---- Agent 卡片 ---- */
+.agentCard {
+  width: 280px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+
+.agentCard:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* ---- 卡片头部 ---- */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 12px 12px 0 0;
+}
+
+.headerGradientIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.headerInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.headerName {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  text-overflow: ellipsis;
+}
+
+.headerName::placeholder {
+  color: #b6c2d1;
+}
+
+.headerName:focus {
+  color: #1d4ed8;
+}
+
+.headerSub {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.headerActionBtn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.headerActionBtn:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.playBtn {
+  color: #3b82f6;
+}
+
+.playBtn:hover {
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+/* ---- 折叠面板 ---- */
+.panelList {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+}
+
+.panel {
+  background: #f9fafb;
+  border: 1px solid rgba(104, 119, 144, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.panelHeader:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.panelArrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+}
+
+.panelArrowOpen {
+  transform: rotate(90deg);
+}
+
+.panelTitle {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.panelTitleRequired {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.panelTitleHelp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: 4px;
+  cursor: help;
+}
+
+.panelContent {
+  padding: 0 10px 10px;
+}
+
+/* ---- 模型选择 ---- */
+.modelSelectWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid rgba(104, 119, 144, 0.15);
+  border-radius: 6px;
+  transition: border-color 0.12s;
+}
+
+.modelSelectWrap:hover {
+  border-color: #3b82f6;
+}
+
+.modelSelectIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #3b82f6;
+  font-size: 10px;
+}
+
+.modelSelect {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 11px;
+  color: #334155;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ---- 就地编辑控件 ---- */
+.inlineTextarea {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.5;
+  outline: none;
+}
+
+.inlineTextarea::placeholder {
+  color: #a8b3c2;
+}
+
+.inlineInput {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border: 1px dashed rgba(104, 119, 144, 0.3);
+  border-radius: 4px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 10px;
+  color: #475569;
+  outline: none;
+}
+
+.inlineInput::placeholder {
+  color: #a8b3c2;
+}
+
+.inlineInput:focus {
+  border-style: solid;
+  border-color: #3b82f6;
+}
+
+.emptyHint {
+  padding: 2px 0;
+  font-size: 10px;
+  color: #a8b3c2;
+}
+
+/* ---- 技能 / 建议标签 ---- */
+.skillTagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.skillTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.tagRemove {
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.tagRemove:hover {
+  opacity: 1;
+}
+
+/* ---- 用户问题建议 ---- */
+.suggestionHint {
+  margin-bottom: 6px;
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
