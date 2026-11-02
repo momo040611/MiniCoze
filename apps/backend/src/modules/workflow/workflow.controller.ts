@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -138,6 +140,7 @@ export class WorkflowController {
   // - path.workflowId: 工作流 ID
   // 作用：校验当前草稿图结构与节点配置是否合法。
   @Post(':workflowId/validate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '校验工作流草稿' })
   validateDraft(
     @CurrentUserInfo() currentUser: CurrentUser,
@@ -185,6 +188,7 @@ export class WorkflowController {
   // - body.version: 指定运行版本（可选，不传默认当前版本）
   // 作用：触发一次工作流运行并返回本次运行结果。
   @Post(':workflowId/run')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '触发工作流运行（基础版）' })
   run(
     @CurrentUserInfo() currentUser: CurrentUser,
@@ -235,6 +239,7 @@ export class WorkflowController {
   // - path.runId: 运行实例 ID
   // 作用：请求取消一次正在运行的工作流（运行中的会在下个节点前中断）。
   @Post('runs/:runId/cancel')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '取消工作流运行' })
   cancelRun(
     @CurrentUserInfo() currentUser: CurrentUser,
