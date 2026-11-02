@@ -23,9 +23,12 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         output: {
+          // 只把路由库固定成稳定 chunk；其余交给 Rollup 按真实引用关系分包。
+          // 不要写 `if (id.includes('node_modules')) return 'vendor'`：
+          // 那会把只有懒加载页面才用的 flowgram / katex / highlight.js
+          // 一起塞进首屏必下的 vendor 块（实测 2.6 MB）。
           manualChunks(id) {
             if (id.includes('react-router')) return 'router';
-            if (id.includes('node_modules')) return 'vendor';
           },
         },
       },
