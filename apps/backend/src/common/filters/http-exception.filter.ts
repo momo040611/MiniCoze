@@ -104,6 +104,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       [HttpStatus.FORBIDDEN]: ErrorCode.Forbidden,
       [HttpStatus.NOT_FOUND]: ErrorCode.NotFound,
       [HttpStatus.INTERNAL_SERVER_ERROR]: ErrorCode.InternalServerError,
+      [HttpStatus.CONFLICT]: ErrorCode.Conflict,
+      [HttpStatus.UNPROCESSABLE_ENTITY]: ErrorCode.UnprocessableEntity,
+      [HttpStatus.TOO_MANY_REQUESTS]: ErrorCode.TooManyRequests,
+      [HttpStatus.SERVICE_UNAVAILABLE]: ErrorCode.ServiceUnavailable,
     };
 
     return codeMap[status] ?? ErrorCode.BusinessError;

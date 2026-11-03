@@ -26,6 +26,20 @@ export enum ErrorCode {
   // 服务内部错误，用于未预期异常。
   InternalServerError = 50000,
 
+  // 资源状态冲突：请求本身合法，但与目标资源的当前状态冲突。
+  // 注意：邮箱重复、成员重复这类具体冲突仍用更精确的 10001 等码，
+  // 这里只兜底「抛了裸 ConflictException 却没带业务码」的情况。
+  Conflict = 40900,
+
+  // 语法正确但语义校验不通过，例如工作流图缺少 start 节点。
+  UnprocessableEntity = 42200,
+
+  // 触发限流：并发闸门已满、短时间请求过多等。
+  TooManyRequests = 42900,
+
+  // 服务暂时不可用：依赖不可用或过载。
+  ServiceUnavailable = 50300,
+
   // AI 模型调用失败。
   AiModelError = 60001,
 

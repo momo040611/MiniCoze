@@ -293,9 +293,19 @@ export class WorkflowPublishService {
     ];
   }
 
-  private assertWorkflowCanPublish(
+    private assertWorkflowCanPublish(
     workflow: Prisma.WorkflowGetPayload<{ include: { currentVersion: true } }>,
   ): void {
+    // 已归档是「状态冲突」：资源存在、请求合法，但当前状态不允许该操作。
+    if (workflow.status === WorkflowStatus.ARCHIVED) {
+      throw new BusinessException(
+        '已归档工作流不能发布',
+        ErrorCode.Conflict,
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    // 其余检查失败是「语义不通过」：格式没问题，是内容不满足发布条件。
     const failedItems = this.buildPublishCheckItems(workflow).filter(
       (item) => !item.passed,
     );
@@ -304,8 +314,8 @@ export class WorkflowPublishService {
         `工作流发布检查未通过：${failedItems
           .map((item) => item.message ?? item.label)
           .join('；')}`,
-        ErrorCode.BadRequest,
-        HttpStatus.BAD_REQUEST,
+        ErrorCode.UnprocessableEntity,
+        HttpStatus.UNPROCESSABLE_ENTITY,
       );
     }
   }
