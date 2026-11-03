@@ -1,16 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
-
+import { IsNotEmpty, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
 export class CreateWorkflowDto {
-  @ApiProperty({ example: 'workspace-id' })
+    @ApiProperty({ example: 'workspace-id' })
   @IsString()
+  @IsNotEmpty()
   workspaceId!: string;
 
   @ApiProperty({ example: '客服分流工作流' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   name!: string;
-
   @ApiPropertyOptional({ example: '用于售前售后问题自动分流' })
   @IsOptional()
   @IsString()

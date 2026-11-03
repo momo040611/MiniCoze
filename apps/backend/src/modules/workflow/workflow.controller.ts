@@ -20,7 +20,6 @@ import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.dec
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
 import { WorkflowPublishService } from '../publish/workflow-publish.service';
-import type { WorkflowStreamEvent } from './internal/execute/workflow-run-event';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { PublishWorkflowDto } from './dto/publish-workflow.dto';
 import { RunWorkflowDto } from './dto/run-workflow.dto';
@@ -30,6 +29,8 @@ import { WorkflowQueryDto } from './dto/workflow-query.dto';
 import { WorkflowRunQueryDto } from './dto/workflow-run-query.dto';
 import { WorkflowRunService } from './workflow-run.service';
 import { WorkflowService } from './workflow.service';
+// 新增
+import { WorkflowStreamWriter } from './workflow-stream.writer';
 
 @ApiTags('workflow')
 @Controller('workflows')
@@ -205,6 +206,7 @@ export class WorkflowController {
   // 事件类型：run.created / node.started / node.completed / node.failed
   //          / run.completed / run.failed / stream.done
   @Post(':workflowId/run/stream')
+  @HttpCode(HttpStatus.OK)
   @SkipResponseWrap()
   @ApiOperation({ summary: '流式运行工作流（SSE 实时事件）' })
   async runStream(
@@ -213,28 +215,15 @@ export class WorkflowController {
     @Body() dto: RunWorkflowDto,
     @Res() res: Response,
   ) {
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders?.();
-
-    const send = (event: WorkflowStreamEvent): void => {
-      res.write(`event: ${event.type}\n`);
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-    };
-
-    try {
-      await this.workflowRunService.run(currentUser.id, workflowId, dto, send);
-    } catch (error) {
-      // 运行前的错误（权限/校验/版本）会抛到这里，run 内部错误已通过 run.failed 推送。
-      const message = error instanceof Error ? error.message : String(error);
-      res.write(`event: error\n`);
-      res.write(`data: ${JSON.stringify({ message })}\n\n`);
-    } finally {
-      res.end();
-    }
+    await new WorkflowStreamWriter(res).pipe((send) =>
+      this.workflowRunService.run(
+        currentUser.id,
+        workflowId,
+        dto,
+        send,
+      ),
+    );
   }
-
   // 参数：
   // - path.runId: 运行实例 ID
   // 作用：请求取消一次正在运行的工作流（运行中的会在下个节点前中断）。

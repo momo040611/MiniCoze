@@ -59,4 +59,16 @@ describe('HttpExceptionFilter：状态码 → 业务码映射', () => {
     filter.catch(new HttpException('down', HttpStatus.SERVICE_UNAVAILABLE), host);
     expect(res.json.mock.calls[0][0].code).toBe(ErrorCode.ServiceUnavailable);
   });
+    it('未知异常 → 500，且响应体不含堆栈', () => {
+    const { host, res } = createHost();
+
+    filter.catch(new Error('数据库连接断了'), host);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+
+    const body = res.json.mock.calls[0][0];
+    expect(body.code).toBe(ErrorCode.InternalServerError);
+    expect(body.data).toBeNull();
+    expect(body.stack).toBeUndefined();
+  });
 });
