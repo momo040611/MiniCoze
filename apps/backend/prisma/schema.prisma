@@ -370,6 +370,7 @@ model Workflow {
   @@index([workspaceId])
   @@index([creatorId])
   @@index([workspaceId, status])
+  @@index([workspaceId, updatedAt(sort: Desc)])
 }
 
 model WorkflowVersion {
