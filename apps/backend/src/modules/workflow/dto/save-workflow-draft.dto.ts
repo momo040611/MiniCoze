@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsObject } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsISO8601, IsObject, IsOptional } from 'class-validator';
 
 export class SaveWorkflowDraftDto {
   @ApiProperty({
@@ -17,4 +17,14 @@ export class SaveWorkflowDraftDto {
   })
   @IsObject()
   definition!: Record<string, unknown>;
+
+  /**
+   * 客户端读到的 updatedAt（版本号）。
+   * 传了就做乐观锁校验：数据库里的和它不一致 → 409，说明有人在你之前改过。
+   * 不传则退化为旧行为（兼容还没改的前端）。
+   */
+  @ApiPropertyOptional({ description: '本次编辑基于的 updatedAt，用于乐观锁' })
+  @IsOptional()
+  @IsISO8601()
+  expectedUpdatedAt?: string;
 }

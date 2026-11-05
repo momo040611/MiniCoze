@@ -157,16 +157,36 @@ export class WorkflowService {
       workflow.workspaceId,
     );
 
-    const updated = await this.prisma.workflow.update({
-      where: { id: workflowId },
-      data: {
-        draftDefinition: this.toInputJsonValue(dto.definition),
-        status:
-          workflow.status === WorkflowStatus.ARCHIVED
-            ? WorkflowStatus.ARCHIVED
-            : WorkflowStatus.DRAFT,
-      },
-      include: { currentVersion: true },
+       const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.workflow.updateMany({
+        where: {
+          id: workflowId,
+          // 只有客户端声明了「我基于哪一版改的」才加这个条件
+          ...(dto.expectedUpdatedAt
+            ? { updatedAt: new Date(dto.expectedUpdatedAt) }
+            : {}),
+        },
+        data: {
+          draftDefinition: this.toInputJsonValue(dto.definition),
+          status:
+            workflow.status === WorkflowStatus.ARCHIVED
+              ? WorkflowStatus.ARCHIVED
+              : WorkflowStatus.DRAFT,
+        },
+      });
+
+      if (result.count === 0) {
+        throw new BusinessException(
+          '工作流已被其他人修改，请刷新后重试',
+          ErrorCode.Conflict,
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      return tx.workflow.findUniqueOrThrow({
+        where: { id: workflowId },
+        include: { currentVersion: true },
+      });
     });
 
     return this.workflowMapper.toWorkflowResponse(updated);

@@ -4,6 +4,7 @@ import {
   PublishAction,
   PublishTargetType,
   WorkflowStatus,
+  WorkflowVersion,
 } from '@prisma/client';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
@@ -65,57 +66,106 @@ export class WorkflowPublishService {
       this.toObjectOrNull(workflow.draftDefinition) ??
       this.getDefaultDefinition();
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const latestVersion = await tx.workflowVersion.findFirst({
-        where: { workflowId },
-        orderBy: { version: 'desc' },
-      });
-      const nextVersion = (latestVersion?.version ?? 0) + 1;
-      const publishedAt = new Date();
-
-      const createdVersion = await tx.workflowVersion.create({
-        data: {
-          workflowId,
-          createdBy: userId,
-          version: nextVersion,
-          definition: this.toInputJsonValue(draftDefinition),
-          inputSchema: this.toNullableInputJsonValue(dto.inputSchema),
-          outputSchema: this.toNullableInputJsonValue(dto.outputSchema),
-          changelog: dto.changelog,
-          isPublished: true,
-          publishedAt,
-        },
-      });
-
-      await tx.workflow.update({
-        where: { id: workflowId },
-        data: {
-          currentVersionId: createdVersion.id,
-          status: WorkflowStatus.ACTIVE,
-        },
-      });
-
-      await this.publishRecordService.createWorkflowRecord(tx, {
-        workspaceId: workflow.workspaceId,
-        workflowId,
-        versionId: createdVersion.id,
-        versionNumber: createdVersion.version,
-        action: PublishAction.PUBLISH,
-        reason: dto.changelog,
-        operatorId: userId,
-      });
-
-      await this.publishChannelService.ensureDefaultWorkflowApiChannel(tx, {
-        id: workflowId,
-        workspaceId: workflow.workspaceId,
-      });
-
-      return createdVersion;
+      const createdVersion = await this.publishVersionWithRetry({
+      userId,
+      workflowId,
+      workspaceId: workflow.workspaceId,
+      dto,
+      draftDefinition,
     });
 
-    return this.toWorkflowVersionResponse(result);
+    return this.toWorkflowVersionResponse(createdVersion);
   }
 
+    /**
+   * 事务里「查最大版本号 → +1 → 插入」，并发时会算出同一个号，
+   * 后提交的那个撞上 @@unique([workflowId, version])，抛 P2002。
+   *
+   * 处理方式：撞了就重试一次 —— 新事务能看到对方已提交的版本号，第二次会算出 v5。
+   * 再撞说明确实有人在同时发布，返回 409 让人稍后重试，而不是 500。
+   */
+  private async publishVersionWithRetry(input: {
+    userId: string;
+    workflowId: string;
+    workspaceId: string;
+    dto: PublishWorkflowDto;
+    draftDefinition: Record<string, unknown>;
+  }): Promise<WorkflowVersion> {
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const latestVersion = await tx.workflowVersion.findFirst({
+            where: { workflowId: input.workflowId },
+            orderBy: { version: 'desc' },
+          });
+          const nextVersion = (latestVersion?.version ?? 0) + 1;
+          const publishedAt = new Date();
+
+          const createdVersion = await tx.workflowVersion.create({
+            data: {
+              workflowId: input.workflowId,
+              createdBy: input.userId,
+              version: nextVersion,
+              definition: this.toInputJsonValue(input.draftDefinition),
+              inputSchema: this.toNullableInputJsonValue(input.dto.inputSchema),
+              outputSchema: this.toNullableInputJsonValue(
+                input.dto.outputSchema,
+              ),
+              changelog: input.dto.changelog,
+              isPublished: true,
+              publishedAt,
+            },
+          });
+
+          await tx.workflow.update({
+            where: { id: input.workflowId },
+            data: {
+              currentVersionId: createdVersion.id,
+              status: WorkflowStatus.ACTIVE,
+            },
+          });
+
+          await this.publishRecordService.createWorkflowRecord(tx, {
+            workspaceId: input.workspaceId,
+            workflowId: input.workflowId,
+            versionId: createdVersion.id,
+            versionNumber: createdVersion.version,
+            action: PublishAction.PUBLISH,
+            reason: input.dto.changelog,
+            operatorId: input.userId,
+          });
+
+          await this.publishChannelService.ensureDefaultWorkflowApiChannel(tx, {
+            id: input.workflowId,
+            workspaceId: input.workspaceId,
+          });
+
+          return createdVersion;
+        });
+      } catch (error) {
+        if (!this.isVersionConflict(error)) {
+          throw error;
+        }
+        if (attempt === 2) {
+          break;
+        }
+      }
+    }
+
+    throw new BusinessException(
+      '该工作流正在被其他人发布，请稍后重试',
+      ErrorCode.Conflict,
+      HttpStatus.CONFLICT,
+    );
+  }
+
+  /** 只有「唯一约束冲突」才值得重试，其它错误原样抛出。 */
+  private isVersionConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
+  }
   async listWorkflowVersions(
     userId: string,
     workflowId: string,
