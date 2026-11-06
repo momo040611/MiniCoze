@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';          // ← 新增
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';   // ← 新增
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
@@ -44,6 +46,12 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     AgentRuntimeModule,
     PluginModule,
     DashboardModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
   ],
 })
 export class AppModule {}

@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { formatShanghaiDateTime } from '../../common/utils/date-time';
+import { Public } from '../../common/decorators/public.decorator';
 
 interface HealthResponse {
   status: 'ok';
@@ -9,6 +10,7 @@ interface HealthResponse {
 }
 
 @ApiTags('health')
+@Public()
 @Controller('health')
 export class HealthController {
   @Get()

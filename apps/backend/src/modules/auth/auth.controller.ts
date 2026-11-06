@@ -1,5 +1,6 @@
 import {
   Body,
+  Ip,
   Controller,
   Get,
   HttpCode,
@@ -28,23 +29,29 @@ import { RegisterDto } from './dto/register.dto';
 import { UpdateCurrentUserDto } from '../user/dto/update-current-user.dto';
 import type { UploadedFile as UploadedFileType } from '../file/types/uploaded-file.type';
 import { AuthResponse } from './types/auth-response.type';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('register')
   @ApiOperation({ summary: '注册账号' })
   register(@Body() registerDto: RegisterDto): Promise<AuthResponse> {
     return this.authService.register(registerDto);
   }
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: '登录账号' })
-  login(@Body() loginDto: LoginDto): Promise<AuthResponse> {
-    return this.authService.login(loginDto);
+  login(
+    @Body() loginDto: LoginDto,
+    @Ip() clientIp: string,
+  ): Promise<AuthResponse> {
+    return this.authService.login(loginDto, clientIp || 'unknown');
   }
 
   @Get('profile')

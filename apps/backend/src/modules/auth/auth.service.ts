@@ -11,6 +11,7 @@ import { UploadedFile } from '../file/types/uploaded-file.type';
 import { UserService } from '../user/user.service';
 import { UpdateCurrentUserDto } from '../user/dto/update-current-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { LoginThrottleService } from './login-throttle.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthResponse } from './types/auth-response.type';
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
     private readonly fileService: FileService,
+    private readonly loginThrottle: LoginThrottleService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
@@ -77,7 +79,15 @@ export class AuthService {
     }
   }
 
-  async login(loginDto: LoginDto): Promise<AuthResponse> {
+    async login(
+    loginDto: LoginDto,
+    clientIp = 'unknown',
+  ): Promise<AuthResponse> {
+    const throttleKey = `${clientIp}:${loginDto.email.trim().toLowerCase()}`;
+
+    // 先看这个 (IP, 账号) 是不是还在锁定中
+    this.loginThrottle.assertAllowed(throttleKey);
+
     const user = await this.prisma.user.findUnique({
       where: {
         email: loginDto.email,
@@ -85,6 +95,7 @@ export class AuthService {
     });
 
     if (!user) {
+      this.loginThrottle.recordFailure(throttleKey);
       throw new BusinessException(
         '邮箱或密码错误',
         ErrorCode.InvalidCredentials,
@@ -98,13 +109,17 @@ export class AuthService {
     );
 
     if (!isPasswordValid) {
+      this.loginThrottle.recordFailure(throttleKey);
       throw new BusinessException(
         '邮箱或密码错误',
         ErrorCode.InvalidCredentials,
         HttpStatus.UNAUTHORIZED,
       );
     }
-    // console.log('登录成功', user);
+
+    // 登录成功即清零，不惩罚正常用户偶发的手误
+    this.loginThrottle.recordSuccess(throttleKey);
+
     await this.ensureDefaultWorkspace(user.id);
 
     return this.buildAuthResponse(user);

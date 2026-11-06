@@ -17,8 +17,10 @@ import type { UploadedFile as UploadedFileType } from '../file/types/uploaded-fi
 import { writeRuntimeEventStream } from '../agent-runtime/runtime-event-stream.writer';
 import { PublicAgentChatDto } from './dto/public-agent-chat.dto';
 import { PublicAgentService } from './public-agent.service';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('public-agent')
+@Public()
 @Controller('public')
 export class PublicAgentController {
   constructor(private readonly publicAgentService: PublicAgentService) {}

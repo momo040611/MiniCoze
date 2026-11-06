@@ -4,8 +4,10 @@ import type { Response } from 'express';
 import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.decorator';
 import { PublicWorkflowRunDto } from './dto/public-workflow-run.dto';
 import { PublicWorkflowService } from './public-workflow.service';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('public-workflow')
+@Public()
 @Controller('public/workflow-runs')
 export class PublicWorkflowController {
   constructor(private readonly publicWorkflowService: PublicWorkflowService) {}

@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
 import { FileModule } from '../file/file.module';
+import { LoginThrottleService } from './login-throttle.service';
 
 @Module({
   imports: [
@@ -33,6 +34,6 @@ import { FileModule } from '../file/file.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy,LoginThrottleService],
 })
 export class AuthModule {}

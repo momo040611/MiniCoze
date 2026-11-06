@@ -137,7 +137,7 @@ describe('WorkspaceService', () => {
     await expect(
       service.findOneForUser('user-id', workspace.id),
     ).rejects.toMatchObject({
-      status: HttpStatus.FORBIDDEN,
+      status: HttpStatus.NOT_FOUND,
     } satisfies { status: number });
   });
 

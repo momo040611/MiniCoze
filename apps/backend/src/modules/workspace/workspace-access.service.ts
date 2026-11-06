@@ -17,11 +17,11 @@ export class WorkspaceAccessService {
         },
       },
     });
-    if (!member) {
+        if (!member) {
       throw new BusinessException(
-        '无权访问该工作空间',
-        ErrorCode.Forbidden,
-        HttpStatus.FORBIDDEN,
+        '工作空间不存在或无权访问',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
       );
     }
 

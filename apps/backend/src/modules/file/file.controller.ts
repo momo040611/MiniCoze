@@ -32,6 +32,7 @@ import { UploadFileDto } from './dto/upload-file.dto';
 import { FileService } from './file.service';
 import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import type { UploadedFile as UploadedFileType } from './types/uploaded-file.type';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('file')
 @Controller('files')
@@ -101,6 +102,7 @@ export class FileController {
   }
 
   @Get(':fileId/content')
+  @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @SkipResponseWrap()
   @ApiBearerAuth()
