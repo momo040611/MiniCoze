@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable,Logger } from '@nestjs/common';
 import { BusinessException } from '../../../common/exceptions/business.exception';
 import { ErrorCode } from '../../../common/constants/error-code';
 import type {
@@ -16,7 +16,9 @@ const DEFAULT_LLM_TIMEOUT_MS = 60_000;
 
 @Injectable()
 export class OpenAiProvider implements AiProviderInterface {
-    constructor(
+  private readonly logger = new Logger(OpenAiProvider.name);
+
+  constructor(
     private readonly config: AiProviderConfig,
     private readonly timeoutMs: number =
       Number(process.env.AI_REQUEST_TIMEOUT_MS) || DEFAULT_LLM_TIMEOUT_MS,
@@ -143,10 +145,22 @@ export class OpenAiProvider implements AiProviderInterface {
     }
   }
 
-  private parseResponse(data: OpenAiApiCompletionResponse): AiGenerateResponse {
-    const choice = data.choices[0];
+    private parseResponse(data: OpenAiApiCompletionResponse): AiGenerateResponse {
+    const choice = data.choices?.[0];
+    const content = choice?.message?.content ?? '';
+
+    // 「成功但没结果」不是错误，但必须能看见：
+    // 静默兜底会让线上问题无从排查——用户只说「AI 不回我」，你什么日志都没有
+    if (!content && !choice?.message?.tool_calls?.length) {
+      this.logger.warn(
+        `模型返回空内容 model=${data.model || this.config.defaultModel} ` +
+          `choices=${data.choices?.length ?? 0} ` +
+          `hasMessage=${Boolean(choice?.message)}`,
+      );
+    }
+
     return {
-      content: choice?.message?.content || '',
+      content,
       model: data.model || '',
       toolCalls: choice?.message?.tool_calls,
       usage: data.usage

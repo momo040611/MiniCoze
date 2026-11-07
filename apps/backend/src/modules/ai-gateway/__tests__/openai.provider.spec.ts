@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus , Logger} from '@nestjs/common';
 import { OpenAiProvider } from '../providers/openai.provider';
 import type { AiGenerateRequest, AiProviderConfig } from '../types';
 
@@ -55,5 +55,28 @@ describe('OpenAiProvider 超时保护', () => {
     const result = await provider.generate(makeRequest());
 
     expect(result.content).toBe('hello');
+  });
+    it('模型返回空内容时按成功返回，但要留下告警日志', async () => {
+    const warnSpy = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '' } }],
+        model: 'test-model',
+      }),
+    }) as unknown as typeof fetch;
+
+    const provider = new OpenAiProvider(baseConfig, 1000);
+    const result = await provider.generate(makeRequest());
+
+    expect(result.content).toBe('');
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('模型返回空内容'),
+    );
+
+    warnSpy.mockRestore();
   });
 });
