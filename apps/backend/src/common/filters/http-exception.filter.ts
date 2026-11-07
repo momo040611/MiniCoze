@@ -108,6 +108,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       [HttpStatus.UNPROCESSABLE_ENTITY]: ErrorCode.UnprocessableEntity,
       [HttpStatus.TOO_MANY_REQUESTS]: ErrorCode.TooManyRequests,
       [HttpStatus.SERVICE_UNAVAILABLE]: ErrorCode.ServiceUnavailable,
+        [HttpStatus.GATEWAY_TIMEOUT]: ErrorCode.GatewayTimeout,
     };
 
     return codeMap[status] ?? ErrorCode.BusinessError;

@@ -40,6 +40,8 @@ export enum ErrorCode {
   // 服务暂时不可用：依赖不可用或过载。
   ServiceUnavailable = 50300,
 
+  GatewayTimeout = 50400,
+
   // AI 模型调用失败。
   AiModelError = 60001,
 

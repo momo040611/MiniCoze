@@ -11,10 +11,16 @@ import type {
   OpenAiApiStreamResponse,
 } from '../types';
 import type { AiProviderInterface } from './ai-provider.interface';
+/** 模型请求默认超时：60 秒。模型本来就慢，别设太短 */
+const DEFAULT_LLM_TIMEOUT_MS = 60_000;
 
 @Injectable()
 export class OpenAiProvider implements AiProviderInterface {
-  constructor(private readonly config: AiProviderConfig) {}
+    constructor(
+    private readonly config: AiProviderConfig,
+    private readonly timeoutMs: number =
+      Number(process.env.AI_REQUEST_TIMEOUT_MS) || DEFAULT_LLM_TIMEOUT_MS,
+  ) {}
 
   async generate(request: AiGenerateRequest): Promise<AiGenerateResponse> {
     const response = await this.callApi(request, false);
@@ -104,6 +110,9 @@ export class OpenAiProvider implements AiProviderInterface {
       stream,
     };
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
     try {
       return await fetch(url, {
         method: 'POST',
@@ -112,13 +121,25 @@ export class OpenAiProvider implements AiProviderInterface {
           Authorization: `Bearer ${this.config.apiKey}`,
         },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
     } catch (error) {
+      // 区分「超时」和「网络错误」：前者是对方没回应，后者是根本没连上
+      if (controller.signal.aborted) {
+        throw new BusinessException(
+          `模型请求超时（${this.timeoutMs}ms）`,
+          ErrorCode.GatewayTimeout,
+          HttpStatus.GATEWAY_TIMEOUT,
+        );
+      }
+
       throw new BusinessException(
         `模型请求网络错误: ${error instanceof Error ? error.message : String(error)}`,
         ErrorCode.AiModelError,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    } finally {
+      clearTimeout(timer);
     }
   }
 
