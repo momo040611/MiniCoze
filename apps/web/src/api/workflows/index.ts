@@ -441,6 +441,8 @@ export function toRunnableWorkflowDefinition(
 
         return {
           ...node,
+          // 后端执行器注册的类型是 selector，画布里的 condition 必须改名，否则运行时报“暂不支持将节点类型 condition”。
+          type: 'selector',
           data: {
             ...data,
             inputs: {
