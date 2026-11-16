@@ -58,6 +58,19 @@ export interface RuntimeKnowledgeBinding {
   knowledgeBaseId: string;
   enabled: boolean;
   config?: RuntimeKnowledgeBindingConfig | null;
+  // 知识库名称：用于 knowledge.status 事件的真实展示（无名称时前端回退显示 ID）。
+  knowledgeBaseName?: string;
+}
+
+// 检索结果元数据：knowledge.status 事件的数据源。
+export interface KnowledgeRetrievalSummary {
+  bound: boolean;
+  bindings: Array<{
+    knowledgeBaseId: string;
+    knowledgeBaseName?: string;
+    retrievedCount: number;
+  }>;
+  totalChunks: number;
 }
 
 export interface RuntimeAttachment {
@@ -161,13 +174,20 @@ export type RuntimeEvent =
       knowledge: KnowledgeBoundStatus;
     }
   | { type: 'run.completed'; runId: string; usage?: TokenUsage }
+  | { type: 'run.canceled'; runId: string }
   | { type: 'run.failed'; runId: string; error: string }
   | { type: 'stream.done'; runId: string };
+
+export type RuntimeRunSource = 'CHAT' | 'PUBLIC' | 'API';
 
 export interface RunAgentCommand {
   agentId: string;
   userId: string;
   message: string;
+  // 运行来源：CHAT=登录聊天 / PUBLIC=公开分享页 / API=OpenAPI Key 调用，用于运行记录统计。
+  source?: RuntimeRunSource;
+  // 外部传入的取消信号（例如 SSE 连接断开时由调用方 abort）。
+  signal?: AbortSignal;
   conversationId?: string;
   publicAccess?: {
     conversationIdPrefix: string;

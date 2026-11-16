@@ -26,6 +26,8 @@ export interface ChatStreamInput {
   temperature?: number;
   maxTokens?: number;
   tools?: ToolDefinition[];
+  // 取消信号：透传给 Provider 的 fetch，实现运行取消时中断在途模型请求。
+  signal?: AbortSignal;
 }
 
 export interface ChatStreamChunk {
@@ -53,9 +55,7 @@ export class AiGatewayService {
     request: AiGenerateRequest,
   ): AsyncGenerator<AiStreamChunk, void, unknown> {
     return this.provider.generateStream(request);
-  }
-
-  generateWithResolvedModel(
+  }  generateWithResolvedModel(
     resolvedModel: ResolvedModel,
     request: AiGenerateRequest,
   ): Promise<AiGenerateResponse> {

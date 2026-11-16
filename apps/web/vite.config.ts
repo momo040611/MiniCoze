@@ -10,6 +10,8 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
+      host: "0.0.0.0",
+      allowedHosts: ["frp-ski.com"],
       proxy: {
         [apiProxyPrefix]: {
           target: apiProxyTarget,

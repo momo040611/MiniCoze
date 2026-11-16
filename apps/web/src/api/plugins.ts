@@ -253,6 +253,45 @@ function mapPlugin(plugin: BackendPluginDetail): IPluginDetail {
   };
 }
 
+export interface IMarketPluginTool {
+  code: string;
+  name: string;
+  description: string;
+}
+
+export interface IMarketPlugin {
+  code: string;
+  name: string;
+  description: string;
+  version: string;
+  tools: IMarketPluginTool[];
+  installed: boolean;
+  pluginId: string | null;
+}
+
+export interface IMarketCatalog {
+  workspaceId: string;
+  items: IMarketPlugin[];
+}
+
+export async function getMarketCatalog(workspaceId: string): Promise<IMarketCatalog> {
+  const payload = await http.get<ApiEnvelope<IMarketCatalog>>('plugins/market', {
+    query: { workspaceId },
+  });
+  return payload.data;
+}
+
+export async function installMarketPlugin(
+  workspaceId: string,
+  code: string,
+): Promise<{ pluginId: string; code: string; name: string; installed: boolean }> {
+  const payload = await http.post<
+    ApiEnvelope<{ pluginId: string; code: string; name: string; installed: boolean }>,
+    { workspaceId: string; code: string }
+  >('plugins/market/install', { workspaceId, code });
+  return payload.data;
+}
+
 export async function getPlugins(params: IGetPluginsParams): Promise<IPaginatedPlugins> {
   const payload = await http.get<ApiEnvelope<BackendPaginated<BackendPluginDetail>>>('plugins', {
     query: {
@@ -421,4 +460,62 @@ export async function bindAgentTools(agentId: string, tools: IPluginTool[]): Pro
       },
     })),
   });
+}
+
+// ── 插件凭据管理（secret 仅创建/更新时提交，响应只回掩码）──
+
+export type PluginCredentialAuthType = 'BEARER_TOKEN' | 'API_KEY_HEADER' | 'BASIC_AUTH';
+export type PluginCredentialStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface IPluginCredential {
+  id: string;
+  pluginId: string;
+  name: string;
+  authType: PluginCredentialAuthType;
+  status: PluginCredentialStatus;
+  maskedHint: string;
+  config: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IPluginCredentialPayload {
+  name: string;
+  authType: PluginCredentialAuthType;
+  /** 更新时缺省表示保持原 secret。 */
+  secret?: string;
+  config?: Record<string, unknown>;
+  status?: PluginCredentialStatus;
+}
+
+export async function listPluginCredentials(pluginId: string): Promise<IPluginCredential[]> {
+  const res = await http.get<ApiEnvelope<IPluginCredential[]>>(`plugins/${pluginId}/credentials`);
+  return res.data ?? [];
+}
+
+export async function createPluginCredential(
+  pluginId: string,
+  payload: IPluginCredentialPayload,
+): Promise<IPluginCredential> {
+  const res = await http.post<ApiEnvelope<IPluginCredential>, IPluginCredentialPayload>(
+    `plugins/${pluginId}/credentials`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function updatePluginCredential(
+  pluginId: string,
+  credentialId: string,
+  payload: IPluginCredentialPayload,
+): Promise<IPluginCredential> {
+  const res = await http.patch<ApiEnvelope<IPluginCredential>, IPluginCredentialPayload>(
+    `plugins/${pluginId}/credentials/${credentialId}`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function deletePluginCredential(pluginId: string, credentialId: string): Promise<void> {
+  await http.delete(`plugins/${pluginId}/credentials/${credentialId}`);
 }

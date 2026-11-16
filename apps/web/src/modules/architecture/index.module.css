@@ -1,0 +1,152 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2563eb;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 26px;
+  color: #111827;
+}
+
+.header p {
+  margin: 0;
+  max-width: 720px;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 18px;
+  color: #111827;
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.flowItem {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  flex: 1 1 180px;
+  min-width: 180px;
+  padding: 14px;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.flowIndex {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.flowTitle {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: #111827;
+}
+
+.flowDesc {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.flowArrow {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 14px;
+  z-index: 1;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.panel {
+  padding: 18px 20px;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.panelTitle {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.panelList {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.panelList li {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.tradeoffList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tradeoff {
+  padding: 12px 16px;
+  border-left: 3px solid #2563eb;
+  border-radius: 0 8px 8px 0;
+  background: #f8fafc;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.tradeoff strong {
+  color: #111827;
+  margin-right: 6px;
+}

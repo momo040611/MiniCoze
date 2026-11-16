@@ -1,17 +1,29 @@
 import {
   ApiOutlined,
+  BookOutlined,
   BranchesOutlined,
-  DatabaseOutlined,
+  CodeOutlined,
   ExportOutlined,
+  GlobalOutlined,
   ImportOutlined,
   RobotOutlined,
   SearchOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import { Input } from 'antd';
 import type { ReactNode } from 'react';
 import styles from './index.module.css';
 
-type NodeType = 'llm' | 'condition' | 'plugin' | 'database' | 'input' | 'output';
+type NodeType =
+  | 'llm'
+  | 'condition'
+  | 'plugin'
+  | 'knowledge'
+  | 'code'
+  | 'http'
+  | 'variable'
+  | 'input'
+  | 'output';
 
 interface NodeSelectorPanelProps {
   onAddNode: (type: NodeType) => void;
@@ -31,7 +43,15 @@ const nodeGroups: Array<{
       { label: '大模型', type: 'llm', icon: <RobotOutlined /> },
       { label: '条件判断', type: 'condition', icon: <BranchesOutlined /> },
       { label: '插件调用', type: 'plugin', icon: <ApiOutlined /> },
-      { label: '数据库', type: 'database', icon: <DatabaseOutlined /> },
+      { label: '知识检索', type: 'knowledge', icon: <BookOutlined /> },
+    ],
+  },
+  {
+    title: '数据处理',
+    items: [
+      { label: '代码执行', type: 'code', icon: <CodeOutlined /> },
+      { label: 'HTTP 请求', type: 'http', icon: <GlobalOutlined /> },
+      { label: '变量读写', type: 'variable', icon: <TagsOutlined /> },
     ],
   },
   {

@@ -538,6 +538,20 @@ export function AgentPublishPanel() {
                             </Space>
                           </div>
                         )}
+                        {webConfig.embedPath && (
+                          <div style={{ marginTop: 4 }}>
+                            <Button
+                              size="small"
+                              icon={<CopyOutlined />}
+                              onClick={() => {
+                                const embedCode = `<iframe\n  src="${window.location.origin}/embed/agents/${webConfig.slug}"\n  width="420"\n  height="650"\n  frameborder="0"\n  style="border:1px solid #e5e7eb;border-radius:12px"\n  allow="clipboard-write"\n></iframe>`;
+                                copyToClipboard(embedCode);
+                              }}
+                            >
+                              复制嵌入代码（iframe）
+                            </Button>
+                          </div>
+                        )}
                         <div className={styles.configRow}>
                           <Text type="secondary">匿名访问：</Text>
                           <Text>{webConfig.allowAnonymous ? '允许' : '禁止'}</Text>

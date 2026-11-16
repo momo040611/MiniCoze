@@ -7,7 +7,6 @@ import { PrismaService } from '../../database/prisma.service';
 import { WorkspaceAccessService } from '../workspace/workspace-access.service';
 import { ReplaceAgentPluginBindingsDto } from './dto/replace-agent-plugin-bindings.dto';
 import { UpdateAgentPluginBindingDto } from './dto/update-agent-plugin-binding.dto';
-import { PluginService } from './plugin.service';
 import {
   type AgentPluginBindingConfig,
   type AgentPluginBindingResponse,
@@ -26,7 +25,6 @@ export class AgentPluginBindingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workspaceAccessService: WorkspaceAccessService,
-    private readonly pluginService: PluginService,
   ) {}
 
   private getBindingConfig(value: unknown): AgentPluginBindingConfig | null {
@@ -42,7 +40,7 @@ export class AgentPluginBindingService {
   ): Promise<AgentPluginBindingResponse[]> {
     const agent = await this.findAgentOrThrow(agentId);
     await this.workspaceAccessService.ensureMember(userId, agent.workspaceId);
-    await this.pluginService.ensureBuiltinPlugins(userId, agent.workspaceId);
+    // 内置插件改为插件市场按需安装，这里不再自动全量播种。
 
     const bindings = await this.prisma.agentPluginBinding.findMany({
       where: {
@@ -69,7 +67,6 @@ export class AgentPluginBindingService {
       userId,
       agent.workspaceId,
     );
-    await this.pluginService.ensureBuiltinPlugins(userId, agent.workspaceId);
 
     const pluginIds = Array.from(
       new Set(dto.bindings.map((binding) => binding.pluginId)),

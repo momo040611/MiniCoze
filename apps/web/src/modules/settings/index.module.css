@@ -60,3 +60,61 @@
   font-size: 17px;
   color: #111827;
 }
+
+.panelActions {
+  margin-top: 14px;
+}
+
+.linkPanel {
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.linkPanel:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.1);
+}
+
+.linkHint {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 13px;
+  color: #2563eb;
+}
+
+.tablePanel {
+  padding: 18px 22px;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.tableTitle {
+  margin: 0 0 14px;
+  font-size: 17px;
+  color: #111827;
+}
+
+.createForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.formItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 13px;
+  color: #334155;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   ChatMessage,
+  KnowledgeRetrievalSummary,
   RuntimeKnowledgeBinding,
 } from '../../../shared/types/agent';
 import type { RuntimeContext } from '../../../shared/types/runtime';
@@ -13,38 +14,66 @@ const DEFAULT_TOP_K = 4;
 const DEFAULT_MIN_SCORE = 0.3;
 const MAX_TOTAL_CHUNKS = 8;
 
+export interface KnowledgeRetrievalResult {
+  message: ChatMessage | null;
+  summary: KnowledgeRetrievalSummary;
+}
+
 @Injectable()
 export class RuntimeKnowledgeService {
   private readonly logger = new Logger(RuntimeKnowledgeService.name);
 
   constructor(private readonly retrievalService: RetrievalService) {}
 
+  /**
+   * 检索知识并返回注入用的 system 消息 + 检索元数据。
+   * summary 供 knowledge.status 事件展示真实的知识库名与召回条数。
+   */
   async buildKnowledgeSystemMessage(input: {
     context: RuntimeContext;
     query: string;
-  }): Promise<ChatMessage | null> {
+  }): Promise<KnowledgeRetrievalResult> {
     const bindings = (input.context.agentConfig.knowledgeBindings ?? []).filter(
       (binding) => binding.enabled,
     );
 
     if (!bindings.length || !input.query.trim()) {
-      return null;
+      return {
+        message: null,
+        summary: { bound: bindings.length > 0, bindings: [], totalChunks: 0 },
+      };
     }
 
     const chunkGroups = await Promise.all(
-      bindings.map((binding) =>
-        this.retrieveBindingChunks(input.context, binding, input.query),
-      ),
+      bindings.map(async (binding) => {
+        const chunks = await this.retrieveBindingChunks(
+          input.context,
+          binding,
+          input.query,
+        );
+        return { binding, chunks };
+      }),
     );
-    const chunks = this.mergeChunks(chunkGroups.flat());
+    const chunks = this.mergeChunks(chunkGroups.flatMap((g) => g.chunks));
 
-    if (!chunks.length) {
-      return null;
-    }
+    const summary: KnowledgeRetrievalSummary = {
+      bound: true,
+      bindings: chunkGroups.map((group) => ({
+        knowledgeBaseId: group.binding.knowledgeBaseId,
+        knowledgeBaseName: group.binding.knowledgeBaseName,
+        retrievedCount: group.chunks.length,
+      })),
+      totalChunks: chunks.length,
+    };
 
     return {
-      role: 'system',
-      content: this.formatKnowledgePrompt(chunks),
+      message: chunks.length
+        ? {
+            role: 'system',
+            content: this.formatKnowledgePrompt(chunks),
+          }
+        : null,
+      summary,
     };
   }
 

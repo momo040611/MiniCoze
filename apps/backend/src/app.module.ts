@@ -19,6 +19,7 @@ import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module';
 import { AgentRuntimeModule } from './modules/agent-runtime/agent-runtime.module';
 import { PluginModule } from './modules/plugins/plugin.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SearchModule } from './modules/search/search.module';
 import { CredentialsModule } from './modules/credentials/credentials.module';
 import { ModelManagementModule } from './modules/model-management/model-management.module';
 
@@ -48,6 +49,7 @@ import { ModelManagementModule } from './modules/model-management/model-manageme
     AgentRuntimeModule,
     PluginModule,
     DashboardModule,
+    SearchModule,
   ],
 })
 export class AppModule {}

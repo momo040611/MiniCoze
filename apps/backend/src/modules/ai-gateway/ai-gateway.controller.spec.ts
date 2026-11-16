@@ -18,7 +18,12 @@ describe('AiGatewayController', () => {
       const result = controller.getProviders();
 
       expect(result).toEqual({
-        providers: [AiProvider.OPENAI, AiProvider.DEEPSEEK],
+        providers: [
+          AiProvider.OPENAI,
+          AiProvider.DEEPSEEK,
+          AiProvider.ANTHROPIC,
+          AiProvider.GEMINI,
+        ],
       });
     });
   });

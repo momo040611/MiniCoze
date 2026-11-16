@@ -7,6 +7,10 @@ import {
   type ParseConfig,
 } from '../../../api/knowledge-base';
 
+// 非终态文档（处理中）出现时自动轮询刷新列表，直到全部到达终态。
+const NON_TERMINAL_STATUSES = new Set(['PROCESSING', 'PARSED', 'CHUNKED', 'EMBEDDING']);
+const POLL_INTERVAL_MS = 3000;
+
 function useKnowledgeDocuments(knowledgeBaseId: string, onChanged?: () => void) {
   const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -26,6 +30,18 @@ function useKnowledgeDocuments(knowledgeBaseId: string, onChanged?: () => void) 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 有处理中的文档时轮询刷新，全部到达 READY/FAILED 后停止。
+  const hasProcessing = documents.some((d) => NON_TERMINAL_STATUSES.has(d.status));
+  useEffect(() => {
+    if (!hasProcessing) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void load();
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [hasProcessing, load]);
 
   const upload = useCallback(async (file: File, parseConfig?: ParseConfig) => {
     setLoading(true);

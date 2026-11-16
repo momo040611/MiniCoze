@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ModelProviderType, WorkspaceCredentialType } from '@prisma/client';
 import type { ResolvedModel } from '../model-management/types/resolved-model.type';
+import { AnthropicProvider } from './providers/anthropic.provider';
 import { DeepSeekProvider } from './providers/deepseek.provider';
+import { GeminiProvider } from './providers/gemini.provider';
 import type { AiProviderInterface } from './providers/ai-provider.interface';
 import { OpenAiProvider } from './providers/openai.provider';
 import { AiProvider, AiProviderConfig } from './types';
@@ -25,7 +27,15 @@ export class DynamicAiProviderFactory {
       return new DeepSeekProvider(config);
     }
 
-    // 第一阶段 OPENAI / DEEPSEEK / OPENAI_COMPATIBLE 都复用 OpenAI Compatible 协议。
+    if (resolvedModel.providerType === ModelProviderType.ANTHROPIC) {
+      return new AnthropicProvider(config);
+    }
+
+    if (resolvedModel.providerType === ModelProviderType.GEMINI) {
+      return new GeminiProvider(config);
+    }
+
+    // OPENAI / DEEPSEEK / OPENAI_COMPATIBLE 复用 OpenAI Compatible 协议。
     return new OpenAiProvider(config);
   }
 
@@ -55,6 +65,10 @@ export class DynamicAiProviderFactory {
     switch (providerType) {
       case ModelProviderType.DEEPSEEK:
         return AiProvider.DEEPSEEK;
+      case ModelProviderType.ANTHROPIC:
+        return AiProvider.ANTHROPIC;
+      case ModelProviderType.GEMINI:
+        return AiProvider.GEMINI;
       case ModelProviderType.OPENAI:
       case ModelProviderType.OPENAI_COMPATIBLE:
       default:

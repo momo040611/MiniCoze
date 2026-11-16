@@ -20,6 +20,9 @@ export enum ErrorCode {
   // 已认证但没有权限访问目标资源。
   Forbidden = 40300,
 
+  // 请求过于频繁：触发发布渠道限流。
+  TooManyRequests = 42900,
+
   // 请求的资源不存在。
   NotFound = 40400,
 

@@ -1,5 +1,8 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { MessageRole as PrismaMessageRole } from '@prisma/client';
+import {
+  AgentRunStatus,
+  MessageRole as PrismaMessageRole,
+} from '@prisma/client';
 import { ErrorCode } from '../../../common/constants/error-code';
 import { BusinessException } from '../../../common/exceptions/business.exception';
 import { PrismaService } from '../../../database/prisma.service';
@@ -11,15 +14,18 @@ import {
 import type {
   RuntimeContext,
   RuntimeRepository,
+  RuntimeRunStartMeta,
 } from '../../../shared/types/runtime';
 
 @Injectable()
 export class RuntimePrismaRepository implements RuntimeRepository {
+  // 进程内 run 上下文：仅用于本次执行期间的消息落库与状态流转，
+  // 权威的运行记录持久化在 AgentRun 表（多实例可查历史）。
   private readonly runs = new Map<string, RuntimeContext>();
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async saveRun(context: RuntimeContext): Promise<void> {
+  async saveRun(context: RuntimeContext, meta?: RuntimeRunStartMeta): Promise<void> {
     const conversation = await this.prisma.conversation.findUnique({
       where: {
         id: context.conversationId,
@@ -63,6 +69,21 @@ export class RuntimePrismaRepository implements RuntimeRepository {
       });
     }
 
+    // 持久化运行记录：运行历史、用量统计与审计的数据源。
+    await this.prisma.agentRun.create({
+      data: {
+        runId: context.runId,
+        agentId: context.agentId,
+        conversationId: context.conversationId,
+        userId: context.userId,
+        workspaceId: context.agentConfig.workspaceId,
+        source: meta?.source ?? 'CHAT',
+        isPreview: context.isPreview ?? false,
+        status: AgentRunStatus.CREATED,
+        model: meta?.model ?? context.agentConfig.model,
+      },
+    });
+
     this.runs.set(context.runId, context);
   }
 
@@ -97,7 +118,57 @@ export class RuntimePrismaRepository implements RuntimeRepository {
       status === 'failed' ||
       status === 'canceled'
     ) {
+      await this.finishAgentRun(runId, status, context, usage, error);
       this.runs.delete(runId);
+    } else {
+      await this.prisma.agentRun.updateMany({
+        where: { runId },
+        data: { status: AgentRunStatus.IN_PROGRESS },
+      });
+    }
+  }
+
+  /**
+   * 终态时回写 AgentRun：状态、耗时、token 用量、工具调用次数与错误信息。
+   */
+  private async finishAgentRun(
+    runId: string,
+    status: RuntimeRunStatus,
+    context: RuntimeContext,
+    usage?: TokenUsage,
+    error?: string,
+  ): Promise<void> {
+    const run = await this.prisma.agentRun.findUnique({
+      where: { runId },
+      select: { startedAt: true },
+    });
+    if (!run) return;
+
+    await this.prisma.agentRun.updateMany({
+      where: { runId, status: { notIn: [AgentRunStatus.COMPLETED, AgentRunStatus.FAILED, AgentRunStatus.CANCELED] } },
+      data: {
+        status: this.toAgentRunStatus(status),
+        finishedAt: new Date(),
+        durationMs: Date.now() - run.startedAt.getTime(),
+        promptTokens: usage?.inputTokens,
+        completionTokens: usage?.outputTokens,
+        totalTokens: usage?.totalTokens,
+        toolCallCount: context.toolCallCount ?? 0,
+        error,
+      },
+    });
+  }
+
+  private toAgentRunStatus(status: RuntimeRunStatus): AgentRunStatus {
+    switch (status) {
+      case 'completed':
+        return AgentRunStatus.COMPLETED;
+      case 'failed':
+        return AgentRunStatus.FAILED;
+      case 'canceled':
+        return AgentRunStatus.CANCELED;
+      default:
+        return AgentRunStatus.IN_PROGRESS;
     }
   }
 

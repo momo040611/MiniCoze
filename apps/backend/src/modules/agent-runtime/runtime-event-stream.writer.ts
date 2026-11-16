@@ -4,6 +4,10 @@ import type { RuntimeEvent } from '../../shared/types/agent';
 export async function writeRuntimeEventStream(
   res: Response,
   events: AsyncIterable<RuntimeEvent>,
+  options?: {
+    /** 捕获 run.created 事件中的 runId，供调用方在连接断开时定位运行。 */
+    onRunCreated?: (runId: string) => void;
+  },
 ): Promise<void> {
   try {
     const iterator = events[Symbol.asyncIterator]();
@@ -12,6 +16,10 @@ export async function writeRuntimeEventStream(
     if (first.done) {
       res.status(204).end();
       return;
+    }
+
+    if (first.value.type === 'run.created') {
+      options?.onRunCreated?.(first.value.runId);
     }
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -26,6 +34,10 @@ export async function writeRuntimeEventStream(
       const next = await iterator.next();
       if (next.done) {
         break;
+      }
+
+      if (next.value.type === 'run.created') {
+        options?.onRunCreated?.(next.value.runId);
       }
 
       res.write(`event: ${next.value.type}\n`);

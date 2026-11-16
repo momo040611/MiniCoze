@@ -1,4 +1,4 @@
-import { App, Breadcrumb, Button, Empty, Form, Input, Modal, Pagination, Popconfirm, Select, Skeleton, Switch, Tag } from 'antd';
+import { App, Breadcrumb, Button, Empty, Form, Input, Modal, Pagination, Popconfirm, Select, Skeleton, Switch, Tabs, Tag } from 'antd';
 import {
   ApiOutlined,
   CloudServerOutlined,
@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWorkspace } from '../../workspace/use-workspace';
 import { usePlugins } from '../hooks/usePlugins';
 import { createPlugin, type IPlugin, type PluginStatus, type PluginType } from '../../../api/plugins';
+import { MarketPanel } from './MarketPanel';
 import styles from './PluginList.module.css';
 
 const typeText: Record<PluginType, string> = {
@@ -67,6 +68,7 @@ export function PluginList() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [activeTab, setActiveTab] = useState('installed');
   const pageSize = 12;
 
   const query = useMemo(
@@ -173,135 +175,154 @@ export function PluginList() {
         </div>
       </div>
 
-      <div className={styles.summaryBar}>
-        <div>
-          <span>当前工作区</span>
-          <strong>{currentWorkspace?.name ?? '未选择'}</strong>
-        </div>
-        <div>
-          <span>插件总数</span>
-          <strong>{total}</strong>
-        </div>
-        <div>
-          <span>本页启用</span>
-          <strong>{summary.active}</strong>
-        </div>
-        <div>
-          <span>本页内置</span>
-          <strong>{summary.builtin}</strong>
-        </div>
-        <div>
-          <span>本页工具</span>
-          <strong>{summary.tools}</strong>
-        </div>
-      </div>
-
-      <div className={styles.filters}>
-        <Input
-          allowClear
-          prefix={<SearchOutlined />}
-          placeholder="搜索插件名称、编码或描述"
-          value={keyword}
-          onChange={(event) => handleFilterChange(() => setKeyword(event.target.value))}
-        />
-        <Select
-          allowClear
-          placeholder="插件类型"
-          value={type}
-          options={[
-            { label: '内置插件', value: 'BUILTIN' },
-            { label: 'HTTP 插件', value: 'HTTP' },
-          ]}
-          onChange={(value) => handleFilterChange(() => setType(value))}
-        />
-        <Select
-          allowClear
-          placeholder="状态"
-          value={status}
-          options={[
-            { label: '草稿', value: 'DRAFT' },
-            { label: '已启用', value: 'ACTIVE' },
-            { label: '已停用', value: 'DISABLED' },
-            { label: '已归档', value: 'ARCHIVED' },
-          ]}
-          onChange={(value) => handleFilterChange(() => setStatus(value))}
-        />
-      </div>
-
-      {error ? (
-        <div className={styles.center}>
-          <Empty description={error}>
-            <Button onClick={refresh}>重新加载</Button>
-          </Empty>
-        </div>
-      ) : data.length === 0 ? (
-        <div className={styles.center}>
-          <Empty description="暂无匹配插件" />
-        </div>
-      ) : (
-        <>
-          <div className={styles.grid}>
-            {data.map((plugin) => (
-              <article
-                className={styles.card}
-                key={plugin.id}
-                onClick={() => navigate(`/plugins/${plugin.id}`)}
-              >
-                <div className={styles.cardTop}>
-                  <PluginIcon plugin={plugin} />
-                  <div className={styles.cardTitle}>
-                    <h2>{plugin.name}</h2>
-                    <span>{plugin.code}</span>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'installed',
+            label: '已安装',
+            children: (
+              <div className={styles.installedPanel}>
+                <div className={styles.summaryBar}>
+                  <div>
+                    <span>当前工作区</span>
+                    <strong>{currentWorkspace?.name ?? '未选择'}</strong>
                   </div>
-                  <Tag color={statusColor[plugin.status]}>{statusText[plugin.status]}</Tag>
+                  <div>
+                    <span>插件总数</span>
+                    <strong>{total}</strong>
+                  </div>
+                  <div>
+                    <span>本页启用</span>
+                    <strong>{summary.active}</strong>
+                  </div>
+                  <div>
+                    <span>本页内置</span>
+                    <strong>{summary.builtin}</strong>
+                  </div>
+                  <div>
+                    <span>本页工具</span>
+                    <strong>{summary.tools}</strong>
+                  </div>
                 </div>
 
-                <p>{plugin.description}</p>
-
-                <div className={styles.meta}>
-                  <Tag>{typeText[plugin.type]}</Tag>
-                  {plugin.isBuiltin && <Tag color="blue">内置</Tag>}
-                  {!plugin.invocationEnabled && <Tag color="orange">禁止调用</Tag>}
+                <div className={styles.filters}>
+                  <Input
+                    allowClear
+                    prefix={<SearchOutlined />}
+                    placeholder="搜索插件名称、编码或描述"
+                    value={keyword}
+                    onChange={(event) => handleFilterChange(() => setKeyword(event.target.value))}
+                  />
+                  <Select
+                    allowClear
+                    placeholder="插件类型"
+                    value={type}
+                    options={[
+                      { label: '内置插件', value: 'BUILTIN' },
+                      { label: 'HTTP 插件', value: 'HTTP' },
+                    ]}
+                    onChange={(value) => handleFilterChange(() => setType(value))}
+                  />
+                  <Select
+                    allowClear
+                    placeholder="状态"
+                    value={status}
+                    options={[
+                      { label: '草稿', value: 'DRAFT' },
+                      { label: '已启用', value: 'ACTIVE' },
+                      { label: '已停用', value: 'DISABLED' },
+                      { label: '已归档', value: 'ARCHIVED' },
+                    ]}
+                    onChange={(value) => handleFilterChange(() => setStatus(value))}
+                  />
                 </div>
 
-                <div className={styles.cardFooter}>
-                  <span>{plugin.activeToolCount}/{plugin.toolCount} 个工具可用</span>
-                  <span>{plugin.version}</span>
-                </div>
+                {error ? (
+                  <div className={styles.center}>
+                    <Empty description={error}>
+                      <Button onClick={refresh}>重新加载</Button>
+                    </Empty>
+                  </div>
+                ) : data.length === 0 ? (
+                  <div className={styles.center}>
+                    <Empty description="暂无匹配插件，可到「插件市场」安装官方插件" />
+                  </div>
+                ) : (
+                  <>
+                    <div className={styles.grid}>
+                      {data.map((plugin) => (
+                        <article
+                          className={styles.card}
+                          key={plugin.id}
+                          onClick={() => navigate(`/plugins/${plugin.id}`)}
+                        >
+                          <div className={styles.cardTop}>
+                            <PluginIcon plugin={plugin} />
+                            <div className={styles.cardTitle}>
+                              <h2>{plugin.name}</h2>
+                              <span>{plugin.code}</span>
+                            </div>
+                            <Tag color={statusColor[plugin.status]}>{statusText[plugin.status]}</Tag>
+                          </div>
 
-                <div className={styles.actions} onClick={(event) => event.stopPropagation()}>
-                  <Button onClick={() => navigate(`/plugins/${plugin.id}`)}>查看详情</Button>
-                  <Popconfirm
-                    title={plugin.enabled ? '停用插件' : '启用插件'}
-                    description={
-                      plugin.enabled
-                        ? '停用后，该插件下的工具将无法被调用。'
-                        : '启用后，该插件工具可用于测试和绑定。'
-                    }
-                    okText="确认"
-                    cancelText="取消"
-                    onConfirm={() => void handleToggle(plugin)}
-                  >
-                    <Button type={plugin.enabled ? 'default' : 'primary'} danger={plugin.enabled}>
-                      {plugin.enabled ? '停用' : '启用'}
-                    </Button>
-                  </Popconfirm>
-                </div>
-              </article>
-            ))}
-          </div>
+                          <p>{plugin.description}</p>
 
-          <Pagination
-            className={styles.pagination}
-            current={page}
-            pageSize={pageSize}
-            total={total}
-            showSizeChanger={false}
-            showTotal={(count) => `共 ${count} 个插件`}
-            onChange={setPage}
-          />
-        </>
-      )}
+                          <div className={styles.meta}>
+                            <Tag>{typeText[plugin.type]}</Tag>
+                            {plugin.isBuiltin && <Tag color="blue">内置</Tag>}
+                            {!plugin.invocationEnabled && <Tag color="orange">禁止调用</Tag>}
+                          </div>
+
+                          <div className={styles.cardFooter}>
+                            <span>{plugin.activeToolCount}/{plugin.toolCount} 个工具可用</span>
+                            <span>{plugin.version}</span>
+                          </div>
+
+                          <div className={styles.actions} onClick={(event) => event.stopPropagation()}>
+                            <Button onClick={() => navigate(`/plugins/${plugin.id}`)}>查看详情</Button>
+                            <Popconfirm
+                              title={plugin.enabled ? '停用插件' : '启用插件'}
+                              description={
+                                plugin.enabled
+                                  ? '停用后，该插件下的工具将无法被调用。'
+                                  : '启用后，该插件工具可用于测试和绑定。'
+                              }
+                              okText="确认"
+                              cancelText="取消"
+                              onConfirm={() => void handleToggle(plugin)}
+                            >
+                              <Button type={plugin.enabled ? 'default' : 'primary'} danger={plugin.enabled}>
+                                {plugin.enabled ? '停用' : '启用'}
+                              </Button>
+                            </Popconfirm>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+
+                    <Pagination
+                      className={styles.pagination}
+                      current={page}
+                      pageSize={pageSize}
+                      total={total}
+                      showSizeChanger={false}
+                      showTotal={(count) => `共 ${count} 个插件`}
+                      onChange={setPage}
+                    />
+                  </>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'market',
+            label: '插件市场',
+            children: <MarketPanel />,
+          },
+        ]}
+      />
 
       <Modal
         title="创建 HTTP 插件"

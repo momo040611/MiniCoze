@@ -98,6 +98,11 @@ export interface RunFailedEvent {
   error: string;
 }
 
+export interface RunCanceledEvent {
+  type: 'run.canceled';
+  runId: string;
+}
+
 export interface StreamDoneEvent {
   type: 'stream.done';
   runId: string;
@@ -113,6 +118,7 @@ export type RuntimeEvent =
   | ToolCallCompletedEvent
   | ToolCallFailedEvent
   | RunCompletedEvent
+  | RunCanceledEvent
   | RunFailedEvent
   | StreamDoneEvent;
 
@@ -248,4 +254,82 @@ export async function runAgentStream(
     });
 
   return controller;
+}
+
+// ── 运行记录（AgentRun 持久化查询）──
+
+export type AgentRunStatus = 'CREATED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED' | 'CANCELED';
+export type AgentRunSource = 'CHAT' | 'PUBLIC' | 'API';
+
+export interface AgentRunItem {
+  id: string;
+  runId: string;
+  agentId: string;
+  agentName?: string;
+  conversationId: string;
+  source: AgentRunSource;
+  isPreview: boolean;
+  status: AgentRunStatus;
+  model: string | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  toolCallCount: number;
+  durationMs: number | null;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface AgentRunListParams {
+  agentId?: string;
+  workspaceId?: string;
+  status?: AgentRunStatus;
+  source?: AgentRunSource;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function listAgentRuns(
+  params: AgentRunListParams,
+): Promise<{ list: AgentRunItem[]; total: number; page: number; pageSize: number }> {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') query.set(key, String(value));
+  });
+  const response = await fetch(`${API_BASE_URL}/agent-runs?${query.toString()}`, {
+    headers: { Authorization: `Bearer ${getAuthToken()}` },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message || '加载运行记录失败');
+  }
+  const body = (await response.json()) as {
+    code: number;
+    data: { list: AgentRunItem[]; total: number; page: number; pageSize: number };
+  };
+  return body.data;
+}
+
+export async function getAgentRun(runId: string): Promise<AgentRunItem> {
+  const response = await fetch(`${API_BASE_URL}/agent-runs/${runId}`, {
+    headers: { Authorization: `Bearer ${getAuthToken()}` },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message || '加载运行详情失败');
+  }
+  const body = (await response.json()) as { code: number; data: AgentRunItem };
+  return body.data;
+}
+
+export async function cancelAgentRun(runId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/agent-runs/${runId}/cancel`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getAuthToken()}` },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message || '取消运行失败');
+  }
 }

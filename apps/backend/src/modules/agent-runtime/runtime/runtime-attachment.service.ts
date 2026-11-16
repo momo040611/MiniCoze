@@ -10,6 +10,7 @@ import type { CurrentUser } from '../../../shared/types/current-user.type';
 import type { RuntimeContext } from '../../../shared/types/runtime';
 import { FileService } from '../../file/file.service';
 import { ImageUnderstandingClient } from '../../plugins/builtin/image-understanding.client';
+import { DocumentParserService } from '../../knowledge/parsing/document-parser.service';
 
 @Injectable()
 export class RuntimeAttachmentService {
@@ -20,10 +21,13 @@ export class RuntimeAttachmentService {
     'text/x-markdown',
   ]);
   private readonly textExtensions = new Set(['.txt', '.md']);
+  // 可解析为文本的文档附件扩展名（复用知识库解析器）。
+  private readonly documentExtensions = new Set(['pdf', 'docx', 'xlsx', 'xls', 'csv']);
 
   constructor(
     private readonly fileService: FileService,
     private readonly imageUnderstandingClient: ImageUnderstandingClient,
+    private readonly documentParser: DocumentParserService,
   ) {}
 
   async buildAttachmentSystemMessage(input: {
@@ -110,19 +114,37 @@ export class RuntimeAttachmentService {
         fileAsset.id,
       );
       const content = buffer.toString('utf8');
-      const truncated = content.length > this.maxTextChars;
-      const visibleContent = truncated
-        ? `${content.slice(0, this.maxTextChars)}\n[内容已截断，原文长度 ${content.length} 字符]`
-        : content;
+      return [title, '文本内容：', this.truncate(content)].join('\n');
+    }
 
-      return [title, '文本内容：', visibleContent].join('\n');
+    // PDF / docx / xlsx 等文档附件：复用知识库解析器抽文本后注入。
+    const ext = fileAsset.extension?.toLowerCase().replace(/^\./, '') ?? '';
+    if (this.documentExtensions.has(ext)) {
+      const buffer = await this.fileService.getFileBufferForInternal(
+        fileAsset.id,
+      );
+      const parsed = await this.documentParser.parse(buffer, ext);
+      return [
+        title,
+        `(系统已自动解析为文本${parsed.parser === 'pdf' ? '，含分页标记' : ''})`,
+        '文本内容：',
+        this.truncate(parsed.text),
+      ].join('\n');
     }
 
     throw new BusinessException(
-      '当前调试只支持图片和 txt/md 文本附件',
+      '附件仅支持图片、txt/md 文本与 pdf/docx/xlsx 文档',
       ErrorCode.BadRequest,
       HttpStatus.BAD_REQUEST,
     );
+  }
+
+  private truncate(content: string): string {
+    if (content.length <= this.maxTextChars) {
+      return content;
+    }
+
+    return `${content.slice(0, this.maxTextChars)}\n[内容已截断，原文长度 ${content.length} 字符]`;
   }
 
   private isTextFile(fileAsset: FileAsset): boolean {

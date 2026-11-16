@@ -88,7 +88,8 @@ export class PluginService {
     query: PluginQueryDto,
   ): Promise<PaginatedData<PluginDetailResponse>> {
     await this.workspaceAccessService.ensureMember(userId, query.workspaceId);
-    await this.ensureBuiltinPlugins(userId, query.workspaceId);
+    // 注意：不再在此自动播种内置插件——统一改为插件市场按需安装
+    // （GET/POST /plugins/market），运行时 registry 有兜底播种。
 
     const where: Prisma.PluginDefinitionWhereInput = {
       workspaceId: query.workspaceId,
@@ -226,16 +227,104 @@ export class PluginService {
     return plugin;
   }
 
+  /**
+   * 插件市场目录（v1）：官方目录来自代码内常量，附各工作区的安装状态。
+   * 明确不做第三方上传审核。
+   */
+  async getMarketCatalog(
+    userId: string,
+    workspaceId: string,
+  ): Promise<{
+    workspaceId: string;
+    items: Array<{
+      code: string;
+      name: string;
+      description: string;
+      version: string;
+      tools: Array<{ code: string; name: string; description: string }>;
+      installed: boolean;
+      pluginId: string | null;
+    }>;
+  }> {
+    await this.workspaceAccessService.ensureMember(userId, workspaceId);
+
+    const installed = await this.prisma.pluginDefinition.findMany({
+      where: {
+        workspaceId,
+        code: { in: BUILTIN_PLUGIN_DEFINITIONS.map((d) => d.code) },
+      },
+      select: { id: true, code: true },
+    });
+    const installedMap = new Map(installed.map((p) => [p.code, p.id]));
+
+    return {
+      workspaceId,
+      items: BUILTIN_PLUGIN_DEFINITIONS.map((definition) => ({
+        code: definition.code,
+        name: definition.name,
+        description: definition.description,
+        version: definition.version,
+        tools: definition.tools.map((t) => ({
+          code: t.code,
+          name: t.name,
+          description: t.description,
+        })),
+        installed: installedMap.has(definition.code),
+        pluginId: installedMap.get(definition.code) ?? null,
+      })),
+    };
+  }
+
+  /**
+   * 从市场安装指定插件到工作区（幂等：已安装则直接返回现有插件）。
+   */
+  async installMarketPlugin(
+    userId: string,
+    workspaceId: string,
+    code: string,
+  ): Promise<{ pluginId: string; code: string; name: string; installed: boolean }> {
+    const definition = BUILTIN_PLUGIN_DEFINITIONS.find((d) => d.code === code);
+    if (!definition) {
+      throw new BusinessException(
+        '插件市场不存在该插件',
+        ErrorCode.NotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    await this.workspaceAccessService.ensureCanManage(userId, workspaceId);
+    await this.ensureBuiltinPlugin(userId, workspaceId, definition);
+
+    const plugin = await this.prisma.pluginDefinition.findFirstOrThrow({
+      where: { workspaceId, code },
+      select: { id: true, name: true },
+    });
+
+    return { pluginId: plugin.id, code, name: plugin.name, installed: true };
+  }
+
   async ensureBuiltinPlugins(
     userId: string,
     workspaceId: string,
   ): Promise<void> {
     await this.workspaceAccessService.ensureMember(userId, workspaceId);
 
+    for (const definition of BUILTIN_PLUGIN_DEFINITIONS) {
+      await this.ensureBuiltinPlugin(userId, workspaceId, definition);
+    }
+  }
+
+  // 按 definitions 目录项播种单个内置插件（含工具），已存在则跳过并补齐工具。
+  private async ensureBuiltinPlugin(
+    userId: string,
+    workspaceId: string,
+    definition: (typeof BUILTIN_PLUGIN_DEFINITIONS)[number],
+  ): Promise<void> {
     const existingPlugins = await this.prisma.pluginDefinition.findMany({
       where: {
         workspaceId,
         isBuiltin: true,
+        code: definition.code,
       },
       select: {
         id: true,
@@ -243,38 +332,28 @@ export class PluginService {
       },
     });
 
-    const existingCodeSet = new Set(
-      existingPlugins.map((plugin) => plugin.code),
-    );
-
-    for (const definition of BUILTIN_PLUGIN_DEFINITIONS) {
-      if (existingCodeSet.has(definition.code)) {
-        const existing = existingPlugins.find(
-          (item) => item.code === definition.code,
-        );
-        if (existing?.id) {
-          await this.ensureBuiltinTools(existing.id, definition);
-        }
-        continue;
-      }
-
-      const created = await this.prisma.pluginDefinition.create({
-        data: {
-          workspaceId,
-          creatorId: userId,
-          code: definition.code,
-          name: definition.name,
-          description: definition.description,
-          type: 'BUILTIN',
-          status: 'ACTIVE',
-          version: definition.version,
-          isBuiltin: true,
-          invocationEnabled: true,
-        },
-      });
-
-      await this.ensureBuiltinTools(created.id, definition);
+    if (existingPlugins.length > 0) {
+      const existing = existingPlugins[0];
+      await this.ensureBuiltinTools(existing.id, definition);
+      return;
     }
+
+    const created = await this.prisma.pluginDefinition.create({
+      data: {
+        workspaceId,
+        creatorId: userId,
+        code: definition.code,
+        name: definition.name,
+        description: definition.description,
+        type: 'BUILTIN',
+        status: 'ACTIVE',
+        version: definition.version,
+        isBuiltin: true,
+        invocationEnabled: true,
+      },
+    });
+
+    await this.ensureBuiltinTools(created.id, definition);
   }
 
   private async ensureBuiltinTools(

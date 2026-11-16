@@ -7,25 +7,62 @@ import {
   MessageOutlined,
   BookOutlined,
   DeploymentUnitOutlined,
-  UserOutlined,
 } from '@ant-design/icons';
-import { getAgentList } from '../../../api/agent-config';
+import { globalSearch, type SearchItem, type SearchItemType } from '../../../api/search';
 
 interface SearchResult {
   id: string;
-  type: 'agent' | 'conversation' | 'knowledge' | 'workflow';
+  type: SearchItemType;
   title: string;
   description?: string;
   icon: React.ReactNode;
   path: string;
 }
 
-const TYPE_LABELS: Record<string, { label: string; color: string }> = {
+const TYPE_LABELS: Record<SearchItemType, { label: string; color: string }> = {
   agent: { label: '智能体', color: 'blue' },
   conversation: { label: '对话', color: 'green' },
   knowledge: { label: '知识库', color: 'orange' },
   workflow: { label: '工作流', color: 'purple' },
 };
+
+const TYPE_ICONS: Record<SearchItemType, React.ReactNode> = {
+  agent: <RobotOutlined style={{ color: '#565fe2' }} />,
+  workflow: <DeploymentUnitOutlined style={{ color: '#722ed1' }} />,
+  knowledge: <BookOutlined style={{ color: '#fa8c16' }} />,
+  conversation: <MessageOutlined style={{ color: '#52c41a' }} />,
+};
+
+function toSearchPath(item: SearchItem): string {
+  switch (item.type) {
+    case 'agent':
+      return `/agents/${item.id}`;
+    case 'workflow':
+      return `/workflows/${item.id}`;
+    case 'knowledge':
+      return `/knowledge/${item.id}`;
+    case 'conversation':
+      return '/workspace/chat';
+  }
+}
+
+function flattenResults(group: Awaited<ReturnType<typeof globalSearch>>): SearchResult[] {
+  const items: SearchItem[] = [
+    ...group.agents,
+    ...group.workflows,
+    ...group.knowledgeBases,
+    ...group.conversations,
+  ];
+
+  return items.map((item) => ({
+    id: `${item.type}-${item.id}`,
+    type: item.type,
+    title: item.title,
+    description: item.description ?? undefined,
+    icon: TYPE_ICONS[item.type],
+    path: toSearchPath(item),
+  }));
+}
 
 export function GlobalSearch() {
   const navigate = useNavigate();
@@ -43,20 +80,9 @@ export function GlobalSearch() {
 
     setLoading(true);
     try {
-      // 搜索智能体
-      const agents = await getAgentList({ keyword: kw });
-      const agentResults: SearchResult[] = agents.map((a) => ({
-        id: a.id,
-        type: 'agent' as const,
-        title: a.name,
-        description: a.description || a.persona?.slice(0, 50),
-        icon: <RobotOutlined style={{ color: '#565fe2' }} />,
-        path: `/agents/${a.id}`,
-      }));
-
-      // TODO: 搜索对话、知识库、工作流（需要后端支持全局搜索 API）
-      // 目前只展示智能体搜索结果
-      setResults(agentResults);
+      // 聚合搜索智能体、工作流、知识库、对话（后端全局搜索接口）
+      const group = await globalSearch(kw);
+      setResults(flattenResults(group));
     } catch (err) {
       console.error('搜索失败:', err);
       setResults([]);

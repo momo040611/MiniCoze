@@ -5,6 +5,7 @@ import {
   CheckCircleFilled,
   CloseCircleFilled,
   CloseOutlined,
+  HistoryOutlined,
   LoadingOutlined,
   PaperClipOutlined,
 } from '@ant-design/icons';
@@ -24,6 +25,7 @@ import type {
 import { DebugInfoPanel } from './DebugInfoPanel';
 import { KnowledgeStatus } from './KnowledgeStatus';
 import { ToolCallCard } from './ToolCallCard';
+import { AgentRunHistoryModal } from './AgentRunHistoryModal';
 import styles from './PreviewChat.module.css';
 
 interface Props {
@@ -63,14 +65,16 @@ export function PreviewChat({
   knowledgeBaseId,
 }: Props) {
   const [inputValue, setInputValue] = useState('');
+  const [runHistoryOpen, setRunHistoryOpen] = useState(false);
   const [knowledgeDismissed, setKnowledgeDismissed] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
-    selectedAttachment,
+    selectedAttachments,
     readyAttachments,
-    selectFile,
+    selectFiles,
     clearAttachments,
+    removeAttachment,
     uploading,
     failed: attachmentFailed,
   } = useChatAttachments();
@@ -142,10 +146,10 @@ export function PreviewChat({
   }, [agentId, clearAttachments, deleteCurrentConversation]);
 
   const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const files = event.target.files;
     event.target.value = '';
-    if (file) void selectFile(file);
-  }, [selectFile]);
+    if (files && files.length > 0) void selectFiles(files);
+  }, [selectFiles]);
 
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.sender === 'user';
@@ -270,20 +274,24 @@ export function PreviewChat({
         <div ref={chatEndRef} />
       </div>
 
-      {selectedAttachment && (
+      {selectedAttachments.length > 0 && (
         <div className={styles.filePreviewBar}>
-          {selectedAttachment.isImage && selectedAttachment.previewUrl ? (
-            <img src={selectedAttachment.previewUrl} alt={selectedAttachment.file.name} className={styles.filePreviewThumb} />
-          ) : (
-            <span className={styles.previewDocIcon}>TXT</span>
-          )}
-          <div className={styles.filePreviewInfo}>
-            <span className={styles.filePreviewName}>{selectedAttachment.file.name}</span>
-            <span className={styles.filePreviewSize}>
-              {selectedAttachment.sizeText} · {selectedAttachment.uploadStatus === 'uploading' ? '上传中' : selectedAttachment.uploadStatus === 'success' ? '已上传' : selectedAttachment.errorText ?? '上传失败'}
-            </span>
-          </div>
-          <Button icon={<CloseOutlined />} size='small' type='text' danger onClick={clearAttachments} />
+          {selectedAttachments.map((item) => (
+            <div key={item.id} className={styles.filePreviewItem}>
+              {item.isImage && item.previewUrl ? (
+                <img src={item.previewUrl} alt={item.file.name} className={styles.filePreviewThumb} />
+              ) : (
+                <span className={styles.previewDocIcon}>TXT</span>
+              )}
+              <div className={styles.filePreviewInfo}>
+                <span className={styles.filePreviewName}>{item.file.name}</span>
+                <span className={styles.filePreviewSize}>
+                  {item.sizeText} · {item.uploadStatus === 'uploading' ? '上传中' : item.uploadStatus === 'success' ? '已上传' : item.errorText ?? '上传失败'}
+                </span>
+              </div>
+              <Button icon={<CloseOutlined />} size='small' type='text' danger onClick={() => removeAttachment(item.id)} />
+            </div>
+          ))}
         </div>
       )}
 
@@ -291,10 +299,18 @@ export function PreviewChat({
         type='file'
         ref={fileInputRef}
         accept={CHAT_ATTACHMENT_ACCEPT}
+        multiple
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
       <div className={styles.previewInputRow}>
+        <Button
+          icon={<HistoryOutlined />}
+          type='text'
+          title='运行历史'
+          onClick={() => setRunHistoryOpen(true)}
+          className={styles.previewAttachBtn}
+        />
         <Button
           icon={<PaperClipOutlined />}
           type='text'
@@ -320,6 +336,12 @@ export function PreviewChat({
           {sending ? '等待...' : uploading ? '上传中' : '发送'}
         </button>
       </div>
+
+      <AgentRunHistoryModal
+        open={runHistoryOpen}
+        agentId={agentId}
+        onClose={() => setRunHistoryOpen(false)}
+      />
     </div>
   );
 }

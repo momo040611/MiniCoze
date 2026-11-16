@@ -9,6 +9,7 @@ import {
 import { createHash } from 'node:crypto';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
+import { ChannelAccessGuard, type ChannelAccessConfig } from '../../common/utils/channel-access.guard';
 import { PrismaService } from '../../database/prisma.service';
 import type { WorkflowStreamEvent } from '../workflow/internal/execute/workflow-run-event';
 import { WorkflowRunService } from '../workflow/workflow-run.service';
@@ -25,8 +26,14 @@ export class PublicWorkflowService {
     authorization: string | undefined,
     dto: PublicWorkflowRunDto,
     onEvent?: (event: WorkflowStreamEvent) => void,
+    access?: { ip?: string; origin?: string },
   ) {
     const target = await this.findPublicWorkflowTarget(authorization);
+
+    ChannelAccessGuard.enforce(
+      target.channelConfig as ChannelAccessConfig,
+      { channelId: target.channelId, ip: access?.ip, origin: access?.origin },
+    );
 
     return this.workflowRunService.runPublishedWorkflow({
       workflowId: target.workflowId,
@@ -87,6 +94,10 @@ export class PublicWorkflowService {
       workflowId: workflow.id,
       workflowVersionId: workflow.currentVersionId,
       creatorId: workflow.creatorId,
+      channelId: channel.id,
+      channelConfig: this.isJsonObject(channel.config)
+        ? (channel.config as Record<string, unknown>)
+        : {},
     };
   }
 

@@ -155,15 +155,16 @@ export const renderPluginNode = () => (
     <Field<NodeConfig> name="config">
       {({ field }) => (
         <>
-          {renderConfigRow('插件', field.value?.pluginId)}
-          {renderConfigRow('动作', field.value?.action)}
+          {renderConfigRow('插件 ID', field.value?.pluginId)}
+          {renderConfigRow('工具 ID', field.value?.toolId)}
+          {renderConfigRow('入参数量', Array.isArray(field.value?.args) ? field.value.args.length : Object.keys(field.value?.args ?? {}).length || undefined)}
         </>
       )}
     </Field>
   </div>
 );
 
-export const renderDatabaseNode = () => (
+export const renderKnowledgeNode = () => (
   <div className={styles.databaseNode}>
     {renderTitle()}
     {renderVariables('inputs')}
@@ -172,10 +173,61 @@ export const renderDatabaseNode = () => (
     <Field<NodeConfig> name="config">
       {({ field }) => (
         <>
-          {renderConfigRow('数据源', field.value?.source)}
-          {renderConfigRow('查询', field.value?.query)}
+          {renderConfigRow('检索问题', field.value?.query)}
+          {renderConfigRow('知识库数量', Array.isArray(field.value?.knowledgeBaseIds) && field.value.knowledgeBaseIds.length > 0 ? field.value.knowledgeBaseIds.length : undefined)}
+          {renderConfigRow('召回条数', field.value?.topK)}
         </>
       )}
+    </Field>
+  </div>
+);
+
+export const renderCodeNode = () => (
+  <div className={styles.genericNode}>
+    {renderTitle()}
+    {renderVariables('inputs')}
+    {renderVariables('outputs')}
+
+    <Field<NodeConfig> name="config">
+      {({ field }) => {
+        const code = typeof field.value?.code === 'string' ? field.value.code : '';
+        const lines = code ? code.split('\n').length : 0;
+        return renderConfigRow('代码行数', lines || undefined);
+      }}
+    </Field>
+  </div>
+);
+
+export const renderHttpNode = () => (
+  <div className={styles.genericNode}>
+    {renderTitle()}
+    {renderVariables('inputs')}
+    {renderVariables('outputs')}
+
+    <Field<NodeConfig> name="config">
+      {({ field }) => (
+        <>
+          {renderConfigRow('请求方式', field.value?.method || 'GET')}
+          {renderConfigRow('URL', field.value?.url)}
+        </>
+      )}
+    </Field>
+  </div>
+);
+
+export const renderVariableNode = () => (
+  <div className={styles.genericNode}>
+    {renderTitle()}
+    {renderVariables('inputs')}
+    {renderVariables('outputs')}
+
+    <Field<NodeConfig> name="config">
+      {({ field }) => {
+        const scope = field.value?.scope === 'global' ? 'global' : 'session';
+        const name = typeof field.value?.name === 'string' ? field.value.name : '';
+        const operation = field.value?.operation === 'get' ? '读取' : '写入';
+        return renderConfigRow('变量', name ? `${scope}.${name}（${operation}）` : undefined);
+      }}
     </Field>
   </div>
 );

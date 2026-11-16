@@ -21,7 +21,10 @@ import {
     renderOutputNode,
     renderConditionNode,
     renderPluginNode,
-    renderDatabaseNode,
+    renderKnowledgeNode,
+    renderCodeNode,
+    renderHttpNode,
+    renderVariableNode,
     renderAnnotationNode,
     renderGenericNode,
 } from '../nodeRenders'
@@ -136,7 +139,25 @@ const nodeRegistries: WorkflowNodeRegistry[] = [
         },
     },
     {
-        type: 'database',
+        type: 'knowledge',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'code',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'http',
+        meta: {
+            defaultPorts: [{ type: 'input' }, { type: 'output' }],
+        },
+    },
+    {
+        type: 'variable',
         meta: {
             defaultPorts: [{ type: 'input' }, { type: 'output' }],
         },
@@ -246,8 +267,20 @@ export const useSimpleEditorProps = ({
                                 return renderPluginNode()
                             }
 
-                            if (type === 'database') {
-                                return renderDatabaseNode()
+                            if (type === 'knowledge') {
+                                return renderKnowledgeNode()
+                            }
+
+                            if (type === 'code') {
+                                return renderCodeNode()
+                            }
+
+                            if (type === 'http') {
+                                return renderHttpNode()
+                            }
+
+                            if (type === 'variable') {
+                                return renderVariableNode()
                             }
 
                             if (type === 'input') {

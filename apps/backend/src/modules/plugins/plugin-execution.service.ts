@@ -159,6 +159,81 @@ export class PluginExecutionService implements ToolExecutor {
     }
   }
 
+  /**
+   * 工作流 plugin 节点专用：不经过 Agent 绑定，直接按 plugin+tool 执行。
+   * 复用 schema 校验、调用日志与 builtin/http 分发，与 Agent 工具链一致。
+   * plugin/tool 由调用方从工作区内查询（需含 type / maskStrategy / meta / inputSchema）。
+   */
+  async executeStandalone(input: {
+    plugin: PluginEntityForToolTest;
+    tool: PluginToolEntityForToolTest;
+    args: Record<string, unknown>;
+    runId: string;
+    conversationId?: string | null;
+    userId?: string;
+  }): Promise<unknown> {
+    const functionName = `${input.plugin.code ?? ''}__${input.tool.code}`;
+    // 工作流节点没有 Agent 绑定上下文，构造最小化的合成 target：
+    // 运行时只读取 binding.agentId（记调用日志用，工作流调用记为 null）。
+    const binding = { agentId: null } as unknown as Parameters<
+      PluginInvocationService['start']
+    >[0]['target']['binding'];
+    const target: ResolvedPluginTool = {
+      binding,
+      plugin: input.plugin as never,
+      tool: input.tool as never,
+      metadata: {
+        toolKind: 'plugin',
+        pluginId: input.plugin.id,
+        pluginCode: (input.plugin as { code?: string }).code ?? '',
+        toolCode: input.tool.code,
+      },
+    };
+
+    const mergedArgs = this.mergeArgs(input.tool.code, null, input.args);
+    this.schemaValidator.validateInput(
+      (target.tool.inputSchema ?? {}) as Record<string, unknown>,
+      mergedArgs,
+    );
+
+    const invocation = await this.invocationService.start({
+      target,
+      runId: input.runId,
+      conversationId: input.conversationId ?? null,
+      args: mergedArgs,
+    });
+
+    // 运行时上下文只需要 userId / runId / conversationId（builtin 客户端取文件用）。
+    const runtimeContext = {
+      runId: input.runId,
+      conversationId: input.conversationId ?? '',
+      agentId: '',
+      userId: input.userId ?? '',
+      status: 'RUNNING',
+      input: { role: 'user', content: '' },
+      history: [],
+      agentConfig: {},
+    } as unknown as RuntimeContext;
+
+    try {
+      const output = await this.dispatchExecution(
+        functionName,
+        target,
+        mergedArgs,
+        runtimeContext,
+      );
+      await this.invocationService.completeSuccess(invocation, target, output);
+      return output;
+    } catch (error) {
+      const maskedError = await this.invocationService.completeFailure(
+        invocation,
+        target,
+        error,
+      );
+      throw new Error(maskedError);
+    }
+  }
+
   private async dispatchExecution(
     functionName: string,
     target: PluginExecutionTarget,
@@ -183,7 +258,12 @@ export class PluginExecutionService implements ToolExecutor {
     }
 
     if (this.httpExecutor.supports(target.plugin.type)) {
-      return this.httpExecutor.execute();
+      return this.httpExecutor.execute({
+        pluginId: target.plugin.id,
+        toolMeta: target.tool.meta,
+        args,
+        context,
+      });
     }
 
     throw new Error(`Unsupported plugin type: ${target.plugin.type}`);

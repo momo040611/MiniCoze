@@ -1,9 +1,6 @@
 // 统一导出 HTTP 基础能力，页面和业务模块可以从 '@/api' 直接拿到 http、request、ApiError 等。
 export * from './http';
 
-// 统一导出“架构设计与技术选型”模块 API，具体接口由该模块在 ./architecture 中维护。
-export * from './architecture';
-
 // 统一导出“智能体配置页面”模块 API，避免页面层直接关心接口文件位置。
 export * from './agent-config';
 

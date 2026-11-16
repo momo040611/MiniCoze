@@ -10,6 +10,7 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { ErrorCode } from '../../common/constants/error-code';
 import { BusinessException } from '../../common/exceptions/business.exception';
+import { ChannelAccessGuard, type ChannelAccessConfig } from '../../common/utils/channel-access.guard';
 import { PrismaService } from '../../database/prisma.service';
 import type { RuntimeEvent } from '../../shared/types/agent';
 import { AgentRuntimeService } from '../agent-runtime/agent-runtime.service';
@@ -31,6 +32,8 @@ interface PublishedAgentRunTarget {
   creatorId: string;
   channelId: string;
   apiKeyHash?: string;
+  // 渠道访问配置（限流/白名单/Origin），进入运行入口前由 ChannelAccessGuard 校验。
+  channelConfig: Record<string, unknown>;
   snapshot: AgentPublishSnapshot;
 }
 
@@ -64,8 +67,13 @@ export class PublicAgentService {
   async createWebChatStream(
     slug: string,
     dto: PublicAgentChatDto,
+    access?: { ip?: string; origin?: string },
   ): Promise<AsyncIterable<RuntimeEvent>> {
     const target = await this.findPublicAgentTargetBySlug(slug);
+    ChannelAccessGuard.enforce(
+      target.channelConfig as ChannelAccessConfig,
+      { channelId: target.channelId, ip: access?.ip, origin: access?.origin },
+    );
 
     return this.runPublishedTarget(target, dto);
   }
@@ -73,8 +81,13 @@ export class PublicAgentService {
   async uploadWebChatAttachment(
     slug: string,
     file: UploadedFile | undefined,
+    access?: { ip?: string; origin?: string },
   ): Promise<FileResponse> {
     const target = await this.findPublicAgentTargetBySlug(slug);
+    ChannelAccessGuard.enforce(
+      target.channelConfig as ChannelAccessConfig,
+      { channelId: target.channelId, ip: access?.ip, origin: access?.origin },
+    );
 
     this.ensureSupportedPublicChatAttachment(file);
 
@@ -87,15 +100,21 @@ export class PublicAgentService {
   async createApiRunStream(
     authorization: string | undefined,
     dto: PublicAgentChatDto,
+    access?: { ip?: string; origin?: string },
   ): Promise<AsyncIterable<RuntimeEvent>> {
     const target = await this.findPublicAgentTargetByApiKey(authorization);
+    ChannelAccessGuard.enforce(
+      target.channelConfig as ChannelAccessConfig,
+      { channelId: target.channelId, ip: access?.ip, origin: access?.origin },
+    );
 
-    return this.runPublishedTarget(target, dto);
+    return this.runPublishedTarget(target, dto, 'API');
   }
 
   private runPublishedTarget(
     target: PublishedAgentRunTarget,
     dto: PublicAgentChatDto,
+    source?: 'PUBLIC' | 'API',
   ): AsyncIterable<RuntimeEvent> {
     return this.agentRuntimeService.runPublishedSnapshot({
       agentId: target.snapshot.agent.id,
@@ -106,6 +125,7 @@ export class PublicAgentService {
       publicAccess: {
         conversationIdPrefix: this.getPublicConversationIdPrefix(target, dto),
       },
+      source,
       snapshot: target.snapshot,
     });
   }
@@ -202,6 +222,9 @@ export class PublicAgentService {
       creatorId: agent.creatorId,
       channelId: channel.id,
       apiKeyHash,
+      channelConfig: this.isJsonObject(channel.config)
+        ? (channel.config as Record<string, unknown>)
+        : {},
       snapshot,
     };
   }

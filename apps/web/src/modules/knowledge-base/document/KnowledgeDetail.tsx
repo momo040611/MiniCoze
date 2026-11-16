@@ -7,7 +7,6 @@ import { KbPageHeader } from '../components/KbPageHeader';
 import { KnowledgeIcon } from '../components/KnowledgeIcon';
 import { chunkModeText, indexModeText, retrievalModeText } from '../components/labels';
 import { StatusBadge } from '../components/StatusBadge';
-import { PipelineTab } from '../pipeline/PipelineTab';
 import { RetrieveTestTab } from '../retrieve-test/RetrieveTestTab';
 import { ChunksTab } from './ChunksTab';
 import { DocumentsTab } from './DocumentsTab';
@@ -148,11 +147,6 @@ function KnowledgeDetail() {
                 key: 'metadata',
                 label: '元数据',
                 children: <MetadataTab knowledgeBaseId={base.id} />,
-              },
-              {
-                key: 'pipeline',
-                label: '处理流水线',
-                children: <PipelineTab knowledgeBaseId={base.id} />,
               },
               {
                 key: 'settings',

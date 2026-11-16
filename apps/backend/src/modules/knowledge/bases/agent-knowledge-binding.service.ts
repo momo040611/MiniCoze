@@ -134,6 +134,9 @@ export class AgentKnowledgeBindingService {
         enabled: true,
       },
       orderBy: { createdAt: 'asc' },
+      include: {
+        knowledgeBase: { select: { name: true } },
+      },
     });
 
     return bindings.map((binding) => ({
@@ -141,6 +144,7 @@ export class AgentKnowledgeBindingService {
       knowledgeBaseId: binding.knowledgeBaseId,
       enabled: binding.enabled,
       config: this.getBindingConfig(binding.config),
+      knowledgeBaseName: binding.knowledgeBase.name,
     }));
   }
 

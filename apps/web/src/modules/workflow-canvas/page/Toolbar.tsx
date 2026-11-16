@@ -91,6 +91,7 @@ function getDefaultNodeData(type: string) {
         { label: '否', type: 'boolean', name: 'falseBranch' },
       ],
       config: {
+        leftValue: '{{input.query}}',
         operator: 'equals',
         compareValue: '',
         expression: '',
@@ -105,21 +106,24 @@ function getDefaultNodeData(type: string) {
       outputs: [{ label: '结果', type: 'object', name: 'result' }],
       config: {
         pluginId: '',
-        action: '',
-        timeout: 30,
+        toolId: '',
+        args: {},
       },
     };
   }
 
-  if (type === 'database') {
+  if (type === 'knowledge') {
     return {
-      nodeMeta: { title: '数据库节点' },
-      inputs: [{ label: '查询参数', type: 'object', name: 'params' }],
-      outputs: [{ label: '查询结果', type: 'array', name: 'rows' }],
+      nodeMeta: { title: '知识检索节点' },
+      inputs: [{ label: '查询参数', type: 'string', name: 'query' }],
+      outputs: [
+        { label: '检索结果', type: 'array', name: 'results' },
+        { label: '拼接文本', type: 'string', name: 'summary' },
+      ],
       config: {
-        source: '',
+        knowledgeBaseIds: [],
         query: '',
-        readonly: true,
+        topK: 5,
       },
     };
   }
@@ -133,6 +137,47 @@ function getDefaultNodeData(type: string) {
       inputs: [],
       outputs: [],
       config: {},
+    };
+  }
+
+  if (type === 'code') {
+    return {
+      nodeMeta: { title: '代码执行节点' },
+      inputs: [{ label: '入参', type: 'object', name: 'params' }],
+      outputs: [{ label: '结果', type: 'object', name: 'result' }],
+      config: {
+        code: 'const text = String(input.text ?? \'\');\nreturn { length: text.length, upper: text.toUpperCase() };',
+        paramsJson: '{"text": "{{input.query}}"}',
+      },
+    };
+  }
+
+  if (type === 'http') {
+    return {
+      nodeMeta: { title: 'HTTP 请求节点' },
+      inputs: [{ label: '入参', type: 'object', name: 'params' }],
+      outputs: [{ label: '响应', type: 'object', name: 'data' }],
+      config: {
+        url: 'https://httpbin.org/get',
+        method: 'GET',
+        headersJson: '{}',
+        body: '',
+        timeout: 30000,
+      },
+    };
+  }
+
+  if (type === 'variable') {
+    return {
+      nodeMeta: { title: '变量读写节点' },
+      inputs: [{ label: '入参', type: 'object', name: 'params' }],
+      outputs: [{ label: '结果', type: 'object', name: 'result' }],
+      config: {
+        operation: 'set',
+        scope: 'session',
+        name: 'lastQuery',
+        value: '{{input.query}}',
+      },
     };
   }
 
@@ -402,9 +447,13 @@ function Toolbar({ onAddNode, onRunTest }: ToolbarProps) {
   function handleAddNode(type: string) {
     onAddNode?.(type);
 
+    // 新增节点按当前节点数量轻微错开落点，避免多个节点完全重叠。
+    const nodeCount = (ctx.document.toJSON() as WorkflowCanvasData).nodes?.length ?? 0;
+    const offset = nodeCount % 5;
+
     ctx.document.createWorkflowNodeByType(
       type,
-      { x: 200, y: 200 },
+      { x: 200 + offset * 40, y: 200 + offset * 40 },
       {
         id: `${type}_${Date.now()}`,
         data: getDefaultNodeData(type),

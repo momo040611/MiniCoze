@@ -1,7 +1,7 @@
 import { InboxOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import { Button, Form, InputNumber, Modal, Progress, Select, Space, Switch, Tag, message } from 'antd';
 import type { DragEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ChunkMode,
   DocumentStatus,
@@ -10,11 +10,11 @@ import {
   type ParseConfig,
   type UploadStatus,
 } from '../../../api/knowledge-base';
-import { knowledgePipelineApi } from '../../../api/knowledge-pipeline';
 import styles from './KnowledgeUploadModal.module.css';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = new Set(['txt', 'md']);
+// 与后端 DocumentParserService 支持的解析格式对齐。
+const ACCEPTED_EXTENSIONS = new Set(['txt', 'md', 'markdown', 'pdf', 'docx', 'xlsx', 'xls', 'csv']);
 
 type UploadQueueItem = {
   id: string;
@@ -110,18 +110,12 @@ function KnowledgeUploadModal({
     };
   }, []);
 
-  const selectedKnowledgeBase = useMemo(
-    () => knowledgeBases.find((item) => item.id === knowledgeBaseId),
-    [knowledgeBaseId, knowledgeBases],
-  );
-
   const patchQueueItem = (id: string, patch: Partial<UploadQueueItem>) => {
     setQueue((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   };
 
   const runUpload = (item: UploadQueueItem, config: ParseConfig) => {
     patchQueueItem(item.id, { status: 'uploading', progress: 8, message: '上传中' });
-    void knowledgePipelineApi.runUploadPipeline(item.knowledgeBaseId, selectedKnowledgeBase?.name);
     let progress = 8;
     const timer = window.setInterval(async () => {
       if (canceledRef.current.has(item.id)) {
@@ -147,7 +141,6 @@ function KnowledgeUploadModal({
       try {
         const response = await knowledgeApi.uploadDocument(item.knowledgeBaseId, item.file, config);
         if (response.data.status === DocumentStatus.Failed) {
-          await knowledgePipelineApi.runUploadPipeline(item.knowledgeBaseId, selectedKnowledgeBase?.name, true);
           patchQueueItem(item.id, {
             status: 'failed',
             progress: 100,
@@ -159,7 +152,6 @@ function KnowledgeUploadModal({
         patchQueueItem(item.id, { status: 'completed', progress: 100, message: '上传完成' });
         onCompleted?.(item.knowledgeBaseId);
       } catch (error) {
-        await knowledgePipelineApi.runUploadPipeline(item.knowledgeBaseId, selectedKnowledgeBase?.name, true);
         patchQueueItem(item.id, {
           status: 'failed',
           progress: 100,
@@ -280,14 +272,14 @@ function KnowledgeUploadModal({
         <div>
           <InboxOutlined style={{ fontSize: 30, color: '#1677ff', marginBottom: 10 }} />
           <strong>拖拽文件到此处，或点击选择文件</strong>
-          <span>支持 TXT / Markdown，单文件最大 50MB</span>
+          <span>支持 TXT / Markdown / PDF / docx / xlsx，单文件最大 50MB</span>
         </div>
         <input
           ref={inputRef}
           hidden
           multiple
           type="file"
-          accept=".txt,.md"
+          accept=".txt,.md,.markdown,.pdf,.docx,.xlsx,.xls,.csv"
           onChange={(event) => {
             addFiles(Array.from(event.target.files ?? []));
             event.currentTarget.value = '';

@@ -574,6 +574,39 @@ async function deleteKnowledgeDocument(documentId: string) {
   return ok(true, 'deleted');
 }
 
+/**
+ * 重新处理文档（真实后端接口）：
+ * - 失败文档重试（retryDocument）与已就绪文档重新解析（reparseDocument）
+ *   都走同一个 reprocess 流水线：清旧 chunks → 解析 → 切分 → 向量化 → READY。
+ * 返回更新后的文档视图模型，便于调用方立即拿到最新状态。
+ */
+async function reprocessKnowledgeDocument(documentId: string, successText: string) {
+  const response = await http.post<ApiEnvelope<{ document?: KnowledgeDocumentDto } | KnowledgeDocumentDto>>(
+    `knowledge/documents/${documentId}/reprocess`,
+  );
+  const payload = unwrap(response);
+  const dataRecord = isRecord(payload) && isRecord((payload as { document?: unknown }).document)
+    ? (payload as { document: KnowledgeDocumentDto }).document
+    : payload as KnowledgeDocumentDto;
+  return ok(mapKnowledgeDocumentDtoToViewModel(dataRecord, dataRecord.knowledgeBaseId ?? ''), successText);
+}
+
+async function retryDocument(documentId: string) {
+  if (useKnowledgeMock) {
+    return knowledgeMock.retryDocument(documentId);
+  }
+
+  return reprocessKnowledgeDocument(documentId, '重试完成');
+}
+
+async function reparseDocument(documentId: string) {
+  if (useKnowledgeMock) {
+    return knowledgeMock.reparseDocument(documentId);
+  }
+
+  return reprocessKnowledgeDocument(documentId, '文档解析完成');
+}
+
 async function getDocumentChunks(documentId: string, params?: ChunkListParams & { knowledgeBaseId?: string; documentName?: string }) {
   if (useKnowledgeMock) {
     if (params?.knowledgeBaseId) {
@@ -867,8 +900,8 @@ export const knowledgeApi = {
   getDocuments: getKnowledgeDocuments,
   deleteKnowledgeDocument,
   deleteDocument: deleteKnowledgeDocument,
-  reparseDocument: knowledgeMock.reparseDocument,
-  retryDocument: knowledgeMock.retryDocument,
+  reparseDocument: reparseDocument,
+  retryDocument: retryDocument,
   cancelUpload: knowledgeMock.cancelUpload,
   getUploadTasks: knowledgeMock.getUploadTasks,
   updateDocumentStatus: knowledgeMock.updateDocumentStatus,

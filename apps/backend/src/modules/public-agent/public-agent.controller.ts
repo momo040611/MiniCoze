@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  Ip,
   Param,
   Post,
   Res,
@@ -54,9 +55,11 @@ export class PublicAgentController {
   )
   uploadChatAttachment(
     @Param('slug') slug: string,
+    @Ip() ip: string | undefined,
+    @Headers('origin') origin: string | undefined,
     @UploadedFile() file: UploadedFileType | undefined,
   ) {
-    return this.publicAgentService.uploadWebChatAttachment(slug, file);
+    return this.publicAgentService.uploadWebChatAttachment(slug, file, { ip, origin });
   }
 
   @Post('agents/:slug/chat/stream')
@@ -64,10 +67,12 @@ export class PublicAgentController {
   @ApiOperation({ summary: '公开 WEB Agent 流式对话入口（预留）' })
   async streamWebChat(
     @Param('slug') slug: string,
+    @Ip() ip: string | undefined,
+    @Headers('origin') origin: string | undefined,
     @Body() dto: PublicAgentChatDto,
     @Res() res: Response,
   ) {
-    const events = await this.publicAgentService.createWebChatStream(slug, dto);
+    const events = await this.publicAgentService.createWebChatStream(slug, dto, { ip, origin });
     await writeRuntimeEventStream(res, events);
   }
 
@@ -76,12 +81,15 @@ export class PublicAgentController {
   @ApiOperation({ summary: '公开 API Agent 流式运行入口（预留）' })
   async streamApiRun(
     @Headers('authorization') authorization: string | undefined,
+    @Ip() ip: string | undefined,
+    @Headers('origin') origin: string | undefined,
     @Body() dto: PublicAgentChatDto,
     @Res() res: Response,
   ) {
     const events = await this.publicAgentService.createApiRunStream(
       authorization,
       dto,
+      { ip, origin },
     );
     await writeRuntimeEventStream(res, events);
   }

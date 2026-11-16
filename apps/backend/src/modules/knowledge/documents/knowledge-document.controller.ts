@@ -124,6 +124,17 @@ export class KnowledgeDocumentController {
     );
   }
 
+  @Post('documents/:id/reprocess')
+  @ApiOperation({
+    summary: '重新处理失败文档（按原切分配置重跑整条流水线）',
+  })
+  reprocess(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Param('id') documentId: string,
+  ) {
+    return this.service.reprocess(currentUser.id, documentId);
+  }
+
   @Delete('documents/:id')
   @ApiOperation({ summary: '删除文档（级联删除 chunks）' })
   remove(@CurrentUserInfo() currentUser: CurrentUser, @Param('id') id: string) {

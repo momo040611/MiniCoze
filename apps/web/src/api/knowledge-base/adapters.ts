@@ -218,8 +218,25 @@ export function mapChunkTypeToChunkMode(type?: KnowledgeChunkType | string): Chu
   }
 }
 
+// 后端知识文档状态机（KnowledgeDocumentStatus）→ 前端展示状态。
+// 后端：PROCESSING / PARSED / CHUNKED / EMBEDDING / READY / FAILED（大写）。
+// 解析/切分/向量化阶段在 UI 上统一呈现为"解析中"。
+const BACKEND_DOCUMENT_STATUS_MAP: Record<string, DocumentStatus> = {
+  PROCESSING: DocumentStatus.Parsing,
+  PARSED: DocumentStatus.Parsing,
+  CHUNKED: DocumentStatus.Parsing,
+  EMBEDDING: DocumentStatus.Parsing,
+  READY: DocumentStatus.Completed,
+  FAILED: DocumentStatus.Failed,
+  // 旧数据兼容：状态机启用前文档恒为 UPLOADED（已入库可用）。
+  UPLOADED: DocumentStatus.Completed,
+};
+
 export function mapDocumentStatus(status?: string): DocumentStatus {
-  if (Object.values(DocumentStatus).includes(status as DocumentStatus)) {
+  if (status && BACKEND_DOCUMENT_STATUS_MAP[status]) {
+    return BACKEND_DOCUMENT_STATUS_MAP[status];
+  }
+  if (status && Object.values(DocumentStatus).includes(status as DocumentStatus)) {
     return status as DocumentStatus;
   }
   return DocumentStatus.Completed;

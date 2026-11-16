@@ -8,10 +8,12 @@ import { KnowledgeBaseController } from './bases/knowledge-base.controller';
 import { KnowledgeBaseService } from './bases/knowledge-base.service';
 import { KnowledgeDocumentController } from './documents/knowledge-document.controller';
 import { KnowledgeDocumentService } from './documents/knowledge-document.service';
+import { DocumentTaskQueue } from './documents/document-task-queue';
 import { createEmbedder } from './embedding/embedder.factory';
 import { EMBEDDER_TOKEN } from './embedding/embedder.interface';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeService } from './knowledge.service';
+import { DocumentParserService } from './parsing/document-parser.service';
 import { RetrievalController } from './retrieval/retrieval.controller';
 import { RetrievalService } from './retrieval/retrieval.service';
 
@@ -29,6 +31,8 @@ import { RetrievalService } from './retrieval/retrieval.service';
     AgentKnowledgeBindingService,
     KnowledgeBaseService,
     KnowledgeDocumentService,
+    DocumentTaskQueue,
+    DocumentParserService,
     RetrievalService,
     {
       provide: EMBEDDER_TOKEN,
@@ -36,6 +40,6 @@ import { RetrievalService } from './retrieval/retrieval.service';
       inject: [ConfigService],
     },
   ],
-  exports: [RetrievalService, AgentKnowledgeBindingService],
+  exports: [RetrievalService, AgentKnowledgeBindingService, DocumentParserService],
 })
 export class KnowledgeModule {}

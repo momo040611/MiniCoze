@@ -149,7 +149,6 @@ function KnowledgeList() {
           actions={
             <Space>
               <Button icon={<UploadOutlined />} onClick={() => setUploadOpen(true)}>上传文档</Button>
-              <Button onClick={() => navigate('/knowledge/pipeline')}>生产流水线</Button>
               <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/knowledge/create')}>
                 新建知识库
               </Button>

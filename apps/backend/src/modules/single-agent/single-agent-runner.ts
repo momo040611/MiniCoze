@@ -11,6 +11,10 @@ import {
   isWorkflowToolName,
   parseWorkflowToolName,
 } from '../workflow/workflow-tool.util';
+import { RunCanceledError } from '../agent-runtime/runtime/run-lifecycle.errors';
+
+// 无工作区配置时的兜底轮次上限，防止配置缺失时出现无限循环。
+const FALLBACK_MAX_TOOL_ROUNDS = 10;
 
 @Injectable()
 export class SingleAgentRunner implements AgentExecutionStrategy {
@@ -25,8 +29,11 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
     context,
     messages,
     toolExecutor,
+    signal,
+    maxToolRounds,
   }: AgentExecutionInput): AsyncGenerator<RuntimeEvent, string, void> {
     const tools = context.agentConfig.tools ?? [];
+    const roundLimit = maxToolRounds ?? FALLBACK_MAX_TOOL_ROUNDS;
     // 每次运行开始先解析模型。解析结果如果来自 workspace，就走动态 Provider；
     // 如果来自 legacy-env，就保持旧的 AiGatewayService.chatStream() 调用。
     const resolvedModel = await this.modelResolverService.resolve({
@@ -36,7 +43,17 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
       legacyModelName: context.agentConfig.model,
     });
 
+    let round = 0;
     for (;;) {
+      this.ensureNotAborted(signal, context.runId);
+      round += 1;
+
+      if (round > roundLimit) {
+        throw new Error(
+          `工具调用轮次已达上限（${roundLimit} 轮），已终止运行以避免死循环。可在工作区运行设置中调整 maxToolRounds`,
+        );
+      }
+
       const assistantMessageId = randomUUID();
       const input = {
         messages,
@@ -44,6 +61,7 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
         temperature: context.agentConfig.temperature,
         maxTokens: context.agentConfig.maxTokens,
         tools,
+        signal,
       };
       const stream =
         // workspace 来源表示已经拿到了数据库 baseUrl + credential，可以动态调用。
@@ -89,6 +107,7 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
       });
 
       for (const toolCall of toolCalls) {
+        this.ensureNotAborted(signal, context.runId);
         const rawArgs = this.safeParse(toolCall.function.arguments);
         const parsedArgs = this.maskPreviewArgs(rawArgs) ?? {};
         const initialMetadata = this.parseFunctionName(toolCall.function.name);
@@ -136,6 +155,12 @@ export class SingleAgentRunner implements AgentExecutionStrategy {
           throw error;
         }
       }
+    }
+  }
+
+  private ensureNotAborted(signal: AbortSignal | undefined, runId: string): void {
+    if (signal?.aborted) {
+      throw new RunCanceledError(`运行 ${runId} 已被取消`);
     }
   }
 

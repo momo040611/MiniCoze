@@ -18,7 +18,7 @@ import { MarkdownRenderer } from './components/chat/MarkdownRenderer'
 import { copyToClipboard } from '../../utils/clipboard'
 import { ChatAttachmentList } from '../chat/components/ChatAttachmentList'
 import { useAgentChat } from '../chat/hooks/useAgentChat'
-import { CHAT_ATTACHMENT_ACCEPT, useChatAttachments } from '../chat/hooks/useChatAttachments'
+import { CHAT_ATTACHMENT_ACCEPT, MAX_CHAT_ATTACHMENTS, useChatAttachments } from '../chat/hooks/useChatAttachments'
 import type { ChatItem } from '../chat/types'
 
 // 智能体会话缓存
@@ -72,12 +72,15 @@ export function HomepageIndex() {
     loadConversationsRef.current()
   }, [])
   const {
-    selectedAttachment: selectedFile,
+    selectedAttachments,
     readyAttachments,
-    selectFile,
+    selectFiles,
     clearAttachments,
+    removeAttachment,
     uploading: attachmentUploading,
     failed: attachmentFailed,
+    firstFailedError,
+    isFull: attachmentsFull,
   } = useChatAttachments()
   const {
     items: messages,
@@ -338,7 +341,7 @@ export function HomepageIndex() {
       return
     }
     if (attachmentFailed) {
-      message.error(selectedFile?.errorText ?? '附件上传失败，请删除后重新选择')
+      message.error(firstFailedError ?? '附件上传失败，请删除后重新选择')
       return
     }
 
@@ -371,11 +374,10 @@ export function HomepageIndex() {
     quotedMessage,
     readyAttachments,
     selectedAgent,
-    selectedFile?.errorText,
+    firstFailedError,
     sendChatMessage,
     sending,
   ])
-
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
@@ -389,17 +391,16 @@ export function HomepageIndex() {
   }, [stopChat])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-    void selectFile(file)
-  }
-
-  const handleFileRemove = () => {
-    clearAttachments()
+    const { rejectedCount } = selectFiles(files)
+    if (rejectedCount > 0) {
+      message.warning(`单条消息最多添加 ${MAX_CHAT_ATTACHMENTS} 个附件，已忽略超出的 ${rejectedCount} 个`)
+    }
   }
 
   // 拖拽上传状态
@@ -435,24 +436,15 @@ export function HomepageIndex() {
     setIsDragging(false)
     dragCounterRef.current = 0
 
-    const file = e.dataTransfer.files[0]
-    if (!file) return
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
 
-    // 检查文件类型
-    const allowedTypes = [
-      'image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp',
-      'text/plain', 'text/markdown', 'text/x-markdown',
-    ]
-    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.txt', '.md']
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
-
-    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-      message.error('不支持的文件类型')
-      return
+    // 文件类型校验与数量上限统一交给 useChatAttachments 处理。
+    const { rejectedCount } = selectFiles(files)
+    if (rejectedCount > 0) {
+      message.warning(`单条消息最多添加 ${MAX_CHAT_ATTACHMENTS} 个附件，已忽略超出的 ${rejectedCount} 个`)
     }
-
-    void selectFile(file)
-  }, [selectFile])
+  }, [selectFiles])
 
   const handleRegenerate = useCallback(() => {
     if (!lastUserMessageRef.current || sending) return
@@ -809,33 +801,37 @@ export function HomepageIndex() {
                 <span>释放文件以上传</span>
               </div>
             )}
-            {selectedFile && !isDragging && (
+            {selectedAttachments.length > 0 && !isDragging && (
               <div className={styles.filePreviewBar}>
-                {selectedFile.isImage ? (
-                  <img src={selectedFile.previewUrl} alt={selectedFile.file.name} className={styles.filePreviewThumb} />
-                ) : (
-                  <span className={styles.docIcon}>📄</span>
-                )}
-                <div className={styles.filePreviewInfo}>
-                  <span className={styles.filePreviewName}>{selectedFile.file.name}</span>
-                  <span className={styles.filePreviewSize}>
-                    {selectedFile.sizeText}
-                    {' · '}
-                    {selectedFile.uploadStatus === 'uploading'
-                      ? '上传中'
-                      : selectedFile.uploadStatus === 'success'
-                        ? '已上传'
-                        : (selectedFile.errorText ?? '上传失败')}
-                  </span>
-                </div>
-                <Button
-                  icon={<CloseOutlined />}
-                  size="small"
-                  type="text"
-                  danger
-                  onClick={handleFileRemove}
-                  aria-label="删除文件"
-                />
+                {selectedAttachments.map((file) => (
+                  <div key={file.id} className={styles.filePreviewItem}>
+                    {file.isImage ? (
+                      <img src={file.previewUrl} alt={file.file.name} className={styles.filePreviewThumb} />
+                    ) : (
+                      <span className={styles.docIcon}>📄</span>
+                    )}
+                    <div className={styles.filePreviewInfo}>
+                      <span className={styles.filePreviewName}>{file.file.name}</span>
+                      <span className={styles.filePreviewSize}>
+                        {file.sizeText}
+                        {' · '}
+                        {file.uploadStatus === 'uploading'
+                          ? '上传中'
+                          : file.uploadStatus === 'success'
+                            ? '已上传'
+                            : (file.errorText ?? '上传失败')}
+                      </span>
+                    </div>
+                    <Button
+                      icon={<CloseOutlined />}
+                      size="small"
+                      type="text"
+                      danger
+                      onClick={() => removeAttachment(file.id)}
+                      aria-label="删除文件"
+                    />
+                  </div>
+                ))}
               </div>
             )}
             {quotedMessage && !isDragging && (
@@ -860,6 +856,7 @@ export function HomepageIndex() {
               type="file"
               ref={fileInputRef}
               accept={CHAT_ATTACHMENT_ACCEPT}
+              multiple
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
@@ -867,7 +864,8 @@ export function HomepageIndex() {
               <Button
                 icon={<PaperClipOutlined />}
                 type="text"
-                disabled={sending || selectedFile?.uploadStatus === 'uploading'}
+                disabled={sending || attachmentUploading || attachmentsFull}
+                title={attachmentsFull ? `单条消息最多 ${MAX_CHAT_ATTACHMENTS} 个附件` : undefined}
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="文件上传"
               />
@@ -895,9 +893,9 @@ export function HomepageIndex() {
                   shape="circle"
                   onClick={() => sendMessage()}
                   disabled={
-                    (!inputValue.trim() && !selectedFile) ||
-                    selectedFile?.uploadStatus === 'uploading' ||
-                    selectedFile?.uploadStatus === 'failed'
+                    (!inputValue.trim() && selectedAttachments.length === 0) ||
+                    attachmentUploading ||
+                    attachmentFailed
                   }
                   aria-label="发送信息"
                 />

@@ -531,6 +531,7 @@ export class PublishService {
       knowledges: agent.knowledgeBaseBindings.map((binding) => ({
         bindingId: binding.id,
         knowledgeBaseId: binding.knowledgeBaseId,
+        knowledgeBaseName: binding.knowledgeBase.name,
         enabled: binding.enabled,
         config: this.toKnowledgeBindingConfig(binding.config),
       })),

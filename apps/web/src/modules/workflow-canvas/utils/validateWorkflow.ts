@@ -152,26 +152,116 @@ export function validateNode(nodeInput: unknown): NodeValidationError[] {
 
   if (type === 'plugin') {
     if (isBlank(config.pluginId)) {
-      addError(errors, node, 'config.pluginId', '插件 ID 不能为空');
+      addError(errors, node, 'config.pluginId', '请选择插件');
     }
 
-    if (isBlank(config.action)) {
-      addError(errors, node, 'config.action', '调用动作不能为空');
+    if (isBlank(config.toolId)) {
+      addError(errors, node, 'config.toolId', '请选择插件工具');
+    }
+
+    const argsJson = config.argsJson;
+    if (typeof argsJson === 'string' && argsJson.trim()) {
+      try {
+        const parsed = JSON.parse(argsJson) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          addError(errors, node, 'config.argsJson', '入参必须是 JSON 对象');
+        }
+      } catch {
+        addError(errors, node, 'config.argsJson', '入参 JSON 格式不正确');
+      }
     }
   }
 
-  if (type === 'database') {
-    if (isBlank(config.source)) {
-      addError(errors, node, 'config.source', '数据源不能为空');
+  if (type === 'knowledge') {
+    const kbIds = config.knowledgeBaseIds;
+    if (!Array.isArray(kbIds) || kbIds.length === 0) {
+      addError(errors, node, 'config.knowledgeBaseIds', '请至少选择一个知识库');
     }
 
     if (isBlank(config.query)) {
-      addError(errors, node, 'config.query', '查询语句不能为空');
+      addError(errors, node, 'config.query', '检索问题不能为空');
+    }
+
+    if (config.topK !== undefined && (typeof config.topK !== 'number' || config.topK < 1 || config.topK > 20)) {
+      addError(errors, node, 'config.topK', '召回条数必须在 1 到 20 之间');
     }
   }
 
-  if (type === 'end' && isBlank(config.outputMode)) {
-    addError(errors, node, 'config.outputMode', '输出方式不能为空');
+  if (type === 'code') {
+    if (isBlank(config.code)) {
+      addError(errors, node, 'config.code', '代码不能为空');
+    }
+
+    const paramsJson = config.paramsJson;
+    if (typeof paramsJson === 'string' && paramsJson.trim()) {
+      try {
+        const parsed = JSON.parse(paramsJson) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          addError(errors, node, 'config.paramsJson', '入参映射必须是 JSON 对象');
+        }
+      } catch {
+        addError(errors, node, 'config.paramsJson', '入参映射 JSON 格式不正确');
+      }
+    }
+  }
+
+  if (type === 'http') {
+    const url = config.url;
+    if (isBlank(url)) {
+      addError(errors, node, 'config.url', '请求地址不能为空');
+    } else if (
+      typeof url === 'string' &&
+      !/^https?:\/\/.+/.test(url.trim()) &&
+      !/\{\{.+?\}\}/.test(url)
+    ) {
+      addError(errors, node, 'config.url', '请求地址必须以 http:// 或 https:// 开头');
+    }
+
+    const headersJson = config.headersJson;
+    if (typeof headersJson === 'string' && headersJson.trim()) {
+      try {
+        const parsed = JSON.parse(headersJson) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          addError(errors, node, 'config.headersJson', '请求头必须是 JSON 对象');
+        }
+      } catch {
+        addError(errors, node, 'config.headersJson', '请求头 JSON 格式不正确');
+      }
+    }
+
+    if (
+      config.timeout !== undefined &&
+      (typeof config.timeout !== 'number' || config.timeout < 1000 || config.timeout > 120000)
+    ) {
+      addError(errors, node, 'config.timeout', '超时时间必须在 1000 到 120000 毫秒之间');
+    }
+  }
+
+  if (type === 'variable') {
+    const name = config.name;
+    if (isBlank(name)) {
+      addError(errors, node, 'config.name', '变量名不能为空');
+    } else if (typeof name === 'string' && !VARIABLE_NAME_PATTERN.test(name.trim())) {
+      addError(errors, node, 'config.name', '变量名只能使用字母、数字和下划线，且不能以数字开头');
+    }
+  }
+
+  if (type === 'end') {
+    if (isBlank(config.outputMode)) {
+      addError(errors, node, 'config.outputMode', '输出方式不能为空');
+    }
+
+    const outputFieldsJson = config.outputFieldsJson;
+    if (typeof outputFieldsJson === 'string' && outputFieldsJson.trim()) {
+      try {
+        const parsed = JSON.parse(outputFieldsJson) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          addError(errors, node, 'config.outputFieldsJson', '多字段输出必须是 JSON 对象');
+        }
+      } catch {
+        addError(errors, node, 'config.outputFieldsJson', '多字段输出 JSON 格式不正确');
+      }
+    }
   }
 
   return errors;

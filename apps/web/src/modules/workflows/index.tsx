@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, Form, Input, Modal, Space, Table, Tag, message } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Card, Empty, Form, Input, Modal, Space, Tag, Table, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import {
   createWorkflowRemote,
   deleteWorkflowRemote,
@@ -9,6 +10,7 @@ import {
   type Workflow,
 } from '../../api/workflows';
 import { useWorkspace } from '../workspace/use-workspace';
+import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from './templates';
 import styles from './index.module.css';
 
 export function WorkflowsPage() {
@@ -17,8 +19,11 @@ export function WorkflowsPage() {
   const [workflowList, setWorkflowList] = useState<Workflow[]>([]);
   const [keyword, setKeyword] = useState('');
   const [open, setOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [creatingTemplateId, setCreatingTemplateId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const creatingTemplateRef = useRef(false);
   const [form] = Form.useForm<{ name: string; description?: string }>();
 
   async function loadWorkflows(workspaceId?: string) {
@@ -66,6 +71,35 @@ export function WorkflowsPage() {
       navigate(`/workflows/${workflow.id}`);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleCreateFromTemplate(template: WorkflowTemplate) {
+    if (creatingTemplateRef.current) {
+      return;
+    }
+    if (!currentWorkspace?.id) {
+      message.error('请先选择工作区');
+      return;
+    }
+
+    creatingTemplateRef.current = true;
+    setCreatingTemplateId(template.id);
+    try {
+      const workflow = await createWorkflowRemote({
+        workspaceId: currentWorkspace.id,
+        name: template.name,
+        description: template.description,
+        canvasData: template.canvasData,
+      });
+      message.success(`已从模板创建：${template.name}`);
+      setTemplateOpen(false);
+      navigate(`/workflows/${workflow.id}`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '从模板创建失败');
+    } finally {
+      creatingTemplateRef.current = false;
+      setCreatingTemplateId(null);
     }
   }
 
@@ -169,9 +203,14 @@ export function WorkflowsPage() {
           <p className={styles.desc}>创建、管理和调试你的 Agent 工作流。</p>
         </div>
 
-        <Button type="primary" onClick={() => setOpen(true)}>
-          新建工作流
-        </Button>
+        <Space>
+          <Button icon={<ThunderboltOutlined />} onClick={() => setTemplateOpen(true)}>
+            从模板创建
+          </Button>
+          <Button type="primary" onClick={() => setOpen(true)}>
+            新建工作流
+          </Button>
+        </Space>
       </div>
 
       <div className={styles.toolbar}>
@@ -198,6 +237,62 @@ export function WorkflowsPage() {
       ) : (
         <Empty description="暂无工作流，点击右上角新建" />
       )}
+
+      <Modal
+        title="从模板创建工作流"
+        open={templateOpen}
+        onCancel={() => setTemplateOpen(false)}
+        footer={null}
+        width={640}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 }}>
+          {WORKFLOW_TEMPLATES.map((template) => (
+            <Card
+              key={template.id}
+              size="small"
+              hoverable
+              onClick={() => {
+                if (creatingTemplateId) return;
+                void handleCreateFromTemplate(template);
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <Space size={8} wrap>
+                    <strong>{template.name}</strong>
+                    {template.readyToRun ? (
+                      <Tag color="green">可直接运行</Tag>
+                    ) : (
+                      <Tag color="orange">需配置</Tag>
+                    )}
+                    {template.tags.map((tag) => (
+                      <Tag key={tag}>{tag}</Tag>
+                    ))}
+                  </Space>
+                  <p style={{ margin: '8px 0 4px', color: '#4b5563', fontSize: 13 }}>
+                    {template.description}
+                  </p>
+                  <span style={{ color: '#8c8c8c', fontSize: 12 }}>{template.requirement}</span>
+                </div>
+                <Button
+                  type="link"
+                  loading={creatingTemplateId === template.id}
+                  disabled={Boolean(creatingTemplateId) && creatingTemplateId !== template.id}
+                >
+                  使用
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </Modal>
 
       <Modal
         title="新建工作流"

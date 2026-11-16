@@ -42,6 +42,35 @@ export async function getWorkspaces(): Promise<WorkspaceInfo[]> {
   return res.data.list;
 }
 
+/** 创建工作空间 */
+export async function createWorkspace(payload: {
+  name: string;
+  description?: string;
+}): Promise<WorkspaceInfo> {
+  const res = await http.post<
+    ApiEnvelope<WorkspaceInfo>,
+    { name: string; description?: string }
+  >('workspaces', payload);
+  return res.data;
+}
+
+/** 删除工作空间（仅所有者） */
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  await http.delete(`workspaces/${workspaceId}`);
+}
+
+/** 更新工作空间（改名/描述） */
+export async function updateWorkspace(
+  workspaceId: string,
+  payload: { name?: string; description?: string | null },
+): Promise<WorkspaceInfo> {
+  const res = await http.patch<
+    ApiEnvelope<WorkspaceInfo>,
+    { name?: string; description?: string | null }
+  >(`workspaces/${workspaceId}`, payload);
+  return res.data;
+}
+
 /** 获取当前用户可访问的指定工作区详情 */
 export async function getWorkspace(workspaceId: string): Promise<WorkspaceInfo> {
   const res = await http.get<ApiEnvelope<WorkspaceInfo>>(`workspaces/${workspaceId}`);

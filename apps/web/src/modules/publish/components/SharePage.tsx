@@ -110,7 +110,7 @@ function StatusIcon({ status }: { status: MessageStatus }) {
 
 // ==================== 主组件 ====================
 
-export function SharePage() {
+export function SharePage({ embedded = false }: { embedded?: boolean } = {}) {
   const { slug } = useParams<{ slug: string }>();
   const visitorId = useRef(getVisitorId());
 
@@ -245,6 +245,19 @@ export function SharePage() {
                       : m,
                   ),
                 );
+                break;
+
+              case 'run.canceled':
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === agentMsgId && m.status !== 'success'
+                      ? { ...m, status: 'success' as const, text: `${m.text || ''}\n\n[已取消]`.trim() }
+                      : m,
+                  ),
+                );
+                sendingRef.current = false;
+                setSending(false);
+                abortRef.current = null;
                 break;
 
               case 'run.failed':
@@ -512,7 +525,7 @@ export function SharePage() {
   // ---- 主界面 ----
   return (
     <div className={styles.sharePage}>
-      {/* 顶栏 */}
+      {/* 顶栏：embed 嵌入模式下隐藏「复制分享链接」按钮，保持紧凑 */}
       <div className={styles.shareTopBar}>
         <div className={styles.shareAgentInfo}>
           <Avatar size={36} src={agent.avatarUrl} icon={<RobotOutlined />} shape="square" />
@@ -524,10 +537,12 @@ export function SharePage() {
           </div>
         </div>
 
-        <button className={styles.shareCopyBtn} onClick={handleCopyLink}>
-          <CopyOutlined />
-          <span>复制分享链接</span>
-        </button>
+        {!embedded && (
+          <button className={styles.shareCopyBtn} onClick={handleCopyLink}>
+            <CopyOutlined />
+            <span>复制分享链接</span>
+          </button>
+        )}
       </div>
 
       {/* 聊天区域 */}

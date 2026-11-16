@@ -19,10 +19,6 @@ const ROUTE_BREADCRUMB_MAP: Record<string, BreadcrumbItem[]> = {
   '/agents': [{ title: '智能体' }],
   '/workflows': [{ title: '工作流' }],
   '/knowledge': [{ title: '知识库' }],
-  '/knowledge/pipeline': [
-    { title: '知识库', path: '/knowledge' },
-    { title: '生产流水线' },
-  ],
   '/plugins': [{ title: '插件' }],
   '/publish': [{ title: '发布' }],
   '/settings': [{ title: '设置' }],

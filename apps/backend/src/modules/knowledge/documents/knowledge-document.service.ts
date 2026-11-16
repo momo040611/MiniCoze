@@ -1,6 +1,13 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  OnModuleInit,
+  HttpStatus,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import {
   FilePurpose,
+  KnowledgeDocumentStatus,
   Prisma,
   type FileAsset,
   type KnowledgeDocument,
@@ -15,7 +22,11 @@ import { KnowledgeBaseService } from '../bases/knowledge-base.service';
 import { chunk } from '../chunking/chunk';
 import type { ChunkConfig } from '../chunking/types';
 import { ChunkConfigDto } from '../dto/chunk-config.dto';
+import { DocumentTaskQueue } from './document-task-queue';
 import { EMBEDDER_TOKEN, type Embedder } from '../embedding/embedder.interface';
+import {
+  DocumentParserService,
+} from '../parsing/document-parser.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import { DocumentChunksPaginatedResponseDto } from './dto/document-chunks-response.dto';
 import {
@@ -26,18 +37,49 @@ import {
 type KnowledgeDocumentWithFile = KnowledgeDocument & { file: FileAsset };
 
 @Injectable()
-export class KnowledgeDocumentService {
+export class KnowledgeDocumentService implements OnModuleInit {
+  private readonly logger = new Logger(KnowledgeDocumentService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly fileService: FileService,
+    private readonly documentParser: DocumentParserService,
+    private readonly taskQueue: DocumentTaskQueue,
     @Inject(EMBEDDER_TOKEN) private readonly embedder: Embedder,
     private readonly retrievalService: RetrievalService,
   ) {}
 
   /**
-   * 核心流程：从 FileAsset 加载文件 → 切分 → 向量化（事务外）
-   * → 单事务写入 document + chunks。文件资产保留。
+   * 进程启动时回收中断文档：上次运行中处于非终态的文档不可能再推进，
+   * 统一标记 FAILED，让用户可通过 reprocess 重试。
+   */
+  async onModuleInit(): Promise<void> {
+    const result = await this.prisma.knowledgeDocument.updateMany({
+      where: {
+        status: {
+          in: [
+            KnowledgeDocumentStatus.PROCESSING,
+            KnowledgeDocumentStatus.PARSED,
+            KnowledgeDocumentStatus.CHUNKED,
+            KnowledgeDocumentStatus.EMBEDDING,
+          ],
+        },
+      },
+      data: {
+        status: KnowledgeDocumentStatus.FAILED,
+        errorMessage: '服务重启导致处理中断，请点击重新处理重试',
+      },
+    });
+    if (result.count > 0) {
+      this.logger.warn(`启动时回收中断文档 ${result.count} 条 → FAILED`);
+    }
+  }
+
+  /**
+   * 上传入口（异步化）：完成校验后立即落文档行（PROCESSING）并返回，
+   * 解析/切分/向量化流水线放入进程内队列后台执行。
+   * 大文档不再阻塞 HTTP 请求；失败由后台任务标记 FAILED，可重试。
    */
   async chunkAndIngest(
     userId: string,
@@ -50,27 +92,202 @@ export class KnowledgeDocumentService {
       knowledgeBaseId,
     );
 
-    const { fileAsset, buffer } = await this.loadKnowledgeDocumentFile(
-      userId,
-      fileId,
-    );
-
+    const fileAsset = await this.fileService.getReadyFileForUser(fileId, {
+      id: userId,
+      email: '',
+      username: '',
+    });
+    if (fileAsset.purpose !== FilePurpose.KNOWLEDGE_DOCUMENT) {
+      throw new BusinessException(
+        '文件用途不是知识库文档',
+        ErrorCode.KnowledgeFileTypeUnsupported,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const ext = this.extractExtension(fileAsset.originalName);
+    this.ensureParsableExtension(ext);
+
+    // 与已有文档同 KB 同文件：提示先删除旧文档（reprocess 可重试失败文档）。
+    const existing = await this.prisma.knowledgeDocument.findUnique({
+      where: { knowledgeBaseId_fileId: { knowledgeBaseId, fileId } },
+      select: { id: true, status: true },
+    });
+    if (existing) {
+      throw new BusinessException(
+        '该文件已上传到此知识库，请先删除旧文档或对失败文档使用重新处理',
+        ErrorCode.KnowledgeDocumentNotFound,
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const config: ChunkConfig = ChunkConfigDto.fromJsonString(
       JSON.stringify(configRawObject),
     );
-    const text = buffer.toString('utf8');
-    const { meta, chunks } = chunk(text, ext, config);
 
-    // 切分后无内容（极小文档全空白）→ 直接报错避免落空 document。
+    // 1. 先创建文档行，前端立即可见（PROCESSING），请求立即返回。
+    const doc = await this.prisma.knowledgeDocument.create({
+      data: {
+        knowledgeBaseId,
+        workspaceId: kb.workspaceId,
+        fileId,
+        creatorId: userId,
+        name: fileAsset.originalName,
+        status: KnowledgeDocumentStatus.PROCESSING,
+      },
+    });
+
+    // 2. 流水线入队：buffer 在任务内按需加载，避免常驻内存。
+    this.taskQueue.enqueue(async () => {
+      try {
+        const buffer = await this.fileService.getFileBufferForInternal(fileId);
+        await this.runIngestPipeline(doc.id, buffer, ext, config);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `文档 ${doc.id} 后台处理失败: ${message.slice(0, 500)}`,
+        );
+        await this.prisma.knowledgeDocument
+          .update({
+            where: { id: doc.id },
+            data: {
+              status: KnowledgeDocumentStatus.FAILED,
+              errorMessage: message.slice(0, 2000),
+            },
+          })
+          .catch(() => undefined);
+      }
+    });
+
+    const withFile = await this.prisma.knowledgeDocument.findUniqueOrThrow({
+      where: { id: doc.id },
+      include: { file: true },
+    });
+    return {
+      document: this.toDocumentResponse(withFile),
+      chunkSummary: null,
+    };
+  }
+
+  /**
+   * 重试/重处理失败文档（异步化）：清掉旧 chunks，按原配置重新排队处理。
+   */
+  async reprocess(
+    userId: string,
+    documentId: string,
+  ): Promise<UploadDocumentResponseDto> {
+    const doc = await this.prisma.knowledgeDocument.findUnique({
+      where: { id: documentId },
+    });
+    if (!doc) {
+      throw new BusinessException(
+        '文档不存在',
+        ErrorCode.KnowledgeDocumentNotFound,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    await this.knowledgeBaseService.findOneForUser(userId, doc.knowledgeBaseId);
+
+    if (doc.status === KnowledgeDocumentStatus.PROCESSING) {
+      throw new BusinessException(
+        '文档正在处理中，请稍后再试',
+        ErrorCode.KnowledgeBaseInvalidStatus,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const config = doc.chunkConfig as unknown as ChunkConfig | null;
+    if (!config?.chunkType) {
+      throw new BusinessException(
+        '文档缺少切分配置，无法重新处理',
+        ErrorCode.KnowledgeChunkConfigInvalid,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const fileAsset = await this.fileService.getReadyFileForUser(doc.fileId, {
+      id: userId,
+      email: '',
+      username: '',
+    });
+    const ext = this.extractExtension(fileAsset.originalName);
+    this.ensureParsableExtension(ext);
+
+    // FAILED 文档的 chunks 只可能来自旧的成功运行，清掉再重跑。
+    await this.prisma.knowledgeChunk.deleteMany({ where: { documentId } });
+
+    await this.prisma.knowledgeDocument.update({
+      where: { id: doc.id },
+      data: { status: KnowledgeDocumentStatus.PROCESSING, errorMessage: null },
+    });
+
+    // 流水线入队：状态已在上面置 PROCESSING，后台任务负责推进或标 FAILED。
+    this.taskQueue.enqueue(async () => {
+      try {
+        const buffer = await this.fileService.getFileBufferForInternal(
+          doc.fileId,
+        );
+        await this.runIngestPipeline(doc.id, buffer, ext, config);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `文档 ${doc.id} 后台重处理失败: ${message.slice(0, 500)}`,
+        );
+        await this.prisma.knowledgeDocument
+          .update({
+            where: { id: doc.id },
+            data: {
+              status: KnowledgeDocumentStatus.FAILED,
+              errorMessage: message.slice(0, 2000),
+            },
+          })
+          .catch(() => undefined);
+      }
+    });
+
+    const withFile = await this.prisma.knowledgeDocument.findUniqueOrThrow({
+      where: { id: doc.id },
+      include: { file: true },
+    });
+    return {
+      document: this.toDocumentResponse(withFile),
+      chunkSummary: null,
+    };
+  }
+
+  /**
+   * 流水线主体：解析 → 切分 → 向量化 → 事务入库，每阶段回写文档状态。
+   */
+  private async runIngestPipeline(
+    documentId: string,
+    buffer: Buffer,
+    ext: string,
+    config: ChunkConfig,
+  ): Promise<{ totalChunks: number; totalChars: number }> {
+    const updateStatus = (data: Prisma.KnowledgeDocumentUpdateInput) =>
+      this.prisma.knowledgeDocument.update({ where: { id: documentId }, data });
+
+    // 2. 解析为纯文本。
+    const parsed = await this.documentParser.parse(buffer, ext);
+    await updateStatus({ status: KnowledgeDocumentStatus.PARSED });
+
+    // 3. 切分：md 保留扩展名（支持 leveled），其余统一按 txt 规则。
+    const { meta, chunks } = chunk(parsed.text, ext === 'md' ? 'md' : 'txt', config);
     if (chunks.length === 0) {
       throw new BusinessException(
         'document produced no chunks',
         ErrorCode.KnowledgeChunkConfigInvalid,
       );
     }
+    await updateStatus({
+      status: KnowledgeDocumentStatus.CHUNKED,
+      chunkType: meta.chunkType,
+      chunkConfig: config as unknown as Prisma.InputJsonValue,
+      chunkCount: meta.totalChunks,
+      totalChars: meta.totalChars,
+    });
 
-    // 事务外做耗时的 embedding 调用。失败则什么也没写。
+    // 4. 事务外做耗时的 embedding 调用。失败则 chunks 尚未落库。
+    await updateStatus({ status: KnowledgeDocumentStatus.EMBEDDING });
     const vectors = await this.embedder.embed(chunks.map((c) => c.content));
     if (vectors.length !== chunks.length) {
       throw new BusinessException(
@@ -79,37 +296,23 @@ export class KnowledgeDocumentService {
       );
     }
 
-    const document = await this.prisma.$transaction(async (tx) => {
-      const doc = await tx.knowledgeDocument.create({
-        data: {
-          knowledgeBaseId,
-          workspaceId: kb.workspaceId,
-          fileId,
-          creatorId: userId,
-          name: fileAsset.originalName,
-          chunkType: meta.chunkType,
-          chunkConfig: config as unknown as Prisma.InputJsonValue,
-          chunkCount: meta.totalChunks,
-          totalChars: meta.totalChars,
-        },
-        include: { file: true },
-      });
-
-      // 在 JS 侧预生成 chunkId，让 chunk 插入与向量 upsert 共享同一组主键。
+    // 5. 单事务写入 chunks + 向量，成功后置 READY。
+    const doc = await this.prisma.knowledgeDocument.findUniqueOrThrow({
+      where: { id: documentId },
+      select: { knowledgeBaseId: true, workspaceId: true },
+    });
+    await this.prisma.$transaction(async (tx) => {
       const chunkIds = chunks.map(() => randomUUID());
 
-      // chunk insert 使用当前 schema 字段：documentId, knowledgeBaseId, workspaceId, content, index, vectorId, updatedAt
-      // tokenCount 使用 DB 默认 0，metadata 省略，createdAt 使用 DB 默认
-      // vectorId 保持 NULL（向量持久化在 KnowledgeChunkVector 表，由下方 indexChunks 写入）
       for (let i = 0; i < chunks.length; i++) {
         const c = chunks[i];
         await tx.$executeRaw`
           INSERT INTO "KnowledgeChunk" ("id", "documentId", "knowledgeBaseId", "workspaceId", "content", "index", "vectorId", "updatedAt")
           VALUES (
             ${chunkIds[i]},
-            ${doc.id},
-            ${kb.id},
-            ${kb.workspaceId},
+            ${documentId},
+            ${doc.knowledgeBaseId},
+            ${doc.workspaceId},
             ${c.content},
             ${c.index},
             NULL,
@@ -118,24 +321,30 @@ export class KnowledgeDocumentService {
         `;
       }
 
-      // 把向量写入 KnowledgeChunkVector。维度不一致或 SQL 异常会抛错，整事务回滚。
       await this.retrievalService.indexChunks(
         tx,
         chunks.map((_, i) => ({ chunkId: chunkIds[i], vector: vectors[i] })),
         this.embedder.model,
         this.embedder.dimensions,
       );
-
-      return doc;
     });
 
+    await updateStatus({ status: KnowledgeDocumentStatus.READY });
+
     return {
-      document: this.toDocumentResponse(document),
-      chunkSummary: {
-        totalChunks: meta.totalChunks,
-        totalChars: meta.totalChars,
-      },
+      totalChunks: meta.totalChunks,
+      totalChars: meta.totalChars,
     };
+  }
+
+  private ensureParsableExtension(ext: string): void {
+    if (DocumentParserService.isLegacyUnsupported(ext)) {
+      throw new BusinessException(
+        `暂不支持 .${ext} 旧格式，请用 Office 另存为 .docx / .xlsx 或导出 PDF 后上传`,
+        ErrorCode.KnowledgeFileTypeUnsupported,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   async listByKnowledgeBase(
@@ -319,29 +528,6 @@ export class KnowledgeDocumentService {
     return chunk;
   }
 
-  private async loadKnowledgeDocumentFile(userId: string, fileId: string) {
-    const currentUser = {
-      id: userId,
-      email: '',
-      username: '',
-    };
-    const fileAsset = await this.fileService.getReadyFileForUser(
-      fileId,
-      currentUser,
-    );
-
-    if (fileAsset.purpose !== FilePurpose.KNOWLEDGE_DOCUMENT) {
-      throw new BusinessException(
-        '文件用途不是知识库文档',
-        ErrorCode.KnowledgeFileTypeUnsupported,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const buffer = await this.fileService.getFileBufferForInternal(fileId);
-    return { fileAsset, buffer };
-  }
-
   private extractExtension(filename: string): string {
     const idx = filename.lastIndexOf('.');
     if (idx === -1 || idx === filename.length - 1) {
@@ -369,6 +555,8 @@ export class KnowledgeDocumentService {
       >,
       totalChunks: doc.chunkCount,
       totalChars: doc.totalChars,
+      status: doc.status,
+      errorMessage: doc.errorMessage,
       createdAt: formatShanghaiDateTime(doc.createdAt),
     };
   }

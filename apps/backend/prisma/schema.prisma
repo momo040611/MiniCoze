@@ -277,6 +277,8 @@ enum ModelProviderType {
   OPENAI
   DEEPSEEK
   OPENAI_COMPATIBLE
+  ANTHROPIC
+  GEMINI
 }
 
 enum ModelConnectionStatus {
@@ -446,6 +448,9 @@ model Conversation {
   userId    String
   title     String?
   isPreview Boolean  @default(false)
+  // 长期记忆：被 contextLimit 截断的历史消息的 LLM 摘要 + 已覆盖的消息条数。
+  memorySummary       String?
+  memorySummaryCount  Int     @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -882,4 +887,47 @@ model KnowledgeBaseAgentBinding {
   @@index([agentId])
   @@index([knowledgeBaseId])
   @@index([agentId, enabled])
+}
+
+// ── Agent 运行记录：每次 agent-runtime 执行持久化一条，支撑运行历史/用量统计/审计。──
+enum AgentRunStatus {
+  CREATED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+enum AgentRunSource {
+  CHAT
+  PUBLIC
+  API
+}
+
+model AgentRun {
+  id               String         @id @default(cuid())
+  runId            String         @unique
+  agentId          String
+  conversationId   String
+  userId           String
+  workspaceId      String
+  source           AgentRunSource @default(CHAT)
+  isPreview        Boolean        @default(false)
+  status           AgentRunStatus @default(CREATED)
+  model            String?
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  toolCallCount    Int            @default(0)
+  durationMs       Int?
+  error            String?        @db.Text
+  startedAt        DateTime       @default(now())
+  finishedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  // 日志型表：不建外键，Conversation/Agent 删除后运行记录保留用于审计。
+  @@index([agentId, startedAt])
+  @@index([workspaceId, startedAt])
+  @@index([userId, startedAt])
 }

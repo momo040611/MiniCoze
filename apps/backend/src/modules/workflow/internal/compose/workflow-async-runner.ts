@@ -16,7 +16,9 @@ import {
 import { CodeNodeExecutor } from '../nodes/code-node.executor';
 import { EndNodeExecutor } from '../nodes/end-node.executor';
 import { HttpNodeExecutor } from '../nodes/http-node.executor';
+import { KnowledgeNodeExecutor } from '../nodes/knowledge-node.executor';
 import { LlmNodeExecutor } from '../nodes/llm-node.executor';
+import { PluginNodeExecutor } from '../nodes/plugin-node.executor';
 import { SelectorNodeExecutor } from '../nodes/selector-node.executor';
 import { StartNodeExecutor } from '../nodes/start-node.executor';
 import {
@@ -75,6 +77,8 @@ export class WorkflowAsyncRunner {
     codeNodeExecutor: CodeNodeExecutor,
     httpNodeExecutor: HttpNodeExecutor,
     variableNodeExecutor: VariableNodeExecutor,
+    knowledgeNodeExecutor: KnowledgeNodeExecutor,
+    pluginNodeExecutor: PluginNodeExecutor,
   ) {
     this.executors = new Map<string, WorkflowNodeExecutor>([
       [startNodeExecutor.type, startNodeExecutor],
@@ -84,6 +88,8 @@ export class WorkflowAsyncRunner {
       [codeNodeExecutor.type, codeNodeExecutor],
       [httpNodeExecutor.type, httpNodeExecutor],
       [variableNodeExecutor.type, variableNodeExecutor],
+      [knowledgeNodeExecutor.type, knowledgeNodeExecutor],
+      [pluginNodeExecutor.type, pluginNodeExecutor],
     ]);
   }
 

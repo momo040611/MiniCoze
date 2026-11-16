@@ -23,6 +23,7 @@ const PluginsPage = lazy(() => import('../modules/plugins').then(m => ({ default
 const PluginDetail = lazy(() => import('../modules/plugins').then(m => ({ default: m.PluginDetail })));
 const PublishPage = lazy(() => import('../modules/publish').then(m => ({ default: m.PublishPage })));
 const SharePage = lazy(() => import('../modules/publish/components/SharePage').then(m => ({ default: m.SharePage })));
+const EmbedAgentPage = lazy(() => import('../modules/publish/components/EmbedAgentPage').then(m => ({ default: m.EmbedAgentPage })));
 const SettingsPage = lazy(() => import('../modules/settings').then(m => ({ default: m.SettingsPage })));
 const ArchitecturePage = lazy(() => import('../modules/architecture').then(m => ({ default: m.ArchitecturePage })));
 const WorkflowCanvasPage = lazy(() => import('../modules/workflow-canvas').then(m => ({ default: m.WorkflowCanvasPage })));
@@ -30,7 +31,6 @@ const KnowledgeBasePage = lazy(() => import('../modules/knowledge-base').then(m 
 const KnowledgeList = lazy(() => import('../modules/knowledge-base').then(m => ({ default: m.KnowledgeList })));
 const KnowledgeCreate = lazy(() => import('../modules/knowledge-base').then(m => ({ default: m.KnowledgeCreate })));
 const KnowledgeDetail = lazy(() => import('../modules/knowledge-base').then(m => ({ default: m.KnowledgeDetail })));
-const Productionline = lazy(() => import('../modules/knowledge-base/page/Productionline').then(m => ({ default: m.Productionline })));
 const WorkspaceSettings = lazy(() => import('../modules/workspace/WorkspaceSettings').then(m => ({ default: m.WorkspaceSettings })));
 
 // ── 加载指示器 ──
@@ -76,6 +76,7 @@ export function AppRoutes() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/share/agents/:slug" element={withSuspense(SharePage)} />
+        <Route path="/embed/agents/:slug" element={withSuspense(EmbedAgentPage)} />
         <Route
           path="/welcome"
           element={
@@ -114,14 +115,13 @@ export function AppRoutes() {
           <Route path="/publish" element={withSuspense(PublishPage)} />
           <Route path="/settings" element={withSuspense(SettingsPage)} />
           <Route path="/architecture" element={withSuspense(ArchitecturePage)} />
-          <Route path="/knowledge/pipeline" element={withSuspense(Productionline)} />
           <Route path="/knowledge" element={withSuspense(KnowledgeBasePage)}>
             <Route index element={withSuspense(KnowledgeList)} />
             <Route path="create" element={withSuspense(KnowledgeCreate)} />
             <Route path=":id" element={withSuspense(KnowledgeDetail)} />
           </Route>
-          <Route path="/knowledge-bases" element={<Navigate to="/knowledge/pipeline" replace />} />
-          <Route path="/knowledge-bases/productionline" element={<Navigate to="/knowledge/pipeline" replace />} />
+          <Route path="/knowledge-bases" element={<Navigate to="/knowledge" replace />} />
+          <Route path="/knowledge-bases/productionline" element={<Navigate to="/knowledge" replace />} />
         </Route>
 
         <Route

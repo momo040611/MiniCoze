@@ -197,3 +197,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+.installedPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

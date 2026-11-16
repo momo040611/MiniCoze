@@ -286,11 +286,18 @@
 
 .filePreviewBar {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   padding: 8px 14px;
   background: #fff;
   border-top: 1px solid rgba(104, 119, 144, 0.12);
+}
+
+.filePreviewItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .filePreviewThumb {

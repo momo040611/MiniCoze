@@ -116,8 +116,14 @@ export class OpenAiProvider implements AiProviderInterface {
           ...this.getAuthHeaders(),
         },
         body: JSON.stringify(body),
+        // 传入取消信号后，连接建立与流式读取都能被外部 abort 立即中断。
+        signal: request.signal,
       });
     } catch (error) {
+      if (request.signal?.aborted) {
+        // 取消不视为模型错误，直接抛出原始 AbortError 交给上层识别。
+        throw error;
+      }
       throw new BusinessException(
         `模型请求网络错误: ${error instanceof Error ? error.message : String(error)}`,
         ErrorCode.AiModelError,

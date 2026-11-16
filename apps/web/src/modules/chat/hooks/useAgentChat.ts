@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  cancelAgentRun,
   runAgentStream,
   type KnowledgeStatusEvent,
   type RuntimeEvent,
@@ -100,6 +101,11 @@ export function useAgentChat(options: UseAgentChatOptions) {
   }, []);
 
   const stop = useCallback(() => {
+    // 通知后端真取消（终止模型/工具执行并落库 CANCELED），
+    // 随后 abort SSE。接口失败不阻塞本地停止（断连本身也会触发服务端取消）。
+    if (runIdRef.current) {
+      void cancelAgentRun(runIdRef.current).catch(() => undefined);
+    }
     abortRef.current?.abort();
     abortRef.current = null;
     if (flushFrameRef.current) cancelAnimationFrame(flushFrameRef.current);
@@ -312,6 +318,15 @@ export function useAgentChat(options: UseAgentChatOptions) {
                 setCurrentLatency(Math.round(performance.now() - runStartRef.current));
                 finishRun();
                 break;
+              case 'run.canceled': {
+                setItems((current) => current.map((item) =>
+                  item.kind === 'message' && item.id === agentMessageId && item.status === 'streaming'
+                    ? { ...item, status: 'success' as const, text: `${item.text || ''}\n\n[已取消]`.trim() }
+                    : item,
+                ));
+                finishRun();
+                break;
+              }
               case 'run.failed':
                 setItems((current) => {
                   const failed = current.map((item) =>

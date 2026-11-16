@@ -64,6 +64,7 @@ export type ChatItem =
   | ErrorMessage;
 
 export interface SelectedChatAttachment {
+  id: string;
   file: File;
   previewUrl: string;
   isImage: boolean;

@@ -336,13 +336,63 @@ function normalizeLlmPrompt(prompt: unknown) {
   return prompt;
 }
 
+/**
+ * 条件节点 operator → 后端 selector 的 op 映射。
+ * 自定义表达式（expression）后端不支持任意 JS 求值，退化为「取值为非空」判断。
+ */
+function toSelectorOperator(operator: unknown): string {
+  switch (operator) {
+    case 'equals':
+      return 'equals';
+    case 'notEquals':
+      return 'notEquals';
+    case 'contains':
+      return 'contains';
+    case 'greaterThan':
+      return 'gt';
+    case 'lessThan':
+      return 'lt';
+    case 'expression':
+      return 'notEmpty';
+    default:
+      return 'equals';
+  }
+}
+
 export function toRunnableWorkflowDefinition(
   canvasData?: WorkflowCanvasData,
 ): WorkflowDefinition {
   const definition = toWorkflowDefinition(canvasData);
 
+  // 条件节点的分支端口注入：前两条出边依次标记 true / false。
+  // 后端 selector 依据 sourcePort 路由，未标注端口时所有出边等价，分支会失效。
+  const conditionNodeIds = new Set(
+    definition.nodes
+      .filter((node) => isRecord(node) && node.type === 'condition')
+      .map((node) => String((node as Record<string, unknown>).id ?? '')),
+  );
+  const portCursor = new Map<string, number>();
+  const edges = definition.edges.map((edge) => {
+    const record = toRecordOrEmpty(edge);
+    const source = String(record.sourceNodeID ?? record.source ?? '');
+
+    if (!conditionNodeIds.has(source)) {
+      return edge;
+    }
+    if (record.sourcePort || record.sourcePortID) {
+      return edge;
+    }
+
+    const index = portCursor.get(source) ?? 0;
+    portCursor.set(source, index + 1);
+    const port = index === 0 ? 'true' : 'false';
+
+    return { ...record, sourcePort: port, sourcePortID: port };
+  });
+
   return {
     ...definition,
+    edges,
     nodes: definition.nodes.map((node) => {
       if (!isRecord(node)) {
         return node;
@@ -351,24 +401,218 @@ export function toRunnableWorkflowDefinition(
       const data = toRecordOrEmpty(node.data);
       const config = toRecordOrEmpty(data.config);
 
-      if (node.type !== 'llm') {
-        return node;
+      if (node.type === 'llm') {
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              ...toRecordOrEmpty(data.inputs),
+              systemPrompt: config.systemPrompt,
+              model: config.model,
+              prompt: normalizeLlmPrompt(config.prompt),
+              temperature: config.temperature,
+              maxTokens: config.maxTokens,
+            },
+          },
+        };
       }
 
-      return {
-        ...node,
-        data: {
-          ...data,
-          inputs: {
-            ...toRecordOrEmpty(data.inputs),
-            systemPrompt: config.systemPrompt,
-            model: config.model,
-            prompt: normalizeLlmPrompt(config.prompt),
-            temperature: config.temperature,
-            maxTokens: config.maxTokens,
+      // 条件节点：canvas config → 后端 selector 的 branches 结构。
+      // 左值默认取 {{input.query}}，可用 config.leftValue 指定其它引用（如 {{llm_1.content}}）。
+      if (node.type === 'condition') {
+        const leftValue =
+          typeof config.leftValue === 'string' && config.leftValue.trim()
+            ? config.leftValue.trim()
+            : '{{input.query}}';
+        const rawCompare = config.compareValue;
+        let right: unknown = rawCompare ?? '';
+        if (typeof rawCompare === 'string') {
+          const trimmedCompare = rawCompare.trim();
+          if (/^\{\{[\s\S]*\}\}$/.test(trimmedCompare)) {
+            right = trimmedCompare;
+          } else if (trimmedCompare !== '' && !Number.isNaN(Number(trimmedCompare))) {
+            // 数字字符串按数字比较，保证 equals / gt / lt 语义正确。
+            right = Number(trimmedCompare);
+          } else {
+            right = rawCompare;
+          }
+        }
+
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              branches: [
+                {
+                  port: 'true',
+                  logic: 'and',
+                  conditions: [
+                    {
+                      left: leftValue,
+                      op: toSelectorOperator(config.operator),
+                      right,
+                    },
+                  ],
+                },
+              ],
+              defaultPort: 'false',
+            },
           },
-        },
-      };
+        };
+      }
+
+      // 插件节点：canvas config → 后端 inputs（argsJson 反序列化）。
+      if (node.type === 'plugin') {
+        let args: Record<string, unknown> = toRecordOrEmpty(config.args);
+        const argsJson = config.argsJson;
+        if (typeof argsJson === 'string' && argsJson.trim()) {
+          try {
+            const parsed = JSON.parse(argsJson) as unknown;
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              args = parsed as Record<string, unknown>;
+            }
+          } catch {
+            // 校验阶段已拦截非法 JSON，这里保守跳过
+          }
+        }
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              pluginId: config.pluginId ?? '',
+              toolId: config.toolId ?? '',
+              args,
+            },
+          },
+        };
+      }
+
+      // 知识检索节点：canvas config → 后端 inputs。
+      if (node.type === 'knowledge') {
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              knowledgeBaseIds: Array.isArray(config.knowledgeBaseIds)
+                ? config.knowledgeBaseIds
+                : [],
+              query: config.query ?? '',
+              topK: config.topK ?? 5,
+            },
+          },
+        };
+      }
+
+      // 代码执行节点：code + params（paramsJson 反序列化，值支持 {{}}）。
+      if (node.type === 'code') {        let params: Record<string, unknown> = toRecordOrEmpty(config.params);
+        const paramsJson = config.paramsJson;
+        if (typeof paramsJson === 'string' && paramsJson.trim()) {
+          try {
+            const parsed = JSON.parse(paramsJson) as unknown;
+            if (isRecord(parsed)) {
+              params = parsed;
+            }
+          } catch {
+            // 校验阶段已拦截非法 JSON，这里保守跳过
+          }
+        }
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              code: config.code ?? '',
+              params,
+            },
+          },
+        };
+      }
+
+      // HTTP 请求节点：url/method/headers/body/timeout。
+      if (node.type === 'http') {
+        let headers: Record<string, unknown> = toRecordOrEmpty(config.headers);
+        const headersJson = config.headersJson;
+        if (typeof headersJson === 'string' && headersJson.trim()) {
+          try {
+            const parsed = JSON.parse(headersJson) as unknown;
+            if (isRecord(parsed)) {
+              headers = parsed;
+            }
+          } catch {
+            // 校验阶段已拦截非法 JSON，这里保守跳过
+          }
+        }
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              url: config.url ?? '',
+              method: config.method ?? 'GET',
+              headers,
+              body: config.body ?? '',
+              timeout: config.timeout ?? 30000,
+            },
+          },
+        };
+      }
+
+      // 变量读写节点：operation/scope/name/value。
+      if (node.type === 'variable') {
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: {
+              operation: config.operation === 'get' ? 'get' : 'set',
+              scope: config.scope === 'global' ? 'global' : 'session',
+              name: config.name ?? '',
+              value: config.value ?? '',
+            },
+          },
+        };
+      }
+
+      // 结束节点：把输出映射配置翻译成后端认识的 inputs.outputs / inputs.result。
+      if (node.type === 'end') {
+        const baseInputs = Array.isArray(data.inputs) ? {} : toRecordOrEmpty(data.inputs);
+        let mappedInputs: Record<string, unknown> = baseInputs;
+
+        const outputFieldsJson = config.outputFieldsJson;
+        if (typeof outputFieldsJson === 'string' && outputFieldsJson.trim()) {
+          try {
+            const parsed = JSON.parse(outputFieldsJson) as unknown;
+            if (isRecord(parsed)) {
+              mappedInputs = { ...mappedInputs, outputs: parsed };
+            }
+          } catch {
+            // 校验阶段已拦截非法 JSON，这里保守跳过
+          }
+        }
+
+        const resultExpression = config.resultExpression;
+        if (
+          mappedInputs.outputs === undefined &&
+          typeof resultExpression === 'string' &&
+          resultExpression.trim()
+        ) {
+          mappedInputs = { ...mappedInputs, result: resultExpression.trim() };
+        }
+
+        return {
+          ...node,
+          data: {
+            ...data,
+            inputs: mappedInputs,
+          },
+        };
+      }
+
+      return node;
     }),
   };
 }

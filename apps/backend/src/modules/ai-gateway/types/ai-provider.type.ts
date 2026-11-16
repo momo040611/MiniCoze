@@ -1,6 +1,8 @@
 export enum AiProvider {
   OPENAI = 'openai',
   DEEPSEEK = 'deepseek',
+  ANTHROPIC = 'anthropic',
+  GEMINI = 'gemini',
 }
 
 export interface AiProviderConfig {

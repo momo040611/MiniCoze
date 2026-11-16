@@ -1,7 +1,7 @@
 // 工作区切换面板 — 带搜索和快捷操作
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Popover, Input, Button, Avatar, Empty } from 'antd';
+import { App as AntApp, Form, Input, Modal, Popover, Button, Avatar, Empty } from 'antd';
 import {
   DownOutlined,
   PlusOutlined,
@@ -12,6 +12,7 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 import { useWorkspace } from './use-workspace';
+import { createWorkspace } from '../../api/workspace';
 import type { WorkspaceInfo } from '../../api/workspace';
 import styles from './WorkspaceSwitcher.module.css';
 
@@ -23,9 +24,14 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function WorkspaceSwitcher() {
   const nav = useNavigate();
-  const { workspaces, currentWorkspace, loading, switchWorkspace } = useWorkspace();
+  const { message } = AntApp.useApp();
+  const { workspaces, currentWorkspace, loading, switchWorkspace, refreshWorkspaces } =
+    useWorkspace();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm] = Form.useForm<{ name: string; description?: string }>();
 
   // 过滤工作区
   const filteredWorkspaces = useMemo(() => {
@@ -49,13 +55,33 @@ export function WorkspaceSwitcher() {
     [currentWorkspace, switchWorkspace],
   );
 
-  // 创建工作区
+  // 创建工作区：弹出表单，成功后刷新列表并切换到新工作区
   const handleCreate = useCallback(() => {
     setOpen(false);
     setSearch('');
-    // TODO: 打开创建工作区弹窗
-    nav('/workspace/settings');
-  }, [nav]);
+    setCreateOpen(true);
+  }, []);
+
+  const handleCreateSubmit = useCallback(async () => {
+    try {
+      const values = await createForm.validateFields();
+      setCreating(true);
+      const created = await createWorkspace({
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
+      });
+      message.success(`工作区「${created.name}」创建成功`);
+      setCreateOpen(false);
+      createForm.resetFields();
+      await refreshWorkspaces();
+      await switchWorkspace(created.id);
+    } catch (err) {
+      if (err && typeof err === 'object' && 'errorFields' in err) return;
+      message.error(err instanceof Error ? err.message : '创建工作区失败');
+    } finally {
+      setCreating(false);
+    }
+  }, [createForm, message, refreshWorkspaces, switchWorkspace]);
 
   // 工作区设置
   const handleSettings = useCallback(() => {
@@ -129,6 +155,36 @@ export function WorkspaceSwitcher() {
         </span>
         <DownOutlined className={styles.triggerArrow} />
       </button>
+
+      <Modal
+        title="创建工作区"
+        open={createOpen}
+        okText="创建"
+        cancelText="取消"
+        confirmLoading={creating}
+        onOk={() => void handleCreateSubmit()}
+        onCancel={() => {
+          setCreateOpen(false);
+          createForm.resetFields();
+        }}
+        destroyOnHidden
+      >
+        <Form form={createForm} layout="vertical">
+          <Form.Item
+            name="name"
+            label="工作区名称"
+            rules={[
+              { required: true, message: '请输入工作区名称' },
+              { max: 50, message: '名称不能超过 50 个字符' },
+            ]}
+          >
+            <Input placeholder="例如：产品团队" />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
+            <Input.TextArea rows={3} maxLength={200} placeholder="工作区用途说明（可选）" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Popover>
   );
 }

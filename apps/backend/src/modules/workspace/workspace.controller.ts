@@ -52,14 +52,8 @@ export class WorkspaceController {
     return this.workspaceService.findOneForUser(currentUser.id, workspaceId);
   }
 
-  @Get(':workspaceId/dashboard')
-  @ApiOperation({ summary: '获取工作空间仪表盘摘要' })
-  getDashboardSummary(
-    @CurrentUserInfo() currentUser: CurrentUser,
-    @Param('workspaceId') workspaceId: string,
-  ) {
-    return this.workspaceService.getDashboardSummary(currentUser.id, workspaceId);
-  }
+  // GET /workspaces/:workspaceId/dashboard 由 dashboard.module 的
+  // DashboardController 提供（单一实现），workspace 侧不再重复挂载。
 
   @Patch(':workspaceId')
   @ApiOperation({ summary: '更新工作空间' })

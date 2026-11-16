@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post, Res } from '@nestjs/common';
+import { Body, Controller, Headers, Ip, Post, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { SkipResponseWrap } from '../../common/decorators/skip-response-wrap.decorator';
@@ -14,9 +14,11 @@ export class PublicWorkflowController {
   @ApiOperation({ summary: '公开 API 同步运行工作流' })
   run(
     @Headers('authorization') authorization: string | undefined,
+    @Ip() ip: string | undefined,
+    @Headers('origin') origin: string | undefined,
     @Body() dto: PublicWorkflowRunDto,
   ) {
-    return this.publicWorkflowService.run(authorization, dto);
+    return this.publicWorkflowService.run(authorization, dto, undefined, { ip, origin });
   }
 
   @Post('stream')
@@ -24,6 +26,8 @@ export class PublicWorkflowController {
   @ApiOperation({ summary: '公开 API 流式运行工作流' })
   async runStream(
     @Headers('authorization') authorization: string | undefined,
+    @Ip() ip: string | undefined,
+    @Headers('origin') origin: string | undefined,
     @Body() dto: PublicWorkflowRunDto,
     @Res() res: Response,
   ) {
@@ -45,7 +49,7 @@ export class PublicWorkflowController {
     };
 
     try {
-      await this.publicWorkflowService.run(authorization, dto, send);
+      await this.publicWorkflowService.run(authorization, dto, send, { ip, origin });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       res.write(`event: error\n`);

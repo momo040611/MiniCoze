@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import type { CurrentUser } from '../../shared/types/current-user.type';
 import { CreatePluginDto } from './dto/create-plugin.dto';
 import { CreatePluginToolDto } from './dto/create-plugin-tool.dto';
+import { InstallMarketPluginDto } from './dto/install-market-plugin.dto';
 import { PluginInvocationQueryDto } from './dto/plugin-invocation-query.dto';
 import { PluginQueryDto } from './dto/plugin-query.dto';
 import { TestPluginToolDto } from './dto/test-plugin-tool.dto';
@@ -50,6 +51,29 @@ export class PluginController {
     @Query() query: PluginQueryDto,
   ) {
     return this.pluginService.findByWorkspace(currentUser.id, query);
+  }
+
+  // 插件市场路由必须放在 :pluginId 路由之前，否则 'market' 会被参数路由吞掉。
+  @Get('market')
+  @ApiOperation({ summary: '获取插件市场目录（含工作区安装状态）' })
+  getMarket(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Query('workspaceId') workspaceId: string,
+  ) {
+    return this.pluginService.getMarketCatalog(currentUser.id, workspaceId);
+  }
+
+  @Post('market/install')
+  @ApiOperation({ summary: '从插件市场安装插件到工作区' })
+  installMarketPlugin(
+    @CurrentUserInfo() currentUser: CurrentUser,
+    @Body() dto: InstallMarketPluginDto,
+  ) {
+    return this.pluginService.installMarketPlugin(
+      currentUser.id,
+      dto.workspaceId,
+      dto.code,
+    );
   }
 
   @Get(':pluginId')
