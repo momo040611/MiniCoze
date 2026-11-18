@@ -29,6 +29,7 @@ import {
 } from './workflow-definition.validator';
 import { WorkflowMapper } from './workflow.mapper';
 import { WorkflowRunResponse } from './types/workflow-run-response.type';
+import { WorkflowRunLimiter } from './workflow-run-limiter.service';
 
 type WorkflowWithCurrentVersion = Prisma.WorkflowGetPayload<{
   include: { currentVersion: true };
@@ -43,6 +44,7 @@ export class WorkflowRunService {
     private readonly workflowMapper: WorkflowMapper,
     private readonly cancellationRegistry: WorkflowCancellationRegistry,
     private readonly variableService: WorkflowVariableService,
+    private readonly runLimiter: WorkflowRunLimiter,
   ) {}
 
   // run 支持可选的 onEvent 回调：
@@ -69,14 +71,16 @@ export class WorkflowRunService {
       dto.version,
     );
 
-    return this.executeRun({
-      userId,
-      workflow,
-      workflowVersion,
-      input: dto.input,
-      sessionId: dto.sessionId,
-      onEvent,
-    });
+    return this.runLimiter.runLimited(() =>
+      this.executeRun({
+        userId,
+        workflow,
+        workflowVersion,
+        input: dto.input,
+        sessionId: dto.sessionId,
+        onEvent,
+      }),
+    );
   }
 
   async runWithVersionId(input: {
@@ -120,16 +124,18 @@ export class WorkflowRunService {
       workflowVersion.workflow.workspaceId,
     );
 
-    return this.executeRun({
-      userId: input.userId,
-      workflow: workflowVersion.workflow,
-      workflowVersion,
-      input: input.input,
-      agentId: input.agentId,
-      conversationId: input.conversationId,
-      messageId: input.messageId,
-      onEvent: input.onEvent,
-    });
+    return this.runLimiter.runLimited(() =>
+      this.executeRun({
+        userId: input.userId,
+        workflow: workflowVersion.workflow,
+        workflowVersion,
+        input: input.input,
+        agentId: input.agentId,
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        onEvent: input.onEvent,
+      }),
+    );
   }
 
   async runPublishedWorkflow(input: {
@@ -162,13 +168,15 @@ export class WorkflowRunService {
       );
     }
 
-    return this.executeRun({
-      userId: input.startedBy,
-      workflow: workflowVersion.workflow,
-      workflowVersion,
-      input: input.input,
-      onEvent: input.onEvent,
-    });
+    return this.runLimiter.runLimited(() =>
+      this.executeRun({
+        userId: input.startedBy,
+        workflow: workflowVersion.workflow,
+        workflowVersion,
+        input: input.input,
+        onEvent: input.onEvent,
+      }),
+    );
   }
 
   async requestCancel(

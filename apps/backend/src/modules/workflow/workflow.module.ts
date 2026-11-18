@@ -20,6 +20,7 @@ import { WorkflowRunService } from './workflow-run.service';
 import { WorkflowService } from './workflow.service';
 import { WorkflowToolExecutionService } from './workflow-tool-execution.service';
 import { WorkflowToolRegistryService } from './workflow-tool-registry.service';
+import { WorkflowRunLimiter } from './workflow-run-limiter.service';
 
 @Module({
   imports: [WorkspaceModule, AiGatewayModule, PublishModule],
@@ -39,6 +40,13 @@ import { WorkflowToolRegistryService } from './workflow-tool-registry.service';
     SelectorNodeExecutor,
     CodeNodeExecutor,
     HttpNodeExecutor,
+    // WorkflowRunLimiter 的构造函数参数是可选配置对象（非 Provider），
+    // 直接登记类会让 Nest 尝试解析 Object 依赖并抛 UnknownDependenciesException，
+    // 这里用工厂自己 new，配置仍从环境变量读取。
+    {
+      provide: WorkflowRunLimiter,
+      useFactory: () => new WorkflowRunLimiter(),
+    },
     VariableNodeExecutor,
     WorkflowVariableService,
   ],
