@@ -1,90 +1,505 @@
+/* 登录 / 注册：左侧品牌展示 + 右侧表单，与欢迎页同一套浅色视觉 */
 .shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, 1fr);
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  background:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 32rem),
-    linear-gradient(135deg, #f8fafc 0%, #eef2ff 48%, #f4f8f3 100%);
+  color: #0e1424;
+  background: #f6f7fb;
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
-.card {
-  width: min(420px, 100%);
-  border: 1px solid rgba(104, 119, 144, 0.22);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 24px 80px rgba(24, 32, 47, 0.12);
-  backdrop-filter: blur(18px);
-}
-
-.form {
-  display: grid;
-  gap: 4px;
-}
-
-.error {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: #fef2f2;
-  border: 1px solid rgba(220, 38, 38, 0.18);
-  color: #b91c1c;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-/* 品牌 Logo */
-.brandIcon {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  background: #18202f;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 800;
+/* ── 左侧品牌区 ── */
+.aside {
+  position: relative;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
+  padding: 64px clamp(40px, 5vw, 88px);
+  border-right: 1px solid #e8ecf6;
+  overflow: hidden;
+  background:
+    radial-gradient(720px 420px at 88% 6%, rgba(79, 91, 255, 0.14), transparent 62%),
+    radial-gradient(560px 380px at 4% 96%, rgba(15, 181, 174, 0.12), transparent 62%),
+    #f7f8fd;
 }
 
-.brandName {
+.aside::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(24, 34, 66, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(24, 34, 66, 0.05) 1px, transparent 1px);
+  background-size: 58px 58px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 62% at 40% 20%, #000 20%, transparent 74%);
+  mask-image: radial-gradient(ellipse 80% 62% at 40% 20%, #000 20%, transparent 74%);
+}
+
+.asideInner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 430px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #0e1424;
   font-size: 18px;
   font-weight: 700;
-  color: #18202f;
+  letter-spacing: -0.01em;
+  text-decoration: none;
 }
 
-.pageTitle {
-  margin: 0;
+.brand:hover {
+  color: #0e1424;
 }
 
-/* 提交按钮 */
-.submitBtn {
-  height: 46px;
-  font-size: 16px;
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 46px;
+  padding: 5px 12px 5px 10px;
+  border: 1px solid #e2e6f2;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  color: #4a5470;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.eyebrowMark {
+  color: #4f5bf0;
+  font-size: 11px;
+}
+
+.headline {
+  margin: 18px 0 14px;
+  font-size: clamp(26px, 2.4vw, 33px);
   font-weight: 700;
+  line-height: 1.34;
+  letter-spacing: -0.02em;
+  color: #0b1220;
 }
 
-/* 页脚 */
-.footer {
+.accent {
+  position: relative;
+  color: #3f4be0;
+  white-space: nowrap;
+}
+
+.accent::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 7px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(92, 107, 255, 0.26), rgba(18, 184, 176, 0.2));
+  z-index: -1;
+}
+
+.lead {
+  margin: 0;
+  max-width: 396px;
+  color: #5a6480;
+  font-size: 14.5px;
+  line-height: 1.8;
+}
+
+/* 装饰卡片（纯 CSS 3D，无 JS） */
+.visual {
+  margin-top: 46px;
+  perspective: 1200px;
+}
+
+.visualDeck {
+  position: relative;
+  width: 330px;
+  height: 176px;
+  transform-style: preserve-3d;
+  transform: rotateX(9deg) rotateY(-13deg);
+}
+
+.ghostCard {
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  width: 272px;
+  height: 152px;
+  border: 1px solid #e6e9f2;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 30px 56px -34px rgba(23, 33, 74, 0.4);
+  transform: translateZ(-46px);
+}
+
+.miniCard {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 288px;
+  border: 1px solid #e6e9f2;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 36px 62px -34px rgba(23, 33, 74, 0.44), 0 10px 22px -16px rgba(23, 33, 74, 0.2);
+  overflow: hidden;
+  animation: authFloat 7.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+.miniHead {
   display: flex;
-  justify-content: center;
-  gap: 4px;
-}
-
-.footerText {
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.footerLink {
-  padding: 0;
-  height: auto;
-  font-size: 14px;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #f0f2f8;
+  color: #232c44;
+  font-size: 12.5px;
   font-weight: 600;
 }
 
-@media (max-width: 480px) {
-  .card {
-    width: 100%;
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #12b8b0;
+  box-shadow: 0 0 0 4px rgba(18, 184, 176, 0.14);
+}
+
+.miniTag {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eefbf9;
+  color: #0e9a94;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.miniBody {
+  padding: 13px 14px 15px;
+}
+
+.bubble {
+  padding: 9px 12px;
+  border-radius: 10px 10px 10px 3px;
+  background: #f3f5fd;
+  color: #3c4560;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.chipRow {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.chip {
+  padding: 3px 9px;
+  border: 1px solid #e6e9f2;
+  border-radius: 999px;
+  color: #5a6480;
+  font-size: 10.5px;
+}
+
+.meta {
+  margin: 40px 0 0;
+  color: #8a93ab;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+}
+
+@keyframes authFloat {
+  0%,
+  100% {
+    transform: translateZ(34px) translateY(0);
   }
+  50% {
+    transform: translateZ(34px) translateY(-8px);
+  }
+}
+
+/* ── 右侧表单区 ── */
+.panel {
+  display: grid;
+  place-items: center;
+  padding: 56px clamp(24px, 4vw, 64px);
+  background: #ffffff;
+}
+
+.formWrap {
+  width: min(392px, 100%);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 38px;
+}
+
+.panelBrand {
+  display: none;
+  align-items: center;
+  gap: 9px;
+  color: #0e1424;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: #6b7692;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.backLink:hover {
+  color: #3f4be0;
+}
+
+.title {
+  margin: 0 0 8px;
+  color: #0b1220;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.subtitle {
+  margin: 0 0 28px;
+  color: #6b7692;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.form {
+  display: block;
+}
+
+.form :global(.ant-form-item) {
+  margin-bottom: 18px;
+}
+
+.form :global(.ant-form-item-label) {
+  padding-bottom: 6px;
+}
+
+.form :global(.ant-form-item-label > label) {
+  color: #46506b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form :global(.ant-input),
+.form :global(.ant-input-affix-wrapper) {
+  border-color: #e2e6f2;
+  background: #fbfcff;
+}
+
+.form :global(.ant-input:hover),
+.form :global(.ant-input-affix-wrapper:hover) {
+  border-color: #c3cbef;
+}
+
+.form :global(.ant-input::placeholder) {
+  color: #a3abc2;
+}
+
+.error {
+  margin: 0 0 16px;
+  padding: 10px 13px;
+  border: 1px solid rgba(220, 38, 38, 0.16);
+  border-radius: 9px;
+  background: #fef3f3;
+  color: #b3261e;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.submitBtn {
+  height: 46px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.submitBtn:global(.ant-btn-primary) {
+  border: none;
+  background-image: linear-gradient(135deg, #5c6bff, #4149e8);
+  box-shadow: 0 16px 30px -16px rgba(79, 91, 240, 0.85);
+}
+
+.submitBtn:global(.ant-btn-primary):hover {
+  background-image: linear-gradient(135deg, #6d7bff, #4a52ee);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 26px;
+}
+
+.footText {
+  color: #6b7692;
+  font-size: 13.5px;
+}
+
+.footLink {
+  height: auto;
+  padding: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+@media (max-width: 1040px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .aside {
+    display: none;
+  }
+
+  .panel {
+    padding: 40px 22px 56px;
+  }
+
+  .panelBrand {
+    display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .miniCard {
+    animation: none;
+  }
+}
+
+/* ── 暗色主题 ── */
+[data-theme='dark'] .shell {
+  background: #080a12;
+  color: #e8ecf7;
+}
+
+[data-theme='dark'] .aside {
+  background:
+    radial-gradient(720px 480px at 18% 0%, rgba(79, 91, 255, 0.3), transparent 64%),
+    radial-gradient(620px 440px at 92% 100%, rgba(15, 181, 174, 0.22), transparent 64%),
+    #0a0d17;
+  border-right-color: #1b2133;
+}
+
+[data-theme='dark'] .brand,
+[data-theme='dark'] .panelBrand {
+  color: #f2f5ff;
+}
+
+[data-theme='dark'] .eyebrow {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #262d42;
+  color: #aab4cd;
+}
+
+[data-theme='dark'] .headline,
+[data-theme='dark'] .title {
+  color: #f2f5ff;
+}
+
+[data-theme='dark'] .accent {
+  color: #98a2ff;
+}
+
+[data-theme='dark'] .lead,
+[data-theme='dark'] .subtitle {
+  color: #98a2bd;
+}
+
+[data-theme='dark'] .meta,
+[data-theme='dark'] .footText {
+  color: #7c86a1;
+}
+
+[data-theme='dark'] .ghostCard,
+[data-theme='dark'] .miniCard {
+  background: #12162a;
+  border-color: #232a3f;
+  box-shadow: 0 30px 60px -32px rgba(0, 0, 0, 0.9);
+}
+
+[data-theme='dark'] .miniHead {
+  border-bottom-color: #1e2436;
+  color: #dfe5f5;
+}
+
+[data-theme='dark'] .miniTag {
+  background: rgba(18, 184, 176, 0.16);
+  color: #5fe0d7;
+}
+
+[data-theme='dark'] .bubble {
+  background: rgba(255, 255, 255, 0.06);
+  color: #c2cbe1;
+}
+
+[data-theme='dark'] .chip {
+  border-color: #2a3147;
+  color: #9aa4c0;
+}
+
+[data-theme='dark'] .panel {
+  background: #0d1120;
+}
+
+[data-theme='dark'] .backLink {
+  color: #8b95b0;
+}
+
+[data-theme='dark'] .backLink:hover {
+  color: #a4aeff;
+}
+
+[data-theme='dark'] .form :global(.ant-form-item-label > label) {
+  color: #aab4cd;
+}
+
+[data-theme='dark'] .form :global(.ant-input),
+[data-theme='dark'] .form :global(.ant-input-affix-wrapper) {
+  border-color: #262d42;
+  background: #12162a;
+  color: #e8ecf7;
+}
+
+[data-theme='dark'] .form :global(.ant-input:hover),
+[data-theme='dark'] .form :global(.ant-input-affix-wrapper:hover) {
+  border-color: #3a4462;
+}
+
+[data-theme='dark'] .form :global(.ant-input::placeholder) {
+  color: #6b7590;
+}
+
+[data-theme='dark'] .error {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #fca5a5;
 }

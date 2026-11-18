@@ -26,6 +26,7 @@ export function RegisterPage() {
   return (
     <AuthPageLayout<RegisterPayload>
       title="注册 MiniCoze"
+      subtitle="创建账号，几分钟搭出你的第一个 Agent。"
       submitText="注 册"
       loading={loading}
       error={error}

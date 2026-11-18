@@ -26,6 +26,7 @@ export function LoginPage() {
   return (
     <AuthPageLayout
       title="登录 MiniCoze"
+      subtitle="用邮箱登录，继续你上次的工作区。"
       submitText="登 录"
       loading={loading}
       error={error}
